@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: threadfs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: threadfs
+      POSTGRES_USER: threadfs_user
+      POSTGRES_PASSWORD: threadfs_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - threadfs-postgres-data:/var/lib/postgresql/data
+
+  threadfs-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: threadfs-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://threadfs_user:threadfs_password@postgres:5432/threadfs
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    command: >
+      sh -c "alembic upgrade head &&
+             gunicorn app.main:app
+             -k uvicorn.workers.UvicornWorker
+             -w 2
+             -b 0.0.0.0:8000"
+
+volumes:
+  threadfs-postgres-data:
