@@ -1,0 +1,47 @@
+.editor-text-bold {
+  font-weight: bold;
+}
+
+.editor-text-italic {
+  font-style: italic;
+}
+
+.editor-text-underline {
+  text-decoration: underline;
+}
+
+.editor-text-strikethrough {
+  text-decoration: line-through;
+}
+
+.editor-text-underlineStrikethrough {
+  text-decoration: underline line-through;
+}
+
+.editor-text-code {
+  background-color: rgb(240, 242, 245);
+  padding: 1px 0.25rem;
+  font-family: Menlo, Consolas, Monaco, monospace;
+  font-size: 94%;
+}
+
+.editor-list-ol {
+  padding: 0;
+  margin: 0;
+  padding-left: 16px;
+  list-style-type: decimal;
+}
+
+.editor-list-ul {
+  padding: 0;
+  margin: 0;
+  margin-left: 16px;
+  list-style-type: disc;
+}
+
+.editor-heading-h1 {
+  font-size: 24px;
+  font-weight: 500;
+  margin: 0;
+  padding: 0;
+}

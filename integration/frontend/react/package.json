@@ -1,0 +1,67 @@
+{
+  "name": "@threadfs/react",
+  "version": "0.1.0",
+  "description": "React components for ThreadFS",
+  "type": "module",
+  "main": "./dist/threadfs-react.umd.cjs",
+  "module": "./dist/threadfs-react.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/threadfs-react.js",
+      "require": "./dist/threadfs-react.umd.cjs",
+      "default": "./dist/threadfs-react.js"
+    },
+    "./styles.css": {
+      "default": "./dist/threadfs-react.css"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": [
+    "*.css",
+    "./dist/threadfs-react.css"
+  ],
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "rm -rf dist && vite build",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@lexical/react": "^0.44.0",
+    "@threadfs/react": "file:threadfs-react-0.1.0.tgz",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "dompurify": "^3.4.5",
+    "lexical": "^0.44.0",
+    "lucide-react": "^1.16.0",
+    "radix-ui": "^1.4.3",
+    "shadcn": "^4.8.0",
+    "tailwind-merge": "^3.6.0",
+    "tw-animate-css": "^1.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "latest",
+    "@types/dompurify": "^3.0.5",
+    "@types/node": "^25.9.1",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "autoprefixer": "latest",
+    "postcss": "latest",
+    "prettier": "^3.8.3",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "vite-plugin-dts": "latest"
+  }
+}
