@@ -94,3 +94,6 @@ out/
 tmp/
 temp/
 .cache/
+
+# Other
+tests/
