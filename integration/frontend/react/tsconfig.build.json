@@ -7,5 +7,10 @@
     "src/hooks/**/*",
     "src/**/*.d.ts"
   ],
-  "exclude": ["src/main.tsx", "dist", "node_modules"]
+  "exclude": [
+    "src/main.tsx",
+    "src/components/other/**",
+    "dist",
+    "node_modules"
+  ]
 }
