@@ -1,3 +1,5 @@
+@reference "../../styles.css";
+
 .editor-text-bold {
   font-weight: bold;
 }
@@ -25,23 +27,39 @@
   font-size: 94%;
 }
 
-.editor-list-ol {
-  padding: 0;
-  margin: 0;
-  padding-left: 16px;
-  list-style-type: decimal;
-}
-
-.editor-list-ul {
-  padding: 0;
-  margin: 0;
-  margin-left: 16px;
-  list-style-type: disc;
-}
-
 .editor-heading-h1 {
   font-size: 24px;
   font-weight: 500;
   margin: 0;
   padding: 0;
+}
+
+.editor-quote {
+  @apply bg-primary/10 my-2 rounded-r-lg border-l-4 border-cyan-200 p-4 italic;
+}
+
+.editor-list-ul {
+  @apply list-outside list-disc pl-6;
+}
+
+.editor-list-ol {
+  @apply list-outside list-decimal pl-6;
+}
+
+.editor-list-ul .editor-list-ul,
+.editor-list-ul .editor-list-ol,
+.editor-list-ol .editor-list-ul,
+.editor-list-ol .editor-list-ol {
+  @apply mt-2 mb-0;
+}
+
+/* The wrapper <li> around a nested list has no text of its own; suppress
+   its marker so it doesn't render as a stray empty bullet. */
+.editor-nested-listitem {
+  list-style-type: none;
+}
+
+.editor-nested-listitem::before,
+.editor-nested-listitem::after {
+  display: none;
 }

@@ -19,7 +19,7 @@ import {
   REMOVE_LIST_COMMAND,
 } from "@lexical/list";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $createHeadingNode } from "@lexical/rich-text";
+import { $createHeadingNode, $createQuoteNode } from "@lexical/rich-text";
 import { $setBlocksType } from "@lexical/selection";
 import { mergeRegister } from "@lexical/utils";
 import {
@@ -49,6 +49,7 @@ import {
   Italic,
   List,
   ListOrdered,
+  Quote,
   Strikethrough,
   Underline,
 } from "lucide-react";
@@ -65,6 +66,7 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
   const [isStrikethrough, setIsStrikethrough] = useState(false);
   const [isSpoiler, setIsSpoiler] = useState(false);
   const [isHeading, setIsHeading] = useState(false);
+  const [isQuote, setIsQuote] = useState(false);
   const [isBulletList, setIsBulletList] = useState(false);
   const [isNumberList, setIsNumberList] = useState(false);
 
@@ -75,6 +77,14 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
       setIsHeading(
         selection.getNodes().some((node) => {
           return node.getParent()?.getType() === "heading";
+        }),
+      );
+
+      setIsQuote(
+        selection.getNodes().some((node) => {
+          return (
+            node.getType() === "quote" || node.getParent()?.getType() === "quote"
+          );
         }),
       );
 
@@ -368,6 +378,39 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
         </TooltipTrigger>
         <TooltipContent>
           <p className="font-semibold">Spoiler</p>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Quote Button */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              editor.update(() => {
+                const selection = $getSelection();
+                if (!$isRangeSelection(selection)) return;
+
+                if (isQuote) {
+                  $setBlocksType(selection, () => $createParagraphNode());
+                } else {
+                  $setBlocksType(selection, () => $createQuoteNode());
+                }
+              });
+            }}
+            className={cn(
+              "hover:bg-primary/20 flex size-8 items-center justify-center rounded-lg",
+              isQuote &&
+                "active bg-primary text-primary-foreground hover:bg-primary",
+            )}
+            aria-label="Format Quote"
+          >
+            <Quote className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="font-semibold">Quote</p>
         </TooltipContent>
       </Tooltip>
 

@@ -17,12 +17,16 @@ import {
   ParagraphNode,
   TextNode,
 } from "lexical";
-import React from "react";
+import { Code2, PanelBottomClose, PanelBottomOpen, Pilcrow } from "lucide-react";
+import React, { useRef, useState } from "react";
 import "./style.css";
 
+import { cn } from "@/lib/utils";
 import { Separator } from "../ui/separator";
+import { markdownToPlainText } from "../common/markdownUtils";
 import Theme from "./Theme";
-import { $convertToMarkdownString } from "./markdownSerializer";
+import { $convertFromMarkdownString, $convertToMarkdownString } from "./markdownSerializer";
+import EditorRefPlugin from "./plugins/EditorRefPlugin";
 import InitialMarkdownPlugin from "./plugins/InitialMarkdownPlugin";
 import ToolbarPlugin from "./plugins/ToolbarPlugin";
 import TreeViewPlugin from "./plugins/TreeViewPlugin";
@@ -65,11 +69,18 @@ const RichEditor = ({
   initialMarkdown = null,
   onChange,
 }: RichEditorProps) => {
+  const editorRef = useRef<LexicalEditor | null>(null);
+  const latestMarkdownRef = useRef(initialMarkdown ?? "");
+  const [mode, setMode] = useState<"rich" | "markdown">("rich");
+  const [isToolbarVisible, setIsToolbarVisible] = useState(true);
+  const [markdownDraft, setMarkdownDraft] = useState(initialMarkdown ?? "");
+
   function handleChange(editorState: EditorState, _editor: LexicalEditor) {
     editorState.read(() => {
       const markdown = $convertToMarkdownString();
       const text = $getRoot().getTextContent().trim();
 
+      latestMarkdownRef.current = markdown;
       onChange?.({
         markdown,
         text,
@@ -77,31 +88,124 @@ const RichEditor = ({
     });
   }
 
+  function switchToMarkdownMode() {
+    setMarkdownDraft(latestMarkdownRef.current);
+    setMode("markdown");
+  }
+
+  function switchToRichMode() {
+    const editor = editorRef.current;
+    if (editor) {
+      editor.update(() => {
+        $convertFromMarkdownString(markdownDraft);
+      });
+    }
+
+    latestMarkdownRef.current = markdownDraft;
+    onChange?.({
+      markdown: markdownDraft,
+      text: markdownToPlainText(markdownDraft),
+    });
+    setMode("rich");
+  }
+
+  function handleMarkdownDraftChange(value: string) {
+    setMarkdownDraft(value);
+    latestMarkdownRef.current = value;
+    onChange?.({
+      markdown: value,
+      text: markdownToPlainText(value),
+    });
+  }
+
   return (
     <LexicalComposer initialConfig={editorConfig}>
       <div className="editor-container">
-        <ToolbarPlugin disabled={disabled} />
-        <Separator className="mb-1" />
+        {mode === "rich" && isToolbarVisible && (
+          <>
+            <ToolbarPlugin disabled={disabled} />
+            <Separator className="mb-1" />
+          </>
+        )}
+
         <div className="editor-inner relative">
-          <RichTextPlugin
-            contentEditable={
-              <ContentEditable
-                className="editor-input break-word max-h-[72vh] min-h-24 overflow-y-auto rounded-lg p-1 text-sm text-wrap focus:outline-none"
-                aria-placeholder={placeholder}
-                placeholder={
-                  <div className="editor-placeholder text-muted-foreground absolute top-1 left-1 text-sm">
-                    {placeholder}
-                  </div>
-                }
-              />
-            }
-            ErrorBoundary={LexicalErrorBoundary}
-          />
+          <div className={cn(mode === "markdown" && "hidden")}>
+            <RichTextPlugin
+              contentEditable={
+                <ContentEditable
+                  className="editor-input break-word max-h-[72vh] min-h-24 overflow-y-auto rounded-lg p-1 text-sm text-wrap focus:outline-none"
+                  aria-placeholder={placeholder}
+                  placeholder={
+                    <div className="editor-placeholder text-muted-foreground absolute top-1 left-1 text-sm">
+                      {placeholder}
+                    </div>
+                  }
+                />
+              }
+              ErrorBoundary={LexicalErrorBoundary}
+            />
+          </div>
+
+          {mode === "markdown" && (
+            <textarea
+              autoFocus
+              disabled={disabled}
+              value={markdownDraft}
+              onChange={(event) => handleMarkdownDraftChange(event.target.value)}
+              placeholder={placeholder}
+              className="editor-input max-h-[72vh] min-h-24 w-full resize-none overflow-y-auto rounded-lg p-1 font-mono text-sm text-wrap focus:outline-none"
+            />
+          )}
 
           <InitialMarkdownPlugin initialMarkdown={initialMarkdown} />
+          <EditorRefPlugin editorRef={editorRef} />
           <HistoryPlugin />
           <OnChangePlugin onChange={handleChange} />
-          {autoFocus && <AutoFocusPlugin />}
+          {autoFocus && mode === "rich" && <AutoFocusPlugin />}
+        </div>
+
+        <div className="mt-1 flex items-center justify-between">
+          {mode === "rich" ? (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => setIsToolbarVisible((value) => !value)}
+              aria-label={
+                isToolbarVisible ? "Hide formatting toolbar" : "Show formatting toolbar"
+              }
+              title={isToolbarVisible ? "Hide formatting" : "Show formatting"}
+              className="text-muted-foreground hover:bg-primary/20 flex size-7 items-center justify-center rounded-lg"
+            >
+              {isToolbarVisible ? (
+                <PanelBottomClose className="size-4" />
+              ) : (
+                <PanelBottomOpen className="size-4" />
+              )}
+            </button>
+          ) : (
+            <span />
+          )}
+
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={mode === "rich" ? switchToMarkdownMode : switchToRichMode}
+            aria-label={mode === "rich" ? "Switch to markdown mode" : "Switch to rich text mode"}
+            title={mode === "rich" ? "Switch to markdown" : "Switch to rich text"}
+            className="text-muted-foreground hover:bg-primary/20 flex items-center gap-1 rounded-lg px-2 py-1 text-xs"
+          >
+            {mode === "rich" ? (
+              <>
+                <Code2 className="size-3.5" />
+                Markdown
+              </>
+            ) : (
+              <>
+                <Pilcrow className="size-3.5" />
+                Rich text
+              </>
+            )}
+          </button>
         </div>
       </div>
       <TreeViewPlugin className="hidden" />

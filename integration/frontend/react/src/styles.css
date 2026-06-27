@@ -5,111 +5,15 @@
 
 .threadfs-root {
   font-family:
-    Inter,
-    ui-sans-serif,
+    "Inter",
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
     sans-serif;
-}
-
-/* Comment content custimizations */
-.threadfs-comment-content ul {
-  list-style-type: disc;
-}
-
-.threadfs-comment-content ol {
-  list-style-type: decimal;
-}
-
-.threadfs-comment-content ul,
-.threadfs-comment-content ol {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.threadfs-comment-content li {
-  position: relative;
-  padding-left: 1.75rem;
-}
-
-.threadfs-comment-content ul li::before {
-  content: "•";
-  position: absolute;
-  left: 0;
-  width: 1rem;
-  text-align: center;
-}
-
-.threadfs-comment-content ol {
-  counter-reset: item;
-}
-
-.threadfs-comment-content ol li {
-  counter-increment: item;
-}
-
-.threadfs-comment-content ol li::before {
-  content: counter(item) ".";
-  position: absolute;
-  left: 0;
-  width: 1rem;
-  text-align: right;
-}
-
-.threadfs-comment-content {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.threadfs-comment-content a {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.editor-input blockquote,
-.threadfs-comment-content blockquote {
-  margin: 0.5rem 0;
-  border-left: 4px solid rgb(129 131 132);
-  border-radius: 0.5rem;
-  background: rgba(128, 128, 128, 0.14);
-  color: inherit;
-  padding: 0.65rem 0.85rem;
-}
-
-.editor-input blockquote p,
-.threadfs-comment-content blockquote p {
-  margin: 0.25rem 0;
-}
-
-.dark .editor-input blockquote,
-.dark .threadfs-comment-content blockquote {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.editor-input [data-threadfs-spoiler="true"] {
-  border-radius: 0.25rem;
-  background: rgb(75 85 99);
-  color: white;
-  padding: 0 0.25rem;
-}
-
-.threadfs-comment-content [data-threadfs-spoiler="true"] {
-  border-radius: 0.25rem;
-  background: rgb(17 24 39);
-  color: transparent;
-  cursor: pointer;
-  padding: 0 0.25rem;
-  transition:
-    color 120ms ease,
-    background-color 120ms ease;
-}
-
-.threadfs-comment-content [data-threadfs-spoiler="true"]:hover,
-.threadfs-comment-content [data-threadfs-spoiler="true"]:focus {
-  color: white;
 }
 
 /* Other */

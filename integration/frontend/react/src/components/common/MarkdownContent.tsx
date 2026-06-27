@@ -4,6 +4,7 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 
+import { cn } from "@/lib/utils";
 import { preprocessRedditMarkdown } from "./markdownUtils";
 
 const markdownSchema = {
@@ -22,6 +23,11 @@ const markdownSchema = {
       "target",
       "rel",
     ],
+    img: [...(defaultSchema.attributes?.img ?? []), "alt", "title"],
+    // GFM table alignment is emitted as inline style by remark-gfm; scope
+    // the allowance to table cells only, not the whole document.
+    th: [...(defaultSchema.attributes?.th ?? []), "style"],
+    td: [...(defaultSchema.attributes?.td ?? []), "style"],
   },
 };
 
@@ -33,19 +39,28 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
       components={{
         h1: ({ node, ...props }) => (
           <h1
-            className="my-4 text-2xl font-bold tracking-tight sm:text-3xl"
+            className={cn(
+              "my-4 border-b border-cyan-200 pb-2 font-bold tracking-tight",
+              "text-2xl sm:text-3xl",
+            )}
             {...props}
           />
         ),
         h2: ({ node, ...props }) => (
           <h2
-            className="mt-8 mb-4 border-b border-cyan-200 pb-2 text-xl font-bold sm:text-2xl"
+            className={cn(
+              "my-4 border-b border-cyan-200 pb-2 font-bold tracking-tight",
+              "text-xl sm:text-2xl",
+            )}
             {...props}
           />
         ),
         h3: ({ node, ...props }) => (
           <h3
-            className="mt-6 mb-2 text-lg font-semibold sm:text-xl"
+            className={cn(
+              "my-4 font-bold tracking-tight",
+              "text-lg sm:text-xl",
+            )}
             {...props}
           />
         ),
@@ -61,14 +76,36 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
           />
         ),
         ul: ({ node, ...props }) => (
-          <ul className="mb-4 list-disc space-y-2 pl-6" {...props} />
+          <ul className="list-outside list-disc pl-6" {...props} />
         ),
         ol: ({ node, ...props }) => (
-          <ol className="mb-4 list-decimal space-y-2 pl-6" {...props} />
+          <ol className="list-outside list-decimal pl-6" {...props} />
         ),
-        li: ({ node, ...props }) => <li className="pl-1" {...props} />,
+        img: ({ node, alt, ...props }) => (
+          <img
+            alt={alt ?? ""}
+            loading="lazy"
+            className="my-2 max-h-100 max-w-full rounded-lg"
+            {...props}
+          />
+        ),
+        table: ({ node, ...props }) => (
+          <div className="my-4 overflow-x-auto rounded-lg border">
+            <table className="w-full border-collapse text-sm" {...props} />
+          </div>
+        ),
+        thead: ({ node, ...props }) => (
+          <thead className="bg-secondary-foreground/10" {...props} />
+        ),
+        tr: ({ node, ...props }) => (
+          <tr className="border-b last:border-b-0" {...props} />
+        ),
+        th: ({ node, ...props }) => (
+          <th className="px-3 py-2 text-left font-semibold" {...props} />
+        ),
+        td: ({ node, ...props }) => <td className="px-3 py-2" {...props} />,
         pre: ({ children }) => (
-          <pre className="bg-secondary-foreground/10 my-4 overflow-x-auto rounded-lg p-3 px-6">
+          <pre className="bg-primary/10 my-4 overflow-x-auto rounded-lg p-3">
             {children}
           </pre>
         ),
@@ -87,10 +124,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
           }
 
           return (
-            <code
-              className="bg-secondary-foreground/10 rounded px-1 py-0.5 font-mono text-sm text-wrap"
-              {...props}
-            >
+            <code className="rounded font-mono text-sm text-wrap" {...props}>
               {children}
             </code>
           );
@@ -100,7 +134,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
         ),
         blockquote: ({ node, ...props }) => (
           <blockquote
-            className="text-muted-foreground my-4 rounded-r-lg border-l-4 border-cyan-200 bg-cyan-200/20 px-4 py-2 italic"
+            className="bg-primary/10 my-2 rounded-r-lg border-l-4 border-cyan-200 p-4 italic"
             {...props}
           />
         ),
@@ -108,7 +142,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
           if (className === "threadfs-spoiler") {
             return (
               <span
-                className="hover:text-foreground rounded bg-cyan-200 px-1 text-transparent transition-colors hover:bg-cyan-200/20 focus:text-white"
+                className="hover:text-foreground rounded bg-cyan-200 px-2 text-transparent transition-colors hover:bg-cyan-200/20"
                 tabIndex={0}
               >
                 {children}
