@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ThreadFSComment, ThreadFSCommentUser } from "../../lib/types";
 import { cn } from "../../lib/utils";
 import defaultAvatarUrl from "../assets/default-avatar.svg";
+import { CollapsibleContent } from "../common/CollapsibleContent";
 import { MarkdownContent } from "../common/MarkdownContent";
 import CommentEditor from "../editor/CommentEditor";
 import { Badge } from "../ui/badge";
@@ -195,9 +196,12 @@ function CommentCard({
               </button>
             </div>
           ) : (
-            <div className="threadfs-comment-content overflow-wrap-anywhere mt-2 text-sm leading-6 wrap-break-word">
+            <CollapsibleContent
+              maxHeight={320}
+              className="threadfs-comment-content overflow-wrap-anywhere mt-2 text-sm leading-6 wrap-break-word"
+            >
               <MarkdownContent markdown={comment.content} />
-            </div>
+            </CollapsibleContent>
           )}
 
           {!isDeleted && (
