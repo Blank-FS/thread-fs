@@ -121,3 +121,7 @@ class CommentRead(BaseModel):
     modified_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class CommentWithThreadRead(CommentRead):
+    thread: ThreadRead | None = None

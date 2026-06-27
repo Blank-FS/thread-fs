@@ -61,6 +61,11 @@ class Comment(Base):
         foreign_keys=[community_user_id],
     )
 
+    thread = relationship(
+        "Thread",
+        foreign_keys=[thread_id],
+    )
+
     deleted_by_user = relationship(
         "CommunityUser",
         foreign_keys=[deleted_by_user_id],

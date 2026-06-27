@@ -21,6 +21,7 @@ from app.api.rate_limits import (
 from app.schemas.embed import (
     CommentCreateRequest,
     CommentRead,
+    CommentWithThreadRead,
     EmbedCommunityConfigRead,
     EmbedMeRead,
     ResolveThreadRequest,
@@ -39,6 +40,7 @@ from app.services import (
 import app.repositories.thread as thread_repo
 import app.repositories.comment as comment_repo
 import app.repositories.comment_vote as vote_repo
+import app.repositories.community_user as community_user_repo
 
 
 router = APIRouter(prefix="/embed", tags=["embed"])
@@ -190,6 +192,85 @@ async def list_embed_comments(
     has_more = next_offset < total
 
     return PageResponse[CommentRead](
+        items=comments,
+        limit=limit,
+        offset=offset,
+        next_offset=next_offset if has_more else None,
+        has_more=has_more,
+        total=total,
+    )
+
+
+@router.get("/comments/mine", response_model=PageResponse[CommentWithThreadRead])
+async def list_my_embed_comments(
+    external_user_id: str | None = Query(default=None, max_length=255),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = Depends(get_async_session),
+    community: Community = Depends(limit_read_comments),
+    viewer: CommunityUser | None = Depends(get_optional_current_community_user),
+):
+    # With external_user_id: list that user's public comments (subject to
+    # the community's anonymous-read policy, same as thread comments).
+    # Without it: list the authenticated requester's own comments.
+    if external_user_id is not None:
+        if not community.allow_anonymous_read and not viewer:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to read comments",
+            )
+
+        target_user = await community_user_repo.get_by_external_id(
+            session,
+            community_id=community.id,
+            external_user_id=external_user_id,
+        )
+
+        if not target_user:
+            return PageResponse[CommentWithThreadRead](
+                items=[],
+                limit=limit,
+                offset=offset,
+                next_offset=None,
+                has_more=False,
+                total=0,
+            )
+    else:
+        if not viewer:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to read your comments",
+            )
+
+        target_user = viewer
+
+    total = await comment_repo.count_comments_by_community_user(
+        session,
+        community_user_id=target_user.id,
+        community_id=community.id,
+    )
+
+    comments = await comment_repo.list_comments_by_community_user(
+        session,
+        community_user_id=target_user.id,
+        community_id=community.id,
+        limit=limit,
+        offset=offset,
+    )
+
+    if viewer and comments:
+        vote_map = await vote_repo.list_votes_for_comments(
+            session,
+            comment_ids=[comment.id for comment in comments],
+            community_user_id=viewer.id,
+        )
+        for comment in comments:
+            comment.viewer_vote = vote_map.get(comment.id)
+
+    next_offset = offset + len(comments)
+    has_more = next_offset < total
+
+    return PageResponse[CommentWithThreadRead](
         items=comments,
         limit=limit,
         offset=offset,

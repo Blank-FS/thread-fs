@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.comment import Comment
+from app.models.thread import Thread
 
 CommentSort = Literal["latest", "oldest", "top"]
 
@@ -64,6 +65,53 @@ async def list_comments(
             Comment.status.in_(["visible", "deleted"]),
         )
         .order_by(*_comment_order_by(sort))
+        .limit(limit)
+        .offset(offset)
+    )
+
+    return list(result.scalars().all())
+
+
+async def count_comments_by_community_user(
+    session: AsyncSession,
+    *,
+    community_user_id,
+    community_id,
+) -> int:
+    result = await session.execute(
+        select(func.count(Comment.id))
+        .join(Thread, Thread.id == Comment.thread_id)
+        .where(
+            Comment.community_user_id == community_user_id,
+            Thread.community_id == community_id,
+            Comment.status == "visible",
+        )
+    )
+
+    return int(result.scalar_one())
+
+
+async def list_comments_by_community_user(
+    session: AsyncSession,
+    *,
+    community_user_id,
+    community_id,
+    limit: int,
+    offset: int,
+) -> list[Comment]:
+    result = await session.execute(
+        select(Comment)
+        .join(Thread, Thread.id == Comment.thread_id)
+        .options(
+            selectinload(Comment.community_user),
+            selectinload(Comment.thread),
+        )
+        .where(
+            Comment.community_user_id == community_user_id,
+            Thread.community_id == community_id,
+            Comment.status == "visible",
+        )
+        .order_by(Comment.created_at.desc(), Comment.id.desc())
         .limit(limit)
         .offset(offset)
     )
