@@ -1,13 +1,3 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CommentSort,
-  PageResponse,
-  ThreadFSCommentUser,
-  ThreadFSRequestContext,
-  ThreadFSThread,
-  type EmbedMe,
-  type ThreadFSComment,
-} from "../lib/types";
 import {
   Select,
   SelectContent,
@@ -16,6 +6,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ThreadFSApiError } from "@/lib/errors";
+import { MessagesSquare } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createComment,
   deleteComment,
@@ -26,14 +19,21 @@ import {
   updateComment,
   voteComment,
 } from "../lib/api";
+import {
+  CommentSort,
+  PageResponse,
+  ThreadFSCommentUser,
+  ThreadFSRequestContext,
+  ThreadFSThread,
+  type EmbedMe,
+  type ThreadFSComment,
+} from "../lib/types";
 import { cn } from "../lib/utils";
-import CommentEditor from "./editor/CommentEditor";
 import CommentCard from "./card/CommentCard";
-import { TooltipProvider } from "./ui/tooltip";
-import { MessagesSquare } from "lucide-react";
-import { Skeleton } from "./ui/skeleton";
-import { ThreadFSApiError } from "@/lib/errors";
+import CommentEditor from "./editor/CommentEditor";
 import { Button } from "./ui/button";
+import { Skeleton } from "./ui/skeleton";
+import { TooltipProvider } from "./ui/tooltip";
 
 export type ThreadFSCommentsProps = {
   apiBaseUrl: string;

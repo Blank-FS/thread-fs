@@ -69,6 +69,49 @@
   word-break: break-word;
 }
 
+.editor-input blockquote,
+.threadfs-comment-content blockquote {
+  margin: 0.5rem 0;
+  border-left: 4px solid rgb(129 131 132);
+  border-radius: 0.5rem;
+  background: rgba(128, 128, 128, 0.14);
+  color: inherit;
+  padding: 0.65rem 0.85rem;
+}
+
+.editor-input blockquote p,
+.threadfs-comment-content blockquote p {
+  margin: 0.25rem 0;
+}
+
+.dark .editor-input blockquote,
+.dark .threadfs-comment-content blockquote {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.editor-input [data-threadfs-spoiler="true"] {
+  border-radius: 0.25rem;
+  background: rgb(75 85 99);
+  color: white;
+  padding: 0 0.25rem;
+}
+
+.threadfs-comment-content [data-threadfs-spoiler="true"] {
+  border-radius: 0.25rem;
+  background: rgb(17 24 39);
+  color: transparent;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  transition:
+    color 120ms ease,
+    background-color 120ms ease;
+}
+
+.threadfs-comment-content [data-threadfs-spoiler="true"]:hover,
+.threadfs-comment-content [data-threadfs-spoiler="true"]:focus {
+  color: white;
+}
+
 /* Other */
 
 @theme inline {

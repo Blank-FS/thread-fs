@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowBigDown, ArrowBigUp, ChevronDown, ChevronUp } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ThreadFSComment, ThreadFSCommentUser } from "../../lib/types";
 import { cn } from "../../lib/utils";
-import { sanitizeCommentHtml } from "../../lib/sanitize";
+import defaultAvatarUrl from "../assets/default-avatar.svg";
+import { MarkdownContent } from "../common/MarkdownContent";
 import CommentEditor from "../editor/CommentEditor";
 import { Badge } from "../ui/badge";
-import { ArrowBigDown, ArrowBigUp, ChevronDown, ChevronUp } from "lucide-react";
-import ThreadConnector from "./ThreadConnector";
-import CommentTimestamp from "./CommentTimestamp";
-import defaultAvatarUrl from "../assets/default-avatar.svg";
 import { Button } from "../ui/button";
+import CommentTimestamp from "./CommentTimestamp";
+import ThreadConnector from "./ThreadConnector";
 
 type CommentCardProps = {
   comment: ThreadFSComment;
@@ -82,11 +82,6 @@ function CommentCard({
   const hasReplies = comment.reply_count > 0;
   const loadedReplies = comment.replies ?? [];
   const hasLoadedReplies = loadedReplies.length > 0;
-
-  const sanitizedContent = useMemo(
-    () => sanitizeCommentHtml(comment.content),
-    [comment.content],
-  );
 
   async function handleToggleReplies() {
     if (!hasReplies) return;
@@ -183,7 +178,7 @@ function CommentCard({
                 submitLabel="Save"
                 placeholder="Edit your comment..."
                 disabled={!canReply}
-                initialHtml={comment.content}
+                initialMarkdown={comment.content}
                 onSubmit={async (body) => {
                   await onEdit?.(comment.id, body);
                   setIsEditing(false);
@@ -200,17 +195,9 @@ function CommentCard({
               </button>
             </div>
           ) : (
-            <div
-              className={cn(
-                "threadfs-comment-content mt-2 text-sm leading-6",
-                "overflow-wrap-anywhere wrap-break-word",
-                "prose prose-sm max-w-none",
-                "prose-a:text-blue-600 prose-a:underline",
-                "prose-pre:rounded-md prose-pre:bg-slate-100 prose-pre:p-3",
-                "prose-code:rounded prose-code:bg-slate-100 prose-code:px-1",
-              )}
-              dangerouslySetInnerHTML={{ __html: sanitizedContent }}
-            />
+            <div className="threadfs-comment-content overflow-wrap-anywhere mt-2 text-sm leading-6 wrap-break-word">
+              <MarkdownContent markdown={comment.content} />
+            </div>
           )}
 
           {!isDeleted && (

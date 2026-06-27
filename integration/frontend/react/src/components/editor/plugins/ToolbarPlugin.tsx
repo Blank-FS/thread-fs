@@ -1,9 +1,26 @@
 // TODO - Add link, quote, and spoiler buttons
 
-import React from "react";
-import { $setBlocksType } from "@lexical/selection";
-import { $createHeadingNode } from "@lexical/rich-text";
+import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import {
+  $createListNode,
+  $insertList,
+  $isListItemNode,
+  $isListNode,
+  $removeList,
+  INSERT_ORDERED_LIST_COMMAND,
+  INSERT_UNORDERED_LIST_COMMAND,
+  ListNode,
+  REMOVE_LIST_COMMAND,
+} from "@lexical/list";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { $createHeadingNode } from "@lexical/rich-text";
+import { $setBlocksType } from "@lexical/selection";
 import { mergeRegister } from "@lexical/utils";
 import {
   $create,
@@ -25,9 +42,9 @@ import {
   SELECTION_CHANGE_COMMAND,
   UNDO_COMMAND,
 } from "lexical";
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bold,
+  EyeOff,
   Heading,
   Italic,
   List,
@@ -35,24 +52,7 @@ import {
   Strikethrough,
   Underline,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Separator } from "@/components/ui/separator";
-import {
-  $createListNode,
-  $insertList,
-  $isListItemNode,
-  $isListNode,
-  $removeList,
-  INSERT_ORDERED_LIST_COMMAND,
-  INSERT_UNORDERED_LIST_COMMAND,
-  ListNode,
-  REMOVE_LIST_COMMAND,
-} from "@lexical/list";
-import { cn } from "@/lib/utils";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
   const [editor] = useLexicalComposerContext();
@@ -63,6 +63,7 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
   const [isStrikethrough, setIsStrikethrough] = useState(false);
+  const [isSpoiler, setIsSpoiler] = useState(false);
   const [isHeading, setIsHeading] = useState(false);
   const [isBulletList, setIsBulletList] = useState(false);
   const [isNumberList, setIsNumberList] = useState(false);
@@ -123,6 +124,7 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
       setIsItalic(selection.hasFormat("italic"));
       setIsUnderline(selection.hasFormat("underline"));
       setIsStrikethrough(selection.hasFormat("strikethrough"));
+      setIsSpoiler(selection.hasFormat("highlight"));
     }
   }, []);
 
@@ -345,6 +347,30 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
         </TooltipContent>
       </Tooltip>
 
+      {/* Spoiler Button */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, "highlight");
+            }}
+            className={cn(
+              "hover:bg-primary/20 flex size-8 items-center justify-center rounded-lg",
+              isSpoiler &&
+                "active bg-primary text-primary-foreground hover:bg-primary",
+            )}
+            aria-label="Format Spoiler"
+          >
+            <EyeOff className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="font-semibold">Spoiler</p>
+        </TooltipContent>
+      </Tooltip>
+
       {/* Heading Button */}
       {/* <Tooltip>
         <TooltipTrigger asChild>
@@ -380,7 +406,7 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
         </TooltipContent>
       </Tooltip> */}
 
-      <Separator orientation="vertical" className="min-h-6 w-[1px]" />
+      <Separator orientation="vertical" className="min-h-6 w-px" />
 
       {/* Bullet List Button */}
       <Tooltip>

@@ -1,10 +1,10 @@
+import type { ThreadFSCommentUser } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import defaultAvatarUrl from "../assets/default-avatar.svg";
-import RichEditor, { RichEditorValue } from "./RichEditor";
-import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
-import type { ThreadFSCommentUser } from "@/lib/types";
+import RichEditor, { RichEditorValue } from "./RichEditor";
 
 type CommentEditorProps = {
   isLoading?: boolean;
@@ -12,7 +12,7 @@ type CommentEditorProps = {
   placeholder?: string;
   submitLabel?: string;
   disabled?: boolean;
-  initialHtml?: string | null;
+  initialMarkdown?: string | null;
   className?: string;
   onSubmit: (body: string) => Promise<void> | void;
   onAuthRequired?: () => void;
@@ -20,8 +20,7 @@ type CommentEditorProps = {
 };
 
 const EMPTY_EDITOR_VALUE: RichEditorValue = {
-  html: "",
-  json: "",
+  markdown: "",
   text: "",
 };
 
@@ -31,16 +30,15 @@ function CommentEditor({
   placeholder = "Join the discussion...",
   submitLabel = "Post",
   disabled = false,
-  initialHtml = null,
+  initialMarkdown = null,
   className,
   onSubmit,
   onAuthRequired,
   authorProfileUrl,
 }: CommentEditorProps) {
   const [value, setValue] = useState<RichEditorValue>({
-    html: initialHtml ?? "",
-    json: "",
-    text: initialHtml ? htmlToPlainText(initialHtml) : "",
+    markdown: initialMarkdown ?? "",
+    text: initialMarkdown ?? "",
   });
   const [editorKey, setEditorKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,7 +58,7 @@ function CommentEditor({
 
     try {
       setIsSubmitting(true);
-      await onSubmit(value.html);
+      await onSubmit(value.markdown);
 
       setValue(EMPTY_EDITOR_VALUE);
       setEditorKey((key) => key + 1);
@@ -145,7 +143,7 @@ function CommentEditor({
       <div className="px-4 py-2">
         <RichEditor
           key={editorKey}
-          initialHtml={initialHtml}
+          initialMarkdown={initialMarkdown}
           disabled={disabled || isSubmitting}
           placeholder={placeholder}
           onChange={setValue}
@@ -166,12 +164,3 @@ function CommentEditor({
 }
 
 export default CommentEditor;
-
-// Helpers
-function htmlToPlainText(html: string): string {
-  if (typeof document === "undefined") return html;
-
-  const element = document.createElement("div");
-  element.innerHTML = html;
-  return element.textContent?.trim() ?? "";
-}
