@@ -211,8 +211,8 @@ function CommentCard({
                 onClick={() => onVote?.(comment.id, 1)}
                 aria-pressed={viewerVote === 1}
                 className={cn(
-                  "hover:text-primary flex items-center gap-1 hover:cursor-pointer",
-                  viewerVote === 1 && "text-primary",
+                  "flex items-center gap-1 hover:cursor-pointer hover:text-cyan-200",
+                  viewerVote === 1 && "text-cyan-200",
                 )}
               >
                 <ArrowBigUp
@@ -226,8 +226,8 @@ function CommentCard({
                 onClick={() => onVote?.(comment.id, -1)}
                 aria-pressed={viewerVote === -1}
                 className={cn(
-                  "hover:text-primary flex items-center gap-1 hover:cursor-pointer",
-                  viewerVote === -1 && "text-primary",
+                  "flex items-center gap-1 hover:cursor-pointer hover:text-rose-500",
+                  viewerVote === -1 && "text-rose-500",
                 )}
               >
                 <ArrowBigDown
@@ -239,7 +239,7 @@ function CommentCard({
               <button
                 type="button"
                 onClick={handleReplyClick}
-                className="hover:text-primary hover:cursor-pointer hover:underline"
+                className="hover:cursor-pointer hover:text-cyan-200 hover:underline"
               >
                 Reply
               </button>
@@ -248,7 +248,7 @@ function CommentCard({
                   <button
                     type="button"
                     onClick={() => setIsEditing(true)}
-                    className="hover:text-primary hover:cursor-pointer hover:underline"
+                    className="hover:cursor-pointer hover:text-cyan-200 hover:underline"
                   >
                     Edit
                   </button>
@@ -270,7 +270,7 @@ function CommentCard({
                         setIsDeleting(false);
                       }
                     }}
-                    className="hover:text-destructive hover:cursor-pointer hover:underline disabled:opacity-60"
+                    className="hover:cursor-pointer hover:text-rose-500 hover:underline disabled:opacity-60"
                   >
                     {isDeleting ? "Deleting..." : "Delete"}
                   </button>

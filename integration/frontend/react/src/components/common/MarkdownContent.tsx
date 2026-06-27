@@ -40,7 +40,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
         h1: ({ node, ...props }) => (
           <h1
             className={cn(
-              "my-4 border-b border-cyan-200 pb-2 font-bold tracking-tight",
+              "my-4 border-b border-cyan-200/30 pb-2 font-bold tracking-tight",
               "text-2xl sm:text-3xl",
             )}
             {...props}
@@ -49,7 +49,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
         h2: ({ node, ...props }) => (
           <h2
             className={cn(
-              "my-4 border-b border-cyan-200 pb-2 font-bold tracking-tight",
+              "my-4 border-b border-cyan-200/30 pb-2 font-bold tracking-tight",
               "text-xl sm:text-2xl",
             )}
             {...props}
@@ -134,7 +134,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
         ),
         blockquote: ({ node, ...props }) => (
           <blockquote
-            className="bg-primary/10 my-2 rounded-r-lg border-l-4 border-cyan-200 p-4 italic [&>p]:m-0"
+            className="bg-primary/10 my-2 rounded-r-lg border-l-4 border-cyan-200/30 p-4 italic [&>p]:m-0"
             {...props}
           />
         ),
@@ -142,7 +142,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
           if (className === "threadfs-spoiler") {
             return (
               <span
-                className="hover:text-foreground rounded bg-cyan-200 px-2 text-transparent transition-colors hover:bg-cyan-200/20"
+                className="hover:text-foreground rounded bg-cyan-200 px-2 text-transparent transition-colors hover:bg-cyan-200/30"
                 tabIndex={0}
               >
                 {children}

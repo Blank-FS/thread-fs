@@ -76,6 +76,9 @@ export type ThreadFSComment = {
   replies_next_offset?: number | null;
   replies_has_more?: boolean;
   replies_is_loading_more?: boolean;
+
+  /** Only populated by endpoints that list comments across threads, e.g. listMyComments. */
+  thread?: ThreadFSThread | null;
 };
 
 export type ThreadFSRequestContext = {

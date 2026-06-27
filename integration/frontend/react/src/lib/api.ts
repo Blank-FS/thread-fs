@@ -131,6 +131,36 @@ export async function listThreadComments(
 
   return parseResponseOrThrow<PageResponse<ThreadFSComment>>(res);
 }
+export async function listMyComments(
+  ctx: ThreadFSRequestContext,
+  params: {
+    externalUserId?: string | null;
+    pageSize?: number;
+    offset?: number;
+  } = {},
+): Promise<PageResponse<ThreadFSComment>> {
+  const apiBaseUrl = normalizeApiBaseUrl(ctx.apiBaseUrl);
+
+  const searchParams = new URLSearchParams({
+    limit: String(params.pageSize ?? 20),
+    offset: String(params.offset ?? 0),
+  });
+
+  if (params.externalUserId) {
+    searchParams.set("external_user_id", params.externalUserId);
+  }
+
+  const res = await fetch(
+    `${apiBaseUrl}/api/v1/embed/comments/mine?${searchParams.toString()}`,
+    {
+      method: "GET",
+      headers: buildHeaders(ctx),
+    },
+  );
+
+  return parseResponseOrThrow<PageResponse<ThreadFSComment>>(res);
+}
+
 export async function createComment(
   ctx: ThreadFSRequestContext,
   payload: {
