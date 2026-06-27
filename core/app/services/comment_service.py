@@ -8,7 +8,7 @@ from app.models.community import Community
 from app.models.community_user import CommunityUser
 from app.repositories import comment as comment_repo
 from app.repositories import thread as thread_repo
-from app.core.sanitize import sanitize_comment_html
+from app.core.sanitize import sanitize_comment_markdown
 
 
 async def get_or_create_thread_for_comment(
@@ -127,7 +127,7 @@ async def create_embed_comment(
             comment=parent_comment,
         )
 
-    clean_content = sanitize_comment_html(content)
+    clean_content = sanitize_comment_markdown(content)
 
     comment = await comment_repo.create_comment(
         session,

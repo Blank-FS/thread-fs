@@ -1,84 +1,22 @@
 # app/core/sanitize.py
 
-from bs4 import BeautifulSoup
-import bleach
+import re
 
-ALLOWED_TAGS = [
-    "p",
-    "br",
-    "strong",
-    "b",
-    "em",
-    "i",
-    "u",
-    "s",
-    "blockquote",
-    "code",
-    "pre",
-    "ul",
-    "ol",
-    "li",
-    "a",
-]
-
-ALLOWED_ATTRIBUTES = {
-    "a": ["href", "title", "target", "rel"],
-}
-
-ALLOWED_PROTOCOLS = ["http", "https", "mailto"]
+_SCRIPT_RE = re.compile(
+    r"<\s*script\b[^>]*>.*?<\s*/\s*script\s*>", re.IGNORECASE | re.DOTALL
+)
+_DANGEROUS_TAG_RE = re.compile(
+    r"<\s*/?\s*(script|style|iframe|object|embed|link|meta|base|form)\b[^>]*>",
+    re.IGNORECASE,
+)
+_EVENT_ATTR_RE = re.compile(
+    r"\son\w+\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", re.IGNORECASE
+)
 
 
-def remove_trailing_empty_blocks(html: str) -> str:
-    soup = BeautifulSoup(html or "", "html.parser")
-
-    def is_empty_block(tag) -> bool:
-        if tag.name not in {"p", "div"}:
-            return False
-
-        text = tag.get_text().replace("\xa0", " ").strip()
-        if text:
-            return False
-
-        for child in tag.contents:
-            if getattr(child, "name", None) == "br":
-                continue
-
-            if isinstance(child, str) and child.replace("\xa0", " ").strip() == "":
-                continue
-
-            return False
-
-        return True
-
-    while soup.contents:
-        last = soup.contents[-1]
-
-        if isinstance(last, str):
-            if last.strip() == "":
-                last.extract()
-                continue
-            break
-
-        if is_empty_block(last):
-            last.extract()
-            continue
-
-        break
-
-    return str(soup)
-
-
-def sanitize_comment_html(html: str) -> str:
-    html = remove_trailing_empty_blocks(html)
-
-    cleaned = bleach.clean(
-        html,
-        tags=ALLOWED_TAGS,
-        attributes=ALLOWED_ATTRIBUTES,
-        protocols=ALLOWED_PROTOCOLS,
-        strip=True,
-    )
-
-    cleaned = bleach.linkify(cleaned)
-
-    return remove_trailing_empty_blocks(cleaned)
+def sanitize_comment_markdown(markdown: str) -> str:
+    cleaned = _SCRIPT_RE.sub("", markdown or "")
+    cleaned = _DANGEROUS_TAG_RE.sub("", cleaned)
+    cleaned = _EVENT_ATTR_RE.sub("", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()

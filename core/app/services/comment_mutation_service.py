@@ -3,7 +3,7 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.sanitize import sanitize_comment_html
+from app.core.sanitize import sanitize_comment_markdown
 from app.core.common import utc_now
 from app.models.community import Community
 from app.models.community_user import CommunityUser
@@ -64,7 +64,7 @@ async def edit_own_comment(
         comment_id=comment_id,
     )
 
-    clean_content = sanitize_comment_html(content)
+    clean_content = sanitize_comment_markdown(content)
 
     comment.content = clean_content
     comment.edited_at = utc_now()
