@@ -45,7 +45,7 @@ export function CollapsibleContent({
       </div>
 
       {isClamped && (
-        <div className="from-background pointer-events-none absolute inset-x-0 bottom-8 h-12 bg-gradient-to-t to-transparent" />
+        <div className="from-background pointer-events-none absolute inset-x-0 bottom-8 h-12 bg-linear-to-t to-transparent" />
       )}
 
       {isOverflowing && (
