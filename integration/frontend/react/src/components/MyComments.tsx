@@ -396,26 +396,28 @@ export function ThreadFSMyComments({
                   key={comment.id}
                   className="hover:bg-primary/10 rounded-lg p-2"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2">
                     {threadHref ? (
                       <a
                         href={threadHref}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-cyan-500 hover:underline dark:text-cyan-200"
+                        className="inline-flex min-w-0 flex-1 items-center gap-1 text-sm text-cyan-500 hover:underline dark:text-cyan-200"
                       >
-                        <MessageSquare className="size-3.5" />
-                        {threadLabel}
-                        <ExternalLink className="size-3.5" />
+                        <MessageSquare className="size-3.5 shrink-0" />
+                        <span className="truncate">{threadLabel}</span>
+                        <ExternalLink className="size-3.5 shrink-0" />
                       </a>
                     ) : (
-                      <span className="text-muted-foreground inline-flex items-center gap-1 text-sm">
-                        <MessageSquare className="size-3.5" />
-                        {threadLabel}
+                      <span className="text-muted-foreground inline-flex min-w-0 flex-1 items-center gap-1 text-sm">
+                        <MessageSquare className="size-3.5 shrink-0" />
+                        <span className="truncate">{threadLabel}</span>
                       </span>
                     )}
 
-                    <CommentTimestamp value={comment.created_at} />
+                    <span className="shrink-0">
+                      <CommentTimestamp value={comment.created_at} />
+                    </span>
                   </div>
 
                   {isDeleted ? (
