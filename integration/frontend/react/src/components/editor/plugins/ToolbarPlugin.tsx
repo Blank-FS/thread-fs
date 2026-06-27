@@ -83,7 +83,8 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
       setIsQuote(
         selection.getNodes().some((node) => {
           return (
-            node.getType() === "quote" || node.getParent()?.getType() === "quote"
+            node.getType() === "quote" ||
+            node.getParent()?.getType() === "quote"
           );
         }),
       );
@@ -356,6 +357,8 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
           <p className="font-semibold">Strikethrough</p>
         </TooltipContent>
       </Tooltip>
+
+      <Separator orientation="vertical" className="min-h-6 w-px" />
 
       {/* Spoiler Button */}
       <Tooltip>

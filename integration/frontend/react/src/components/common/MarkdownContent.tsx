@@ -134,7 +134,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
         ),
         blockquote: ({ node, ...props }) => (
           <blockquote
-            className="bg-primary/10 my-2 rounded-r-lg border-l-4 border-cyan-200 p-4 italic"
+            className="bg-primary/10 my-2 rounded-r-lg border-l-4 border-cyan-200 p-4 italic [&>p]:m-0"
             {...props}
           />
         ),

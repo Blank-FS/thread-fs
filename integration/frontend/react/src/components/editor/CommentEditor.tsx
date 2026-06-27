@@ -140,15 +140,13 @@ function CommentEditor({
         </div>
       )}
 
-      <div className="px-4 py-2">
-        <RichEditor
-          key={editorKey}
-          initialMarkdown={initialMarkdown}
-          disabled={disabled || isSubmitting}
-          placeholder={placeholder}
-          onChange={setValue}
-        />
-      </div>
+      <RichEditor
+        key={editorKey}
+        initialMarkdown={initialMarkdown}
+        disabled={disabled || isSubmitting}
+        placeholder={placeholder}
+        onChange={setValue}
+      />
 
       <div className="flex items-center justify-between gap-4 border-t px-4 py-2">
         <p className="text-muted-foreground text-xs">

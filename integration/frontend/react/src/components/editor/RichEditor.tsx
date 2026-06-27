@@ -17,15 +17,23 @@ import {
   ParagraphNode,
   TextNode,
 } from "lexical";
-import { Code2, PanelBottomClose, PanelBottomOpen, Pilcrow } from "lucide-react";
+import {
+  Code2,
+  PanelBottomClose,
+  PanelBottomOpen,
+  Pilcrow,
+} from "lucide-react";
 import React, { useRef, useState } from "react";
 import "./style.css";
 
 import { cn } from "@/lib/utils";
-import { Separator } from "../ui/separator";
 import { markdownToPlainText } from "../common/markdownUtils";
+import { Separator } from "../ui/separator";
 import Theme from "./Theme";
-import { $convertFromMarkdownString, $convertToMarkdownString } from "./markdownSerializer";
+import {
+  $convertFromMarkdownString,
+  $convertToMarkdownString,
+} from "./markdownSerializer";
 import EditorRefPlugin from "./plugins/EditorRefPlugin";
 import InitialMarkdownPlugin from "./plugins/InitialMarkdownPlugin";
 import ToolbarPlugin from "./plugins/ToolbarPlugin";
@@ -72,7 +80,7 @@ const RichEditor = ({
   const editorRef = useRef<LexicalEditor | null>(null);
   const latestMarkdownRef = useRef(initialMarkdown ?? "");
   const [mode, setMode] = useState<"rich" | "markdown">("rich");
-  const [isToolbarVisible, setIsToolbarVisible] = useState(true);
+  const [isToolbarVisible, setIsToolbarVisible] = useState(false);
   const [markdownDraft, setMarkdownDraft] = useState(initialMarkdown ?? "");
 
   function handleChange(editorState: EditorState, _editor: LexicalEditor) {
@@ -120,20 +128,20 @@ const RichEditor = ({
 
   return (
     <LexicalComposer initialConfig={editorConfig}>
-      <div className="editor-container">
+      <div className="editor-container p-2">
         {mode === "rich" && isToolbarVisible && (
           <>
             <ToolbarPlugin disabled={disabled} />
-            <Separator className="mb-1" />
+            <Separator className="h-px" />
           </>
         )}
 
-        <div className="editor-inner relative">
+        <div className="editor-inner relative my-2">
           <div className={cn(mode === "markdown" && "hidden")}>
             <RichTextPlugin
               contentEditable={
                 <ContentEditable
-                  className="editor-input break-word max-h-[72vh] min-h-24 overflow-y-auto rounded-lg p-1 text-sm text-wrap focus:outline-none"
+                  className="break-word max-h-64 min-h-16 w-full overflow-y-auto p-1 text-sm text-wrap focus:outline-none"
                   aria-placeholder={placeholder}
                   placeholder={
                     <div className="editor-placeholder text-muted-foreground absolute top-1 left-1 text-sm">
@@ -151,9 +159,11 @@ const RichEditor = ({
               autoFocus
               disabled={disabled}
               value={markdownDraft}
-              onChange={(event) => handleMarkdownDraftChange(event.target.value)}
+              onChange={(event) =>
+                handleMarkdownDraftChange(event.target.value)
+              }
               placeholder={placeholder}
-              className="editor-input max-h-[72vh] min-h-24 w-full resize-none overflow-y-auto rounded-lg p-1 font-mono text-sm text-wrap focus:outline-none"
+              className="break-word field-sizing-content max-h-64 min-h-16 w-full overflow-y-auto p-1 font-mono text-sm text-wrap focus:outline-none"
             />
           )}
 
@@ -171,7 +181,9 @@ const RichEditor = ({
               disabled={disabled}
               onClick={() => setIsToolbarVisible((value) => !value)}
               aria-label={
-                isToolbarVisible ? "Hide formatting toolbar" : "Show formatting toolbar"
+                isToolbarVisible
+                  ? "Hide formatting toolbar"
+                  : "Show formatting toolbar"
               }
               title={isToolbarVisible ? "Hide formatting" : "Show formatting"}
               className="text-muted-foreground hover:bg-primary/20 flex size-7 items-center justify-center rounded-lg"
@@ -190,8 +202,14 @@ const RichEditor = ({
             type="button"
             disabled={disabled}
             onClick={mode === "rich" ? switchToMarkdownMode : switchToRichMode}
-            aria-label={mode === "rich" ? "Switch to markdown mode" : "Switch to rich text mode"}
-            title={mode === "rich" ? "Switch to markdown" : "Switch to rich text"}
+            aria-label={
+              mode === "rich"
+                ? "Switch to markdown mode"
+                : "Switch to rich text mode"
+            }
+            title={
+              mode === "rich" ? "Switch to markdown" : "Switch to rich text"
+            }
             className="text-muted-foreground hover:bg-primary/20 flex items-center gap-1 rounded-lg px-2 py-1 text-xs"
           >
             {mode === "rich" ? (
