@@ -141,10 +141,10 @@ const RichEditor = ({
             <RichTextPlugin
               contentEditable={
                 <ContentEditable
-                  className="break-word max-h-64 min-h-8 w-full overflow-y-auto p-1 text-sm text-wrap focus:outline-none"
+                  className="break-word max-h-64 min-h-8 w-full overflow-y-auto p-1 text-base text-wrap focus:outline-none"
                   aria-placeholder={placeholder}
                   placeholder={
-                    <div className="editor-placeholder text-muted-foreground absolute top-1 left-1 text-sm">
+                    <div className="editor-placeholder text-muted-foreground absolute top-1 left-1 text-base">
                       {placeholder}
                     </div>
                   }
@@ -163,7 +163,7 @@ const RichEditor = ({
                 handleMarkdownDraftChange(event.target.value)
               }
               placeholder={placeholder}
-              className="break-word field-sizing-content max-h-64 min-h-8 w-full overflow-y-auto p-1 font-mono text-sm text-wrap focus:outline-none"
+              className="break-word field-sizing-content max-h-64 min-h-8 w-full overflow-y-auto p-1 font-mono text-base text-wrap focus:outline-none"
             />
           )}
 
