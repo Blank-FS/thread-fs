@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
@@ -30,6 +31,34 @@ const markdownSchema = {
     td: [...(defaultSchema.attributes?.td ?? []), "style"],
   },
 };
+
+function SpoilerSpan({ children }: { children?: ReactNode }) {
+  const [isRevealed, setIsRevealed] = useState(false);
+
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-pressed={isRevealed}
+      aria-label={isRevealed ? "Hide spoiler" : "Reveal spoiler"}
+      onClick={() => setIsRevealed((value) => !value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setIsRevealed((value) => !value);
+        }
+      }}
+      className={cn(
+        "cursor-pointer rounded bg-cyan-200 px-2 transition-colors",
+        isRevealed
+          ? "text-foreground bg-cyan-200/30"
+          : "text-transparent select-none",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
 
 export function MarkdownContent({ markdown }: { markdown: string }) {
   return (
@@ -140,14 +169,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
         ),
         span: ({ node, className, children, ...props }) => {
           if (className === "threadfs-spoiler") {
-            return (
-              <span
-                className="hover:text-foreground rounded bg-cyan-200 px-2 text-transparent transition-colors hover:bg-cyan-200/30"
-                tabIndex={0}
-              >
-                {children}
-              </span>
-            );
+            return <SpoilerSpan>{children}</SpoilerSpan>;
           }
 
           return (
