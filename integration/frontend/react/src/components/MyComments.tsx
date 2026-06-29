@@ -546,9 +546,11 @@ export function ThreadFSMyComments({
 function MyCommentsSkeleton() {
   return (
     <div className="space-y-4">
-      {[0, 1, 2].map((item) => (
+      {[0, 1, 2, 3, 4].map((item) => (
         <div key={item} className="space-y-2">
           <Skeleton className="h-4 w-32 rounded" />
+          <Skeleton className="h-4 w-full rounded" />
+          <Skeleton className="h-4 w-full rounded" />
           <Skeleton className="h-4 w-full rounded" />
           <Skeleton className="h-4 w-3/4 rounded" />
         </div>

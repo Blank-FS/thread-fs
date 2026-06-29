@@ -25,7 +25,7 @@ function App() {
             apiBaseUrl="http://localhost:8001"
             communityKey="tfspub_demo_abc123"
             threadId="demo-thread"
-            authToken="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXItMSIsInVzZXJuYW1lIjoiQmxhbmsiLCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9hcGkuZGljZWJlYXIuY29tLzgueC9pbml0aWFscy9zdmc_c2VlZD1CbGFuayIsImlzcyI6ImRlbW8tc2l0ZSIsImF1ZCI6InRocmVhZGZzIiwiZXhwIjoxNzgyNjE5Nzg3fQ.gb8WldNhykhgz4du6G_6HjscXHeXG3ovrMDgwxY74dg"
+            authToken="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXItMSIsInVzZXJuYW1lIjoiQmxhbmsiLCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9hcGkuZGljZWJlYXIuY29tLzgueC9pbml0aWFscy9zdmc_c2VlZD1CbGFuayIsImlzcyI6ImRlbW8tc2l0ZSIsImF1ZCI6InRocmVhZGZzIiwiZXhwIjoxNzgzMjk5ODI4fQ.RF2htML2TEer2gsVFNND-BfbNN4fSfxlfLnolPb5BY0"
             authorProfileUrl={(user) =>
               user.external_user_id ? `/users/${user.external_user_id}` : null
             }
@@ -40,7 +40,7 @@ function App() {
             apiBaseUrl="http://localhost:8001"
             communityKey="tfspub_demo_abc123"
             externalUserId="demo-user-1"
-            authToken="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXItMSIsInVzZXJuYW1lIjoiQmxhbmsiLCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9hcGkuZGljZWJlYXIuY29tLzgueC9pbml0aWFscy9zdmc_c2VlZD1CbGFuayIsImlzcyI6ImRlbW8tc2l0ZSIsImF1ZCI6InRocmVhZGZzIiwiZXhwIjoxNzgyNjE5Nzg3fQ.gb8WldNhykhgz4du6G_6HjscXHeXG3ovrMDgwxY74dg"
+            authToken="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXItMSIsInVzZXJuYW1lIjoiQmxhbmsiLCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9hcGkuZGljZWJlYXIuY29tLzgueC9pbml0aWFscy9zdmc_c2VlZD1CbGFuayIsImlzcyI6ImRlbW8tc2l0ZSIsImF1ZCI6InRocmVhZGZzIiwiZXhwIjoxNzgzMjk5ODI4fQ.RF2htML2TEer2gsVFNND-BfbNN4fSfxlfLnolPb5BY0"
           />
         </TabsContent>
       </Tabs>
