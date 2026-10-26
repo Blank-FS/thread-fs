@@ -35,7 +35,7 @@
 }
 
 .editor-quote {
-  @apply bg-primary/10 my-2 rounded-r-lg border-l-4 border-cyan-200 p-4 italic;
+  @apply bg-primary/10 my-2 rounded-r-lg border-l-4 border-tfs-brand p-4 italic;
 }
 
 .editor-list-ul {

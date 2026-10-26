@@ -49,9 +49,9 @@ function SpoilerSpan({ children }: { children?: ReactNode }) {
         }
       }}
       className={cn(
-        "cursor-pointer rounded bg-cyan-200 px-2 transition-colors",
+        "cursor-pointer rounded bg-tfs-brand px-2 transition-colors",
         isRevealed
-          ? "text-foreground bg-cyan-200/30"
+          ? "text-foreground bg-tfs-brand/30"
           : "text-transparent select-none",
       )}
     >
@@ -69,7 +69,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
         h1: ({ node, ...props }) => (
           <h1
             className={cn(
-              "my-4 border-b border-cyan-200/30 pb-2 font-bold tracking-tight",
+              "my-4 border-b border-tfs-brand/30 pb-2 font-bold tracking-tight",
               "text-2xl sm:text-3xl",
             )}
             {...props}
@@ -78,7 +78,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
         h2: ({ node, ...props }) => (
           <h2
             className={cn(
-              "my-4 border-b border-cyan-200/30 pb-2 font-bold tracking-tight",
+              "my-4 border-b border-tfs-brand/30 pb-2 font-bold tracking-tight",
               "text-xl sm:text-2xl",
             )}
             {...props}
@@ -98,7 +98,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
         ),
         a: ({ node, ...props }) => (
           <a
-            className="text-cyan-500 underline hover:text-cyan-200"
+            className="text-tfs-brand-strong underline hover:text-tfs-brand"
             target="_blank"
             rel="noreferrer noopener"
             {...props}
@@ -163,7 +163,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
         ),
         blockquote: ({ node, ...props }) => (
           <blockquote
-            className="bg-primary/10 my-2 rounded-r-lg border-l-4 border-cyan-200/30 p-4 italic [&>p]:m-0"
+            className="bg-primary/10 my-2 rounded-r-lg border-l-4 border-tfs-brand/30 p-4 italic [&>p]:m-0"
             {...props}
           />
         ),

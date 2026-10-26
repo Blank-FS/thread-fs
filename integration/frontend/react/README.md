@@ -242,6 +242,19 @@ The component is designed to be embedded inside host websites and should inherit
 
 If your app uses Tailwind, make sure the package styles are included in your build setup if needed.
 
+### Accent colour
+
+The accent colour (usernames, links, upvotes, headings) defaults to cyan. Override it with CSS variables in the host app:
+
+```css
+:root {
+  --threadfs-brand: oklch(91.7% 0.08 205.041); /* accents in dark mode */
+  --threadfs-brand-strong: oklch(71.5% 0.143 215.221); /* accents in light mode */
+}
+```
+
+They can point at the host's own theme variables (e.g. `--threadfs-brand: var(--brand);`) so the widget follows a theme switcher.
+
 Exact styling/theming APIs are still evolving.
 
 ## Local Development

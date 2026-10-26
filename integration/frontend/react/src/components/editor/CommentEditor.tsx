@@ -108,12 +108,12 @@ function CommentEditor({
                   {profileUrl ? (
                     <a
                       href={profileUrl}
-                      className="text-cyan-500 hover:underline dark:text-cyan-200"
+                      className="text-tfs-brand-strong hover:underline dark:text-tfs-brand"
                     >
                       {currentUsername}
                     </a>
                   ) : (
-                    <span className="text-cyan-500 dark:text-cyan-200">
+                    <span className="text-tfs-brand-strong dark:text-tfs-brand">
                       {currentUsername}
                     </span>
                   )}
@@ -125,7 +125,7 @@ function CommentEditor({
                     <button
                       type="button"
                       onClick={onAuthRequired}
-                      className="text-cyan-500 hover:cursor-pointer hover:underline dark:text-cyan-200"
+                      className="text-tfs-brand-strong hover:cursor-pointer hover:underline dark:text-tfs-brand"
                     >
                       log in
                     </button>

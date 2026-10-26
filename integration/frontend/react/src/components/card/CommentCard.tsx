@@ -149,12 +149,12 @@ function CommentCard({
                 href={authorUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-semibold text-cyan-500 hover:cursor-pointer hover:underline dark:text-cyan-200"
+                className="font-semibold text-tfs-brand-strong hover:cursor-pointer hover:underline dark:text-tfs-brand"
               >
                 {displayName}
               </a>
             ) : (
-              <span className="font-semibold text-cyan-500 dark:text-cyan-200">
+              <span className="font-semibold text-tfs-brand-strong dark:text-tfs-brand">
                 {displayName}
               </span>
             )}
@@ -211,8 +211,8 @@ function CommentCard({
                 onClick={() => onVote?.(comment.id, 1)}
                 aria-pressed={viewerVote === 1}
                 className={cn(
-                  "flex items-center gap-1 hover:cursor-pointer hover:text-cyan-200",
-                  viewerVote === 1 && "text-cyan-200",
+                  "flex items-center gap-1 hover:cursor-pointer hover:text-tfs-brand",
+                  viewerVote === 1 && "text-tfs-brand",
                 )}
               >
                 <ArrowBigUp
@@ -239,7 +239,7 @@ function CommentCard({
               <button
                 type="button"
                 onClick={handleReplyClick}
-                className="hover:cursor-pointer hover:text-cyan-200 hover:underline"
+                className="hover:cursor-pointer hover:text-tfs-brand hover:underline"
               >
                 Reply
               </button>
@@ -248,7 +248,7 @@ function CommentCard({
                   <button
                     type="button"
                     onClick={() => setIsEditing(true)}
-                    className="hover:cursor-pointer hover:text-cyan-200 hover:underline"
+                    className="hover:cursor-pointer hover:text-tfs-brand hover:underline"
                   >
                     Edit
                   </button>

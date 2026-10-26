@@ -29,7 +29,11 @@
 
 /* Other */
 
+/* Accent colours. Hosts theme the widget by setting --threadfs-brand (accents on dark backgrounds, e.g. cyan-200)
+   and --threadfs-brand-strong (accents on light backgrounds, e.g. cyan-500); both default to cyan. */
 @theme inline {
+  --color-tfs-brand: var(--threadfs-brand, oklch(91.7% 0.08 205.041));
+  --color-tfs-brand-strong: var(--threadfs-brand-strong, oklch(71.5% 0.143 215.221));
   --font-heading: var(--font-sans);
   --font-sans: "Inter Variable", sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);

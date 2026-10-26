@@ -479,7 +479,7 @@ export function ThreadFSComments({
         data-threadfs-thread-id={threadId}
         data-threadfs-community-key={communityKey}
       >
-        <h2 className="border-l-4 border-cyan-500 pl-4 text-lg font-bold tracking-tight sm:text-xl dark:border-cyan-200">
+        <h2 className="border-l-4 border-tfs-brand-strong pl-4 text-lg font-bold tracking-tight sm:text-xl dark:border-tfs-brand">
           {title}
         </h2>
 
