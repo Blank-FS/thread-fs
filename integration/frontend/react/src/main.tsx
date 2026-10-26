@@ -7,6 +7,14 @@ import { ModeToggle } from "./components/other/mode-toggle";
 import { ThemeProvider } from "./components/other/theme-provider";
 import "./styles.css";
 
+// Test-site config comes from .env (see .env.example).
+const env = import.meta.env;
+const apiBaseUrl = env.VITE_THREADFS_API_BASE_URL;
+const communityKey = env.VITE_THREADFS_COMMUNITY_KEY;
+const threadId = env.VITE_THREADFS_THREAD_ID;
+const externalUserId = env.VITE_THREADFS_EXTERNAL_USER_ID;
+const authToken = env.VITE_THREADFS_AUTH_TOKEN || undefined;
+
 function App() {
   return (
     <main className="mx-auto min-h-screen max-w-3xl space-y-4 p-2 sm:p-4">
@@ -22,10 +30,10 @@ function App() {
         </TabsList>
         <TabsContent value="ThreadFSComments">
           <ThreadFSComments
-            apiBaseUrl="http://localhost:8001"
-            communityKey="tfspub_demo_abc123"
-            threadId="demo-thread"
-            authToken="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXItMSIsInVzZXJuYW1lIjoiQmxhbmsiLCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9hcGkuZGljZWJlYXIuY29tLzgueC9pbml0aWFscy9zdmc_c2VlZD1CbGFuayIsImlzcyI6ImRlbW8tc2l0ZSIsImF1ZCI6InRocmVhZGZzIiwiZXhwIjoxNzgzMjk5ODI4fQ.RF2htML2TEer2gsVFNND-BfbNN4fSfxlfLnolPb5BY0"
+            apiBaseUrl={apiBaseUrl}
+            communityKey={communityKey}
+            threadId={threadId}
+            authToken={authToken}
             authorProfileUrl={(user) =>
               user.external_user_id ? `/users/${user.external_user_id}` : null
             }
@@ -37,10 +45,10 @@ function App() {
         </TabsContent>
         <TabsContent value="ThreadFSMyComments">
           <ThreadFSMyComments
-            apiBaseUrl="http://localhost:8001"
-            communityKey="tfspub_demo_abc123"
-            externalUserId="demo-user-1"
-            authToken="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXItMSIsInVzZXJuYW1lIjoiQmxhbmsiLCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9hcGkuZGljZWJlYXIuY29tLzgueC9pbml0aWFscy9zdmc_c2VlZD1CbGFuayIsImlzcyI6ImRlbW8tc2l0ZSIsImF1ZCI6InRocmVhZGZzIiwiZXhwIjoxNzgzMjk5ODI4fQ.RF2htML2TEer2gsVFNND-BfbNN4fSfxlfLnolPb5BY0"
+            apiBaseUrl={apiBaseUrl}
+            communityKey={communityKey}
+            externalUserId={externalUserId}
+            authToken={authToken}
           />
         </TabsContent>
       </Tabs>
