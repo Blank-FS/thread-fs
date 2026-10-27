@@ -23,6 +23,7 @@ export default {
   text: {
     bold: "editor-text-bold",
     code: "editor-text-code",
+    highlight: "editor-text-highlight",
     hashtag: "editor-text-hashtag",
     italic: "editor-text-italic",
     overflowed: "editor-text-overflowed",

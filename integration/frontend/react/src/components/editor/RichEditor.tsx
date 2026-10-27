@@ -1,7 +1,5 @@
 "use client";
 
-import { LinkNode } from "@lexical/link";
-import { ListItemNode, ListNode } from "@lexical/list";
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
@@ -9,21 +7,14 @@ import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
-import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import {
-  $getRoot,
-  EditorState,
-  LexicalEditor,
-  ParagraphNode,
-  TextNode,
-} from "lexical";
+import { $getRoot, EditorState, LexicalEditor } from "lexical";
 import {
   Code2,
   PanelBottomClose,
   PanelBottomOpen,
   Pilcrow,
 } from "lucide-react";
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import "./style.css";
 
 import { cn } from "@/lib/utils";
@@ -33,6 +24,8 @@ import Theme from "./Theme";
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
+  isRichTextCompatible,
+  RICH_EDITOR_NODES,
 } from "./markdownSerializer";
 import EditorRefPlugin from "./plugins/EditorRefPlugin";
 import InitialMarkdownPlugin from "./plugins/InitialMarkdownPlugin";
@@ -41,15 +34,7 @@ import TreeViewPlugin from "./plugins/TreeViewPlugin";
 
 const editorConfig = {
   namespace: "ThreadFS",
-  nodes: [
-    ParagraphNode,
-    TextNode,
-    HeadingNode,
-    QuoteNode,
-    ListItemNode,
-    ListNode,
-    LinkNode,
-  ],
+  nodes: RICH_EDITOR_NODES,
   onError(error: Error) {
     throw error;
   },
@@ -79,11 +64,27 @@ const RichEditor = ({
 }: RichEditorProps) => {
   const editorRef = useRef<LexicalEditor | null>(null);
   const latestMarkdownRef = useRef(initialMarkdown ?? "");
-  const [mode, setMode] = useState<"rich" | "markdown">("rich");
+  // Markdown the rich editor can't show unchanged (e.g. HTML or code blocks) opens in markdown mode, so saving
+  // an edit doesn't escape it
+  const [startsInRichMode] = useState(() =>
+    isRichTextCompatible(initialMarkdown ?? ""),
+  );
+  const [mode, setMode] = useState<"rich" | "markdown">(
+    startsInRichMode ? "rich" : "markdown",
+  );
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const [isToolbarVisible, setIsToolbarVisible] = useState(false);
   const [markdownDraft, setMarkdownDraft] = useState(initialMarkdown ?? "");
+  const canSwitchToRich = useMemo(
+    () => mode === "rich" || isRichTextCompatible(markdownDraft),
+    [mode, markdownDraft],
+  );
 
   function handleChange(editorState: EditorState, _editor: LexicalEditor) {
+    // In markdown mode the textarea is the source of truth; the hidden rich editor's content is stale
+    if (modeRef.current === "markdown") return;
+
     editorState.read(() => {
       const markdown = $convertToMarkdownString();
       const text = $getRoot().getTextContent().trim();
@@ -102,6 +103,8 @@ const RichEditor = ({
   }
 
   function switchToRichMode() {
+    if (!canSwitchToRich) return;
+
     const editor = editorRef.current;
     if (editor) {
       editor.update(() => {
@@ -169,7 +172,9 @@ const RichEditor = ({
             />
           )}
 
-          <InitialMarkdownPlugin initialMarkdown={initialMarkdown} />
+          <InitialMarkdownPlugin
+            initialMarkdown={startsInRichMode ? initialMarkdown : null}
+          />
           <EditorRefPlugin editorRef={editorRef} />
           <HistoryPlugin />
           <OnChangePlugin onChange={handleChange} />
@@ -202,7 +207,7 @@ const RichEditor = ({
 
           <button
             type="button"
-            disabled={disabled}
+            disabled={disabled || !canSwitchToRich}
             onClick={mode === "rich" ? switchToMarkdownMode : switchToRichMode}
             aria-label={
               mode === "rich"
@@ -210,9 +215,13 @@ const RichEditor = ({
                 : "Switch to rich text mode"
             }
             title={
-              mode === "rich" ? "Switch to markdown" : "Switch to rich text"
+              mode === "rich"
+                ? "Switch to markdown"
+                : canSwitchToRich
+                  ? "Switch to rich text"
+                  : "This uses formatting the rich text editor can't show"
             }
-            className="text-muted-foreground hover:bg-primary/20 flex items-center gap-1 rounded-lg px-2 py-1 text-xs"
+            className="text-muted-foreground hover:bg-primary/20 flex items-center gap-1 rounded-lg px-2 py-1 text-xs disabled:opacity-50 disabled:hover:bg-transparent"
           >
             {mode === "rich" ? (
               <>

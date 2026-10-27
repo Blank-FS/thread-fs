@@ -27,11 +27,19 @@
   font-size: 94%;
 }
 
-.editor-heading-h1 {
-  font-size: 24px;
-  font-weight: 500;
-  margin: 0;
-  padding: 0;
+/* Block and text styles mirror MarkdownContent, so a comment looks the same while editing as once posted */
+.editor-paragraph {
+  @apply mb-2 last:mb-0;
+}
+
+/* Spoilers, shown revealed so they can be edited. Lexical wraps the text in a <mark>; drop its default yellow. */
+.editor-inner mark {
+  background-color: transparent;
+  color: inherit;
+}
+
+.editor-text-highlight {
+  @apply bg-tfs-brand/30 text-foreground rounded px-1;
 }
 
 .editor-quote {
