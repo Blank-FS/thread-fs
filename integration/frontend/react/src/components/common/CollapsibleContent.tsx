@@ -52,6 +52,7 @@ export function CollapsibleContent({
         <button
           type="button"
           onClick={() => setIsExpanded((value) => !value)}
+          aria-expanded={isExpanded}
           className="text-muted-foreground hover:bg-primary/10 mt-1 inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium hover:cursor-pointer hover:underline"
         >
           {isExpanded ? (

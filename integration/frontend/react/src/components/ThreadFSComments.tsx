@@ -479,7 +479,7 @@ export function ThreadFSComments({
         data-threadfs-thread-id={threadId}
         data-threadfs-community-key={communityKey}
       >
-        <h2 className="border-l-4 border-tfs-brand-strong pl-4 text-lg font-bold tracking-tight sm:text-xl dark:border-tfs-brand">
+        <h2 className="border-tfs-brand-strong dark:border-tfs-brand border-l-4 pl-4 text-lg font-bold sm:text-xl">
           {title}
         </h2>
 
@@ -507,7 +507,7 @@ export function ThreadFSComments({
                 void handleChangeTopLevelSort(val as CommentSort)
               }
             >
-              <SelectTrigger className="w-24">
+              <SelectTrigger className="w-24" aria-label="Sort comments">
                 <SelectValue placeholder="Options" />
               </SelectTrigger>
               <SelectContent>

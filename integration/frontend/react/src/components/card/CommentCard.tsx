@@ -210,6 +210,7 @@ function CommentCard({
                 type="button"
                 onClick={() => onVote?.(comment.id, 1)}
                 aria-pressed={viewerVote === 1}
+                aria-label={`Upvote (${comment.upvote_count ?? 0})`}
                 className={cn(
                   "flex items-center gap-1 hover:cursor-pointer hover:text-tfs-brand",
                   viewerVote === 1 && "text-tfs-brand",
@@ -225,6 +226,7 @@ function CommentCard({
                 type="button"
                 onClick={() => onVote?.(comment.id, -1)}
                 aria-pressed={viewerVote === -1}
+                aria-label={`Downvote (${comment.downvote_count ?? 0})`}
                 className={cn(
                   "flex items-center gap-1 hover:cursor-pointer hover:text-rose-500",
                   viewerVote === -1 && "text-rose-500",
@@ -310,6 +312,7 @@ function CommentCard({
               type="button"
               onClick={() => void handleToggleReplies()}
               disabled={isLoadingReplies}
+              aria-expanded={areRepliesExpanded}
               className="text-primary hover:bg-primary/10 inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium hover:cursor-pointer hover:underline disabled:opacity-60"
             >
               {areRepliesExpanded ? (

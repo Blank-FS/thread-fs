@@ -348,7 +348,7 @@ export function ThreadFSMyComments({
         data-threadfs-community-key={communityKey}
       >
         {title && (
-          <h2 className="border-l-4 border-tfs-brand-strong pl-4 text-lg font-bold tracking-tight sm:text-xl dark:border-tfs-brand">
+          <h2 className="border-tfs-brand-strong dark:border-tfs-brand border-l-4 pl-4 text-2xl font-bold sm:text-xl">
             {title}
           </h2>
         )}
@@ -368,7 +368,7 @@ export function ThreadFSMyComments({
               <button
                 type="button"
                 onClick={onAuthRequired}
-                className="mt-2 text-sm text-tfs-brand-strong hover:cursor-pointer hover:underline dark:text-tfs-brand"
+                className="text-tfs-brand-strong dark:text-tfs-brand mt-2 text-sm hover:cursor-pointer hover:underline"
               >
                 Sign in
               </button>
@@ -402,7 +402,7 @@ export function ThreadFSMyComments({
                         href={threadHref}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex min-w-0 flex-1 items-center gap-1 text-sm text-tfs-brand-strong hover:underline dark:text-tfs-brand"
+                        className="text-tfs-brand-strong dark:text-tfs-brand inline-flex min-w-0 flex-1 items-center gap-1 text-sm hover:underline"
                       >
                         <MessageSquare className="size-3.5 shrink-0" />
                         <span className="truncate">{threadLabel}</span>
@@ -458,8 +458,9 @@ export function ThreadFSMyComments({
                         type="button"
                         onClick={() => void handleVote(comment.id, 1)}
                         aria-pressed={viewerVote === 1}
+                        aria-label={`Upvote (${comment.upvote_count ?? 0})`}
                         className={cn(
-                          "flex items-center gap-1 hover:cursor-pointer hover:text-tfs-brand",
+                          "hover:text-tfs-brand flex items-center gap-1 hover:cursor-pointer",
                           viewerVote === 1 && "text-tfs-brand",
                         )}
                       >
@@ -476,6 +477,7 @@ export function ThreadFSMyComments({
                         type="button"
                         onClick={() => void handleVote(comment.id, -1)}
                         aria-pressed={viewerVote === -1}
+                        aria-label={`Downvote (${comment.downvote_count ?? 0})`}
                         className={cn(
                           "flex items-center gap-1 hover:cursor-pointer hover:text-rose-500",
                           viewerVote === -1 && "text-rose-500",
@@ -500,7 +502,7 @@ export function ThreadFSMyComments({
                           <button
                             type="button"
                             onClick={() => setEditingCommentId(comment.id)}
-                            className="hover:cursor-pointer hover:text-tfs-brand hover:underline"
+                            className="hover:text-tfs-brand hover:cursor-pointer hover:underline"
                           >
                             Edit
                           </button>
