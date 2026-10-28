@@ -148,7 +148,7 @@ const RichEditor = ({
                   ariaLabel={placeholder}
                   aria-placeholder={placeholder}
                   placeholder={
-                    <div className="editor-placeholder text-muted-foreground absolute top-1 left-1 text-base">
+                    <div className="editor-placeholder text-muted-foreground pointer-events-none absolute top-1 left-1 text-base select-none">
                       {placeholder}
                     </div>
                   }
