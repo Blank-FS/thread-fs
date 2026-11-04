@@ -12,7 +12,7 @@ payload = {
     "avatar_url": "https://api.dicebear.com/8.x/initials/svg?seed=Blank",
     "iss": "demo-site",
     "aud": "threadfs",
-    "exp": datetime.now(timezone.utc) + timedelta(days=7),
+    "exp": datetime.now(timezone.utc) + timedelta(days=30),
 }
 
 token = jwt.encode(payload, secret, algorithm="HS256")
