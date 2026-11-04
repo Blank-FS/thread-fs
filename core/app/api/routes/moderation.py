@@ -1,16 +1,17 @@
 # app/api/routes/moderation.py
 
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 from pydantic import AwareDatetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_moderator
+from app.api.deps import require_admin, require_moderator
 from app.db.session import get_async_session
 from app.models.community import Community
 from app.models.community_user import CommunityUser
-from app.schemas.embed import PageResponse, ThreadRead
+from app.schemas.embed import PageResponse, ReasonRead, ThreadRead
 from app.schemas.moderation import (
     BanRead,
     BanRequest,
@@ -20,11 +21,18 @@ from app.schemas.moderation import (
     LockThreadRequest,
     ModerationActionRead,
     ModerationCommentRead,
+    ModerationUserDetailRead,
+    ModerationUserRead,
     ReasonRequest,
+    ReasonsRequest,
+    RemoveRequest,
     ReportedCommentRead,
     ResolveReportsRequest,
+    UserNoteRead,
+    UserNoteRequest,
 )
-from app.services import moderation_service
+from app.services import moderation_service, reason_service
+from app.services.reason_service import Reason
 
 # Every route needs a token whose host-signed role makes the caller staff (app.api.deps.require_moderator)
 router = APIRouter(prefix="/moderation", tags=["moderation"])
@@ -47,13 +55,22 @@ def page(items, *, limit: int, offset: int, total: int):
 
 @router.get("/reports", response_model=PageResponse[ReportedCommentRead])
 async def list_reports(
+    status_filter: Literal["open", "closed"] = Query(default="open", alias="status"),
+    reason: str | None = Query(default=None, max_length=64),
+    sort: Literal["newest", "oldest", "most_reported"] = Query(default="newest"),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_async_session),
     context: Moderator = Depends(require_moderator),
 ):
     items, total = await moderation_service.list_reported_comments(
-        session, community=context[0], limit=limit, offset=offset
+        session,
+        community=context[0],
+        report_status=status_filter,
+        reason=reason,
+        sort=sort,
+        limit=limit,
+        offset=offset,
     )
     return page(
         [{"comment": comment, "reports": reports} for comment, reports in items],
@@ -75,6 +92,17 @@ async def resolve_reports(
     )
 
 
+@router.post("/comments/{comment_id}/reports/reopen", status_code=status.HTTP_204_NO_CONTENT)
+async def reopen_reports(
+    comment_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_moderator),
+):
+    await moderation_service.reopen_reports(
+        session, community=context[0], moderator=context[1], comment_id=comment_id
+    )
+
+
 @router.get("/comments", response_model=PageResponse[ModerationCommentRead])
 async def search_comments(
     status_filter: str | None = Query(default=None, alias="status", max_length=32),
@@ -83,8 +111,12 @@ async def search_comments(
     client: str | None = Query(default=None, max_length=32),
     community_user_id: UUID | None = Query(default=None),
     thread_id: str | None = Query(default=None, max_length=512),
+    removal_reason: str | None = Query(default=None, max_length=128),
+    without_removal_reason: bool | None = Query(default=None),
+    removed_by: UUID | None = Query(default=None),
     since: AwareDatetime | None = Query(default=None),
     until: AwareDatetime | None = Query(default=None),
+    sort: Literal["newest", "oldest", "changed", "most_downvoted"] = Query(default="newest"),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_async_session),
@@ -98,11 +130,15 @@ async def search_comments(
             client=client,
             community_user_id=community_user_id,
             thread_id=thread_id,
+            removal_reason=removal_reason,
+            without_removal_reason=without_removal_reason,
+            removed_by=removed_by,
             since=since,
             until=until,
         ),
         status_filter=status_filter,
         search=q,
+        sort=sort,
         limit=limit,
         offset=offset,
     )
@@ -121,7 +157,8 @@ async def batch_comments(
         moderator=context[1],
         filters=payload,
         action=payload.action,
-        reason=payload.reason,
+        reason_key=payload.reason_key,
+        note=payload.note,
         dry_run=payload.dry_run,
     )
     return BatchResult(matched=matched, changed=changed)
@@ -130,12 +167,19 @@ async def batch_comments(
 @router.post("/comments/{comment_id}/hide", response_model=ModerationCommentRead)
 async def hide_comment(
     comment_id: int,
-    payload: ReasonRequest,
+    payload: RemoveRequest,
     session: AsyncSession = Depends(get_async_session),
     context: Moderator = Depends(require_moderator),
 ):
     return await moderation_service.hide_comment(
-        session, community=context[0], moderator=context[1], comment_id=comment_id, reason=payload.reason
+        session,
+        community=context[0],
+        moderator=context[1],
+        comment_id=comment_id,
+        reason_key=payload.reason_key,
+        note=payload.note,
+        ban=payload.ban,
+        ban_expires_at=payload.ban_expires_at,
     )
 
 
@@ -153,14 +197,26 @@ async def restore_comment(
 
 @router.get("/bans", response_model=PageResponse[BanRead])
 async def list_bans(
-    active: bool = Query(default=True),
+    status_filter: Literal["active", "expired", "lifted", "all"] = Query(default="active", alias="status"),
+    length: Literal["permanent", "temporary"] | None = Query(default=None),
+    q: str | None = Query(default=None, max_length=200),
+    banned_by: UUID | None = Query(default=None),
+    sort: Literal["newest", "oldest", "ending_soon"] = Query(default="newest"),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_async_session),
     context: Moderator = Depends(require_moderator),
 ):
     items, total = await moderation_service.list_bans(
-        session, community=context[0], active_only=active, limit=limit, offset=offset
+        session,
+        community=context[0],
+        ban_status=status_filter,
+        length=length,
+        search=q,
+        banned_by=banned_by,
+        sort=sort,
+        limit=limit,
+        offset=offset,
     )
     return page(items, limit=limit, offset=offset, total=total)
 
@@ -193,6 +249,77 @@ async def lift_ban(
     )
 
 
+@router.get("/users", response_model=PageResponse[ModerationUserRead])
+async def search_users(
+    q: str | None = Query(default=None, max_length=200),
+    only: Literal["banned", "removed", "reported"] | None = Query(default=None),
+    sort: Literal["name", "newest", "most_comments", "most_removed", "most_reported"] = Query(default="name"),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_moderator),
+):
+    items, total = await moderation_service.search_users(
+        session, community=context[0], search=q, only=only, sort=sort, limit=limit, offset=offset
+    )
+    return page(items, limit=limit, offset=offset, total=total)
+
+
+@router.get("/users/{community_user_id}", response_model=ModerationUserDetailRead)
+async def get_user(
+    community_user_id: UUID,
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_moderator),
+):
+    return await moderation_service.get_user(session, community=context[0], community_user_id=community_user_id)
+
+
+@router.post("/users/{community_user_id}/notes", response_model=UserNoteRead)
+async def add_note(
+    community_user_id: UUID,
+    payload: UserNoteRequest,
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_moderator),
+):
+    return await moderation_service.add_note(
+        session,
+        community=context[0],
+        moderator=context[1],
+        community_user_id=community_user_id,
+        body=payload.body,
+    )
+
+
+@router.delete("/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_note(
+    note_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_moderator),
+):
+    await moderation_service.delete_note(session, community=context[0], note_id=note_id)
+
+
+@router.get("/reasons", response_model=list[ReasonRead])
+async def list_reasons(
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_moderator),
+):
+    return await reason_service.list_reasons(session, context[0].id)
+
+
+@router.put("/reasons", response_model=list[ReasonRead])
+async def replace_reasons(
+    payload: ReasonsRequest,
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_admin),
+):
+    return await reason_service.replace_reasons(
+        session,
+        context[0].id,
+        [Reason(reason.key, reason.label) for reason in payload.reasons],
+    )
+
+
 @router.post("/threads/lock", response_model=ThreadRead)
 async def lock_thread(
     payload: LockThreadRequest,
@@ -211,10 +338,25 @@ async def lock_thread(
 
 @router.get("/actions", response_model=PageResponse[ModerationActionRead])
 async def list_actions(
+    action: str | None = Query(default=None, max_length=64),
+    moderator: UUID | None = Query(default=None),
+    target: UUID | None = Query(default=None),
+    since: AwareDatetime | None = Query(default=None),
+    until: AwareDatetime | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_async_session),
     context: Moderator = Depends(require_moderator),
 ):
-    items, total = await moderation_service.list_actions(session, community=context[0], limit=limit, offset=offset)
+    items, total = await moderation_service.list_actions(
+        session,
+        community=context[0],
+        action=action,
+        moderator=moderator,
+        target=target,
+        since=since,
+        until=until,
+        limit=limit,
+        offset=offset,
+    )
     return page(items, limit=limit, offset=offset, total=total)

@@ -113,3 +113,15 @@ async def require_moderator(
         )
 
     return community, community_user
+
+
+async def require_admin(
+    context: tuple[Community, CommunityUser] = Depends(require_moderator),
+) -> tuple[Community, CommunityUser]:
+    if context[1].staff_role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin permissions required",
+        )
+
+    return context

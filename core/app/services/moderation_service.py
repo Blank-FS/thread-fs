@@ -12,13 +12,22 @@ from app.core.common import utc_now
 from app.models.comment import Comment
 from app.models.community import Community
 from app.models.community_user import CommunityUser
-from app.models.moderation import CommunityBan, ModerationAction
+from app.models.moderation import CommunityBan, ModerationAction, UserNote
 from app.models.report import CommentReport
 from app.models.thread import Thread
 from app.schemas.moderation import CommentFilters
+from app.services import reason_service
 
 
 #=============== Bans ===============
+
+
+# Everything a BanRead shows
+BAN_DETAILS = (
+    selectinload(CommunityBan.community_user),
+    selectinload(CommunityBan.banned_by),
+    selectinload(CommunityBan.lifted_by),
+)
 
 
 def _active(now: datetime):
@@ -60,16 +69,30 @@ async def ban_user(
     reason: str | None,
     expires_at: datetime | None,
 ) -> CommunityBan:
-    target = await session.get(CommunityUser, community_user_id)
-    if not target or target.community_id != community.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    if expires_at is not None and expires_at <= utc_now():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A ban must expire in the future")
+    await _require_user(session, community, community_user_id)
+    _require_future(expires_at)
 
     if await get_active_ban(session, community_id=community.id, community_user_id=community_user_id):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User is already banned")
 
+    ban = _add_ban(session, community, moderator, community_user_id, reason, expires_at)
+    await session.commit()
+    return await _load_ban(session, ban.id)
+
+
+def _require_future(expires_at: datetime | None) -> None:
+    if expires_at is not None and expires_at <= utc_now():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A ban must expire in the future")
+
+
+def _add_ban(
+    session: AsyncSession,
+    community: Community,
+    moderator: CommunityUser,
+    community_user_id: UUID,
+    reason: str | None,
+    expires_at: datetime | None,
+) -> CommunityBan:
     ban = CommunityBan(
         community_id=community.id,
         community_user_id=community_user_id,
@@ -79,8 +102,14 @@ async def ban_user(
     )
     session.add(ban)
     _log(session, community, moderator, "ban_user", target_community_user_id=community_user_id, reason=reason)
-    await session.commit()
-    return await _load_ban(session, ban.id)
+    return ban
+
+
+async def _require_user(session: AsyncSession, community: Community, community_user_id: UUID) -> CommunityUser:
+    user = await session.get(CommunityUser, community_user_id)
+    if not user or user.community_id != community.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return user
 
 
 async def lift_ban(
@@ -107,26 +136,60 @@ async def lift_ban(
 async def _load_ban(session: AsyncSession, ban_id: int) -> CommunityBan:
     result = await session.execute(
         select(CommunityBan)
-        .options(selectinload(CommunityBan.community_user))
+        .options(*BAN_DETAILS)
         .where(CommunityBan.id == ban_id)
         .execution_options(populate_existing=True)
     )
     return result.scalars().one()
 
 
-async def list_bans(session: AsyncSession, *, community: Community, active_only: bool, limit: int, offset: int):
-    conditions = [CommunityBan.community_id == community.id]
-    if active_only:
-        conditions.extend(_active(utc_now()))
-    total = await session.scalar(select(func.count(CommunityBan.id)).where(*conditions))
-    result = await session.execute(
-        select(CommunityBan)
-        .options(selectinload(CommunityBan.community_user))
-        .where(*conditions)
-        .order_by(CommunityBan.created_at.desc(), CommunityBan.id.desc())
-        .limit(limit)
-        .offset(offset)
-    )
+async def list_bans(
+    session: AsyncSession,
+    *,
+    community: Community,
+    ban_status: str,
+    length: str | None,
+    search: str | None,
+    banned_by: UUID | None,
+    sort: str,
+    limit: int,
+    offset: int,
+):
+    now = utc_now()
+    query = select(CommunityBan).where(CommunityBan.community_id == community.id)
+
+    if ban_status == "active":
+        query = query.where(*_active(now))
+    elif ban_status == "expired":
+        query = query.where(CommunityBan.lifted_at.is_(None), CommunityBan.expires_at <= now)
+    elif ban_status == "lifted":
+        query = query.where(CommunityBan.lifted_at.is_not(None))
+
+    if length == "permanent":
+        query = query.where(CommunityBan.expires_at.is_(None))
+    elif length == "temporary":
+        query = query.where(CommunityBan.expires_at.is_not(None))
+
+    if banned_by:
+        query = query.where(CommunityBan.banned_by_community_user_id == banned_by)
+
+    if search:
+        pattern = "%" + _escape_like(search) + "%"
+        query = query.join(CommunityUser, CommunityUser.id == CommunityBan.community_user_id).where(
+            or_(
+                CommunityUser.display_name.ilike(pattern, escape="\\"),
+                CommunityUser.external_user_id.ilike(pattern, escape="\\"),
+            )
+        )
+
+    order = {
+        "newest": (CommunityBan.created_at.desc(), CommunityBan.id.desc()),
+        "oldest": (CommunityBan.created_at.asc(), CommunityBan.id.asc()),
+        "ending_soon": (CommunityBan.expires_at.asc().nulls_last(), CommunityBan.id.desc()),
+    }[sort]
+
+    total = await session.scalar(select(func.count()).select_from(query.subquery()))
+    result = await session.execute(query.options(*BAN_DETAILS).order_by(*order).limit(limit).offset(offset))
     return list(result.scalars().all()), int(total or 0)
 
 
@@ -144,6 +207,10 @@ def _log(session: AsyncSession, community: Community, moderator: CommunityUser, 
     )
 
 
+def _escape_like(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _comments_query(community: Community, filters: CommentFilters, *, status_filter: str | None, search: str | None):
     query = select(Comment).join(Thread, Thread.id == Comment.thread_id).where(Thread.community_id == community.id)
     if status_filter:
@@ -156,12 +223,27 @@ def _comments_query(community: Community, filters: CommentFilters, *, status_fil
         query = query.where(Comment.community_user_id == filters.community_user_id)
     if filters.thread_id:
         query = query.where(Thread.unique_id == filters.thread_id)
+    if filters.comment_ids:
+        query = query.where(Comment.id.in_(filters.comment_ids))
+    if filters.removal_reason:
+        query = query.where(Comment.removal_reason == filters.removal_reason)
+    if filters.without_removal_reason:
+        query = query.where(Comment.removal_reason.is_(None))
+    if filters.removed_by:
+        query = query.where(
+            Comment.id.in_(
+                select(ModerationAction.comment_id).where(
+                    ModerationAction.action == "hide_comment",
+                    ModerationAction.moderator_community_user_id == filters.removed_by,
+                )
+            )
+        )
     if filters.since:
         query = query.where(Comment.created_at >= filters.since)
     if filters.until:
         query = query.where(Comment.created_at <= filters.until)
     if search:
-        pattern = "%" + search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        pattern = "%" + _escape_like(search) + "%"
         query = query.where(Comment.content.ilike(pattern, escape="\\"))
     return query
 
@@ -173,18 +255,63 @@ async def search_comments(
     filters: CommentFilters,
     status_filter: str | None,
     search: str | None,
+    sort: str,
     limit: int,
     offset: int,
 ):
     query = _comments_query(community, filters, status_filter=status_filter, search=search)
     total = await session.scalar(select(func.count()).select_from(query.subquery()))
+    order = {
+        "newest": (Comment.created_at.desc(), Comment.id.desc()),
+        "oldest": (Comment.created_at.asc(), Comment.id.asc()),
+        "changed": (Comment.modified_at.desc(), Comment.id.desc()),
+        "most_downvoted": (Comment.downvote_count.desc(), Comment.created_at.desc(), Comment.id.desc()),
+    }[sort]
     result = await session.execute(
         query.options(selectinload(Comment.community_user), selectinload(Comment.thread))
-        .order_by(Comment.created_at.desc(), Comment.id.desc())
+        .order_by(*order)
         .limit(limit)
         .offset(offset)
     )
-    return list(result.scalars().all()), int(total or 0)
+    comments = list(result.scalars().all())
+    await _attach_context(session, comments)
+    return comments, int(total or 0)
+
+
+async def _attach_context(session: AsyncSession, comments: list[Comment]) -> None:
+    await _attach_parents(session, comments)
+    await _attach_removals(session, comments)
+
+
+async def _attach_removals(session: AsyncSession, comments: list[Comment]) -> None:
+    """Who removed each removed comment, when and why: the latest such entry in the log."""
+    hidden_ids = [comment.id for comment in comments if comment.status == "hidden"]
+    latest: dict[int, ModerationAction] = {}
+
+    if hidden_ids:
+        result = await session.execute(
+            select(ModerationAction)
+            .options(selectinload(ModerationAction.moderator))
+            .where(ModerationAction.action == "hide_comment", ModerationAction.comment_id.in_(hidden_ids))
+            .order_by(ModerationAction.created_at.asc(), ModerationAction.id.asc())
+        )
+        latest = {action.comment_id: action for action in result.scalars().all()}
+
+    for comment in comments:
+        comment.removal = latest.get(comment.id)
+
+
+async def _attach_parents(session: AsyncSession, comments: list[Comment]) -> None:
+    parent_ids = {comment.parent_comment_id for comment in comments if comment.parent_comment_id}
+    if not parent_ids:
+        return
+
+    result = await session.execute(
+        select(Comment).options(selectinload(Comment.community_user)).where(Comment.id.in_(parent_ids))
+    )
+    parents = {parent.id: parent for parent in result.scalars().all()}
+    for comment in comments:
+        comment.parent = parents.get(comment.parent_comment_id)
 
 
 async def _load_comment(session: AsyncSession, comment_id: int) -> Comment:
@@ -194,7 +321,19 @@ async def _load_comment(session: AsyncSession, comment_id: int) -> Comment:
         .where(Comment.id == comment_id)
         .execution_options(populate_existing=True)
     )
-    return result.scalars().one()
+    comment = result.scalars().one()
+    await _attach_context(session, [comment])
+    return comment
+
+
+def _log_reason(label: str | None, note: str | None) -> str | None:
+    return ": ".join(part for part in (label, note) if part) or None
+
+
+async def _removal_label(session: AsyncSession, community: Community, reason_key: str | None) -> str | None:
+    if not reason_key:
+        return None
+    return (await reason_service.require_reason(session, community.id, reason_key)).label
 
 
 async def _comment_in_community(session: AsyncSession, community: Community, comment_id: int) -> Comment:
@@ -209,12 +348,18 @@ async def _comment_in_community(session: AsyncSession, community: Community, com
     return comment
 
 
-async def _resolve_open_reports(session: AsyncSession, moderator: CommunityUser, comment_ids: list[int], new_status: str):
-    await session.execute(
+async def _resolve_open_reports(
+    session: AsyncSession,
+    moderator: CommunityUser,
+    comment_ids: list[int],
+    new_status: str,
+) -> int:
+    result = await session.execute(
         update(CommentReport)
         .where(CommentReport.comment_id.in_(comment_ids), CommentReport.status == "open")
         .values(status=new_status, resolved_at=utc_now(), resolved_by_community_user_id=moderator.id)
     )
+    return result.rowcount
 
 
 async def hide_comment(
@@ -223,13 +368,26 @@ async def hide_comment(
     community: Community,
     moderator: CommunityUser,
     comment_id: int,
-    reason: str | None,
+    reason_key: str | None,
+    note: str | None,
+    ban: bool = False,
+    ban_expires_at: datetime | None = None,
 ) -> Comment:
     comment = await _comment_in_community(session, community, comment_id)
     if comment.status != "visible":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Comment isn't visible")
 
+    label = await _removal_label(session, community, reason_key)
+    reason = _log_reason(label, note)
+
+    if ban:
+        _require_future(ban_expires_at)
+        # Someone already banned stays on the ban they have
+        if not await get_active_ban(session, community_id=community.id, community_user_id=comment.community_user_id):
+            _add_ban(session, community, moderator, comment.community_user_id, reason, ban_expires_at)
+
     comment.status = "hidden"
+    comment.removal_reason = label
     comment.modified_at = utc_now()
     _log(
         session,
@@ -259,6 +417,7 @@ async def restore_comment(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Comment isn't hidden")
 
     comment.status = "visible"
+    comment.removal_reason = None
     comment.modified_at = utc_now()
     _log(
         session,
@@ -281,7 +440,8 @@ async def batch_comments(
     moderator: CommunityUser,
     filters: CommentFilters,
     action: str,
-    reason: str | None,
+    reason_key: str | None,
+    note: str | None,
     dry_run: bool,
 ) -> tuple[int, int]:
     """Hides or restores everything matching the filters: the cleanup for a site or user gone wrong. Every comment gets
@@ -292,9 +452,13 @@ async def batch_comments(
     if dry_run or not comments:
         return len(comments), 0
 
+    label = await _removal_label(session, community, reason_key) if action == "hide" else None
+    reason = _log_reason(label, note)
+
     now = utc_now()
     for comment in comments:
         comment.status = to_status
+        comment.removal_reason = label
         comment.modified_at = now
         _log(
             session,
@@ -315,17 +479,35 @@ async def batch_comments(
 #=============== Reports ===============
 
 
-async def list_reported_comments(session: AsyncSession, *, community: Community, limit: int, offset: int):
-    """The queue: comments with open reports, most recently reported first."""
+async def list_reported_comments(
+    session: AsyncSession,
+    *,
+    community: Community,
+    report_status: str,
+    reason: str | None,
+    sort: str,
+    limit: int,
+    offset: int,
+):
+    """The queue: comments with open reports, or with closed ones, which moderators have decided."""
+    in_status = CommentReport.status.in_(["open"] if report_status == "open" else ["resolved", "dismissed"])
+    latest = func.max(CommentReport.created_at)
     grouped = (
-        select(CommentReport.comment_id, func.max(CommentReport.created_at).label("latest"))
+        select(CommentReport.comment_id)
         .join(Comment, Comment.id == CommentReport.comment_id)
         .join(Thread, Thread.id == Comment.thread_id)
-        .where(Thread.community_id == community.id, CommentReport.status == "open")
+        .where(Thread.community_id == community.id, in_status)
         .group_by(CommentReport.comment_id)
     )
+    if reason:
+        grouped = grouped.where(CommentReport.reason == reason)
+    order = {
+        "newest": (latest.desc(), CommentReport.comment_id.desc()),
+        "oldest": (latest.asc(), CommentReport.comment_id.asc()),
+        "most_reported": (func.count(CommentReport.id).desc(), latest.desc(), CommentReport.comment_id.desc()),
+    }[sort]
     total = await session.scalar(select(func.count()).select_from(grouped.subquery()))
-    rows = await session.execute(grouped.order_by(func.max(CommentReport.created_at).desc()).limit(limit).offset(offset))
+    rows = await session.execute(grouped.order_by(*order).limit(limit).offset(offset))
     comment_ids = [row.comment_id for row in rows]
     if not comment_ids:
         return [], int(total or 0)
@@ -336,10 +518,11 @@ async def list_reported_comments(session: AsyncSession, *, community: Community,
         .where(Comment.id.in_(comment_ids))
     )
     by_id = {comment.id: comment for comment in comments.scalars().all()}
+    await _attach_context(session, list(by_id.values()))
     reports = await session.execute(
         select(CommentReport)
-        .options(selectinload(CommentReport.reporter))
-        .where(CommentReport.comment_id.in_(comment_ids), CommentReport.status == "open")
+        .options(selectinload(CommentReport.reporter), selectinload(CommentReport.resolver))
+        .where(CommentReport.comment_id.in_(comment_ids), in_status)
         .order_by(CommentReport.created_at.desc())
     )
     by_comment: dict[int, list[CommentReport]] = {}
@@ -358,7 +541,197 @@ async def resolve_reports(
     new_status: str,
 ) -> None:
     comment = await _comment_in_community(session, community, comment_id)
-    await _resolve_open_reports(session, moderator, [comment.id], new_status)
+    if await _resolve_open_reports(session, moderator, [comment.id], new_status):
+        _log(
+            session,
+            community,
+            moderator,
+            "dismiss_reports" if new_status == "dismissed" else "resolve_reports",
+            comment_id=comment.id,
+            thread_id=comment.thread_id,
+            target_community_user_id=comment.community_user_id,
+        )
+    await session.commit()
+
+
+async def reopen_reports(
+    session: AsyncSession,
+    *,
+    community: Community,
+    moderator: CommunityUser,
+    comment_id: int,
+) -> None:
+    """Puts a comment's closed reports back in the queue, for a decision that needs another look."""
+    comment = await _comment_in_community(session, community, comment_id)
+    if comment.status != "visible":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Restore the comment first")
+
+    result = await session.execute(
+        update(CommentReport)
+        .where(CommentReport.comment_id == comment.id, CommentReport.status != "open")
+        .values(status="open", resolved_at=None, resolved_by_community_user_id=None)
+    )
+    if result.rowcount:
+        _log(
+            session,
+            community,
+            moderator,
+            "reopen_reports",
+            comment_id=comment.id,
+            thread_id=comment.thread_id,
+            target_community_user_id=comment.community_user_id,
+        )
+    await session.commit()
+
+
+#=============== Users ===============
+
+
+async def _attach_user_counts(session: AsyncSession, community: Community, users: list[CommunityUser]) -> None:
+    ids = [user.id for user in users]
+    if not ids:
+        return
+
+    comments = await session.execute(
+        select(Comment.community_user_id, Comment.status, func.count(Comment.id))
+        .where(Comment.community_user_id.in_(ids))
+        .group_by(Comment.community_user_id, Comment.status)
+    )
+    by_status: dict[tuple[UUID, str], int] = {(row[0], row[1]): row[2] for row in comments}
+
+    reports = await session.execute(
+        select(Comment.community_user_id, func.count(CommentReport.id))
+        .join(CommentReport, CommentReport.comment_id == Comment.id)
+        .where(Comment.community_user_id.in_(ids))
+        .group_by(Comment.community_user_id)
+    )
+    report_counts: dict[UUID, int] = {row[0]: row[1] for row in reports}
+
+    banned = await session.execute(
+        select(CommunityBan.community_user_id).where(
+            CommunityBan.community_id == community.id,
+            CommunityBan.community_user_id.in_(ids),
+            *_active(utc_now()),
+        )
+    )
+    banned_ids = set(banned.scalars().all())
+
+    for user in users:
+        user.removed_count = by_status.get((user.id, "hidden"), 0)
+        user.comment_count = sum(count for (owner, _), count in by_status.items() if owner == user.id)
+        user.report_count = report_counts.get(user.id, 0)
+        user.is_banned = user.id in banned_ids
+
+
+async def search_users(
+    session: AsyncSession,
+    *,
+    community: Community,
+    search: str | None,
+    only: str | None,
+    sort: str,
+    limit: int,
+    offset: int,
+):
+    comment_count = (
+        select(func.count(Comment.id)).where(Comment.community_user_id == CommunityUser.id).scalar_subquery()
+    )
+    removed_count = (
+        select(func.count(Comment.id))
+        .where(Comment.community_user_id == CommunityUser.id, Comment.status == "hidden")
+        .scalar_subquery()
+    )
+    report_count = (
+        select(func.count(CommentReport.id))
+        .join(Comment, Comment.id == CommentReport.comment_id)
+        .where(Comment.community_user_id == CommunityUser.id)
+        .scalar_subquery()
+    )
+
+    query = select(CommunityUser).where(CommunityUser.community_id == community.id)
+    if only == "banned":
+        query = query.where(
+            select(CommunityBan.id)
+            .where(CommunityBan.community_user_id == CommunityUser.id, *_active(utc_now()))
+            .exists()
+        )
+    elif only == "removed":
+        query = query.where(removed_count > 0)
+    elif only == "reported":
+        query = query.where(report_count > 0)
+    if search:
+        pattern = "%" + _escape_like(search) + "%"
+        query = query.where(
+            or_(
+                CommunityUser.display_name.ilike(pattern, escape="\\"),
+                CommunityUser.external_user_id.ilike(pattern, escape="\\"),
+            )
+        )
+    total = await session.scalar(select(func.count()).select_from(query.subquery()))
+    by_name = (CommunityUser.display_name, CommunityUser.id)
+    order = {
+        "name": by_name,
+        "newest": (CommunityUser.created_at.desc(), CommunityUser.id),
+        "most_comments": (comment_count.desc(), *by_name),
+        "most_removed": (removed_count.desc(), *by_name),
+        "most_reported": (report_count.desc(), *by_name),
+    }[sort]
+    result = await session.execute(query.order_by(*order).limit(limit).offset(offset))
+    users = list(result.scalars().all())
+    await _attach_user_counts(session, community, users)
+    return users, int(total or 0)
+
+
+async def get_user(session: AsyncSession, *, community: Community, community_user_id: UUID) -> CommunityUser:
+    """A user with everything moderators know about them here."""
+    user = await _require_user(session, community, community_user_id)
+    await _attach_user_counts(session, community, [user])
+
+    bans = await session.execute(
+        select(CommunityBan)
+        .options(*BAN_DETAILS)
+        .where(CommunityBan.community_id == community.id, CommunityBan.community_user_id == user.id)
+        .order_by(CommunityBan.created_at.desc(), CommunityBan.id.desc())
+    )
+    notes = await session.execute(
+        select(UserNote)
+        .options(selectinload(UserNote.author))
+        .where(UserNote.community_id == community.id, UserNote.community_user_id == user.id)
+        .order_by(UserNote.created_at.desc(), UserNote.id.desc())
+    )
+    user.bans = list(bans.scalars().all())
+    user.notes = list(notes.scalars().all())
+    return user
+
+
+async def add_note(
+    session: AsyncSession,
+    *,
+    community: Community,
+    moderator: CommunityUser,
+    community_user_id: UUID,
+    body: str,
+) -> UserNote:
+    await _require_user(session, community, community_user_id)
+    note = UserNote(
+        community_id=community.id,
+        community_user_id=community_user_id,
+        author_community_user_id=moderator.id,
+        body=body,
+    )
+    session.add(note)
+    await session.commit()
+    result = await session.execute(
+        select(UserNote).options(selectinload(UserNote.author)).where(UserNote.id == note.id)
+    )
+    return result.scalars().one()
+
+
+async def delete_note(session: AsyncSession, *, community: Community, note_id: int) -> None:
+    note = await session.get(UserNote, note_id)
+    if not note or note.community_id != community.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+    await session.delete(note)
     await session.commit()
 
 
@@ -388,12 +761,38 @@ async def set_thread_locked(
     return thread
 
 
-async def list_actions(session: AsyncSession, *, community: Community, limit: int, offset: int):
+async def list_actions(
+    session: AsyncSession,
+    *,
+    community: Community,
+    action: str | None,
+    moderator: UUID | None,
+    target: UUID | None,
+    since: datetime | None,
+    until: datetime | None,
+    limit: int,
+    offset: int,
+):
     conditions = [ModerationAction.community_id == community.id]
+    if action:
+        conditions.append(ModerationAction.action == action)
+    if moderator:
+        conditions.append(ModerationAction.moderator_community_user_id == moderator)
+    if target:
+        conditions.append(ModerationAction.target_community_user_id == target)
+    if since:
+        conditions.append(ModerationAction.created_at >= since)
+    if until:
+        conditions.append(ModerationAction.created_at <= until)
     total = await session.scalar(select(func.count(ModerationAction.id)).where(*conditions))
     result = await session.execute(
         select(ModerationAction)
-        .options(selectinload(ModerationAction.moderator), selectinload(ModerationAction.target))
+        .options(
+            selectinload(ModerationAction.moderator),
+            selectinload(ModerationAction.target),
+            selectinload(ModerationAction.comment),
+            selectinload(ModerationAction.thread),
+        )
         .where(*conditions)
         .order_by(ModerationAction.created_at.desc(), ModerationAction.id.desc())
         .limit(limit)
