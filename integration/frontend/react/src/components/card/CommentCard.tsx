@@ -1,6 +1,10 @@
 import { ArrowBigDown, ArrowBigUp, ChevronDown, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ThreadFSComment, ThreadFSCommentUser } from "../../lib/types";
+import type {
+  ThreadFSComment,
+  ThreadFSCommentUser,
+  ThreadFSReason,
+} from "../../lib/types";
 import { cn } from "../../lib/utils";
 import defaultAvatarUrl from "../assets/default-avatar.svg";
 import { CollapsibleContent } from "../common/CollapsibleContent";
@@ -8,6 +12,12 @@ import { MarkdownContent } from "../common/MarkdownContent";
 import CommentEditor from "../editor/CommentEditor";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 import CommentTimestamp from "./CommentTimestamp";
 import ThreadConnector from "./ThreadConnector";
 
@@ -17,10 +27,14 @@ type CommentCardProps = {
   currentUser?: ThreadFSCommentUser | null;
   depth?: number;
   canReply: boolean;
+  isLocked?: boolean;
   onReply: (parentId: string, body: string) => Promise<void> | void;
   onVote?: (commentId: string, value: 1 | -1) => Promise<void> | void;
   onEdit?: (commentId: string, body: string) => Promise<void> | void;
   onDelete?: (commentId: string) => Promise<void> | void;
+  /** Resolves to whether the report went through. */
+  onReport?: (commentId: string, reason: string) => Promise<boolean>;
+  reportReasons?: ThreadFSReason[];
   onLoadReplies?: (parentId: string) => Promise<void> | void;
   onLoadMoreReplies?: (parentId: string) => Promise<void> | void;
   onAuthRequired?: () => void;
@@ -39,10 +53,13 @@ function CommentCard({
   currentUser = null,
   depth = 0,
   canReply,
+  isLocked = false,
   onReply,
   onVote,
   onEdit,
   onDelete,
+  onReport,
+  reportReasons = [],
   onLoadReplies,
   onLoadMoreReplies,
   onAuthRequired,
@@ -55,8 +72,10 @@ function CommentCard({
   const [isLoadingReplies, setIsLoadingReplies] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isReported, setIsReported] = useState(false);
 
   const isDeleted = comment.status === "deleted";
+  const isHidden = comment.status === "hidden";
   const authorUrl = comment.community_user
     ? authorProfileUrl?.(comment.community_user)
     : null;
@@ -79,6 +98,9 @@ function CommentCard({
 
   const displayName = getDisplayName(comment);
   const avatarUrl = getAvatarUrl(comment);
+
+  // The server leaves a removed comment's text out for everyone but its author
+  const isRemovedForViewer = isHidden && !isOwnComment;
 
   const hasReplies = comment.reply_count > 0;
   const loadedReplies = comment.replies ?? [];
@@ -111,6 +133,12 @@ function CommentCard({
     }
 
     setIsReplying((value) => !value);
+  }
+
+  async function handleReport(reason: string) {
+    if (await onReport?.(comment.id, reason)) {
+      setIsReported(true);
+    }
   }
 
   return (
@@ -170,6 +198,10 @@ function CommentCard({
             <p className="text-muted-foreground mt-2 text-sm italic">
               This comment was deleted
             </p>
+          ) : isRemovedForViewer ? (
+            <p className="text-muted-foreground mt-2 text-sm italic">
+              [removed]
+            </p>
           ) : isEditing ? (
             <div className="mt-4">
               <CommentEditor
@@ -204,8 +236,16 @@ function CommentCard({
             </CollapsibleContent>
           )}
 
-          {!isDeleted && (
-            <div className="text-muted-foreground mt-3 flex items-center gap-4 text-sm font-medium">
+          {isHidden && isOwnComment && (
+            <p className="text-muted-foreground mt-2 text-xs italic">
+              Removed by a moderator
+              {comment.removal_reason ? `: ${comment.removal_reason}` : ""}.
+              Only you can see this.
+            </p>
+          )}
+
+          {comment.status === "visible" && (
+            <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-medium">
               <button
                 type="button"
                 onClick={() => onVote?.(comment.id, 1)}
@@ -238,13 +278,45 @@ function CommentCard({
                 <span>{comment.downvote_count ?? 0}</span>
               </button>
 
-              <button
-                type="button"
-                onClick={handleReplyClick}
-                className="hover:cursor-pointer hover:text-tfs-brand hover:underline"
-              >
-                Reply
-              </button>
+              {!isLocked && (
+                <button
+                  type="button"
+                  onClick={handleReplyClick}
+                  className="hover:cursor-pointer hover:text-tfs-brand hover:underline"
+                >
+                  Reply
+                </button>
+              )}
+              {!isOwnComment &&
+                onReport &&
+                reportReasons.length > 0 &&
+                (isReported ? (
+                  <span>Reported</span>
+                ) : canReply ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="hover:cursor-pointer hover:text-rose-500 hover:underline">
+                      Report
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      {reportReasons.map(({ key, label }) => (
+                        <DropdownMenuItem
+                          key={key}
+                          onSelect={() => void handleReport(key)}
+                        >
+                          {label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onAuthRequired}
+                    className="hover:cursor-pointer hover:text-rose-500 hover:underline"
+                  >
+                    Report
+                  </button>
+                ))}
               {isOwnComment && (
                 <>
                   <button
@@ -352,10 +424,13 @@ function CommentCard({
                 currentUser={currentUser}
                 depth={depth + 1}
                 canReply={canReply}
+                isLocked={isLocked}
                 onReply={onReply}
                 onVote={onVote}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onReport={onReport}
+                reportReasons={reportReasons}
                 onLoadReplies={onLoadReplies}
                 onLoadMoreReplies={onLoadMoreReplies}
                 onAuthRequired={onAuthRequired}
@@ -505,10 +580,18 @@ function useConnectorRefs(
 }
 
 function getDisplayName(comment: ThreadFSComment): string {
+  if (comment.status === "hidden" && !comment.community_user) {
+    return "[removed]";
+  }
+
   return comment.community_user?.display_name?.trim() || "Anonymous";
 }
 
 function getAvatarUrl(comment: ThreadFSComment): string {
+  if (comment.status === "hidden" && !comment.community_user) {
+    return defaultAvatarUrl;
+  }
+
   const displayName = getDisplayName(comment);
 
   return (

@@ -382,6 +382,7 @@ export function ThreadFSMyComments({
           <div className="space-y-2">
             {comments.map((comment) => {
               const isDeleted = comment.status === "deleted";
+              const isHidden = comment.status === "hidden";
               const threadHref = getThreadHref(comment);
               const threadLabel = comment.thread?.title ?? "View thread";
               const viewerVote = comment.viewer_vote ?? null;
@@ -452,7 +453,17 @@ export function ThreadFSMyComments({
                     </CollapsibleContent>
                   )}
 
-                  {!isDeleted && (
+                  {isHidden && (
+                    <p className="text-muted-foreground mt-2 text-xs italic">
+                      Removed by a moderator
+                      {comment.removal_reason
+                        ? `: ${comment.removal_reason}`
+                        : ""}
+                      . Only you can see this.
+                    </p>
+                  )}
+
+                  {comment.status === "visible" && (
                     <div className="text-muted-foreground mt-2 flex items-center gap-4 text-sm font-medium">
                       <button
                         type="button"

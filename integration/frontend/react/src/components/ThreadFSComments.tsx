@@ -15,6 +15,7 @@ import {
   getEmbedConfig,
   getEmbedMe,
   listThreadComments,
+  reportComment,
   resolveThread,
   updateComment,
   voteComment,
@@ -23,6 +24,7 @@ import {
   CommentSort,
   PageResponse,
   ThreadFSCommentUser,
+  ThreadFSReason,
   ThreadFSRequestContext,
   ThreadFSThread,
   type EmbedMe,
@@ -46,6 +48,11 @@ export type ThreadFSCommentsProps = {
   onAuthRequired?: () => void;
   authorProfileUrl?: (user: ThreadFSCommentUser) => string | null;
 
+  /** Where comments are posted from (a site or app), which moderators can filter and clean up by. */
+  source?: string | null;
+  /** The kind of client posting them, e.g. "web" or "extension". */
+  client?: string | null;
+
   title?: string;
   className?: string;
   pageSize?: number;
@@ -59,6 +66,8 @@ export function ThreadFSComments({
   getAuthToken,
   onAuthRequired,
   authorProfileUrl,
+  source,
+  client,
   title = "Discussion",
   className,
   pageSize = 10,
@@ -75,6 +84,7 @@ export function ThreadFSComments({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [me, setMe] = useState<EmbedMe | null>(null);
+  const [reportReasons, setReportReasons] = useState<ThreadFSReason[]>([]);
   const [resolvedAuthToken, setResolvedAuthToken] = useState<string | null>(
     authToken ?? null,
   );
@@ -115,6 +125,7 @@ export function ThreadFSComments({
   );
 
   const isAuthenticated = Boolean(me?.authenticated && me.community_user_id);
+  const isLocked = Boolean(thread?.is_locked);
 
   useEffect(() => {
     let isMounted = true;
@@ -127,7 +138,7 @@ export function ThreadFSComments({
       setMe(null);
 
       try {
-        await getEmbedConfig({
+        const config = await getEmbedConfig({
           apiBaseUrl,
           communityKey,
           authToken: null,
@@ -160,6 +171,7 @@ export function ThreadFSComments({
         if (!isMounted) return;
 
         setMe(resolvedMe);
+        setReportReasons(config.report_reasons ?? []);
         setThread(resolved.thread);
         setComments(page.items);
         setTopLevelNextOffset(page.next_offset);
@@ -336,6 +348,8 @@ export function ThreadFSComments({
             typeof window !== "undefined" ? window.location.href : null,
           body,
           parentId,
+          source,
+          client,
         }),
       );
 
@@ -426,6 +440,17 @@ export function ThreadFSComments({
       setComments((current) => replaceCommentInTree(current, updatedComment));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to vote");
+    }
+  }
+
+  async function handleReport(commentId: string, reason: string) {
+    try {
+      setError(null);
+      await withAuthRetry((ctx) => reportComment(ctx, commentId, reason));
+      return true;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to report comment");
+      return false;
     }
   }
 
@@ -521,19 +546,25 @@ export function ThreadFSComments({
           </div>
         </div>
 
-        <CommentEditor
-          isLoading={isLoading}
-          currentUser={currentUserForEditor}
-          authorProfileUrl={authorProfileUrl}
-          disabled={!isAuthenticated || isLoading}
-          placeholder={
-            isAuthenticated
-              ? "Join the discussion..."
-              : "Sign in to join the discussion..."
-          }
-          onSubmit={(body) => handleCreateComment(body)}
-          onAuthRequired={onAuthRequired}
-        />
+        {isLocked ? (
+          <p className="text-muted-foreground rounded-md border border-dashed px-4 py-3 text-center text-sm">
+            This discussion is locked
+          </p>
+        ) : (
+          <CommentEditor
+            isLoading={isLoading}
+            currentUser={currentUserForEditor}
+            authorProfileUrl={authorProfileUrl}
+            disabled={!isAuthenticated || isLoading}
+            placeholder={
+              isAuthenticated
+                ? "Join the discussion..."
+                : "Sign in to join the discussion..."
+            }
+            onSubmit={(body) => handleCreateComment(body)}
+            onAuthRequired={onAuthRequired}
+          />
+        )}
 
         {error && (
           <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -554,12 +585,15 @@ export function ThreadFSComments({
                     currentCommunityUserId={me?.community_user_id}
                     currentUser={currentUserForEditor}
                     canReply={isAuthenticated}
+                    isLocked={isLocked}
                     onReply={(parentId, body) =>
                       handleCreateComment(body, parentId)
                     }
                     onVote={handleVote}
                     onEdit={handleEditComment}
                     onDelete={handleDeleteComment}
+                    onReport={handleReport}
+                    reportReasons={reportReasons}
                     onLoadReplies={handleLoadReplies}
                     onLoadMoreReplies={handleLoadMoreReplies}
                     onAuthRequired={onAuthRequired}
