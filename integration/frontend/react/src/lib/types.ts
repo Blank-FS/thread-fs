@@ -21,6 +21,13 @@ export type ThreadFSEmbedConfig = {
   slug: string;
   allow_anonymous_read: boolean;
   allow_anonymous_comment: boolean;
+  report_reasons?: ThreadFSReason[];
+};
+
+/** One of a community's reasons, used for reporting and removing comments. */
+export type ThreadFSReason = {
+  key: string;
+  label: string;
 };
 
 export type ThreadFSThread = {
@@ -53,12 +60,15 @@ export type ThreadFSComment = {
   id: string;
   thread_id: number;
   parent_comment_id: string | null;
-  community_user_id: string;
+  /** Null on a comment moderators removed, unless the viewer wrote it. */
+  community_user_id: string | null;
 
   community_user?: ThreadFSCommentUser | null;
 
   content: string;
   status: string;
+  /** Why moderators removed it. Only its author gets this. */
+  removal_reason?: string | null;
 
   upvote_count: number;
   downvote_count: number;
@@ -95,6 +105,98 @@ export type EmbedMe = {
   display_name: string | null;
   avatar_url: string | null;
   threadfs_user_id: string | null;
+  staff_role: ThreadFSStaffRole | null;
+};
+
+export type ThreadFSStaffRole = "moderator" | "admin";
+
+export type ModerationComment = ThreadFSComment & {
+  source?: string | null;
+  client?: string | null;
+  parent?: {
+    id: number;
+    content: string;
+    status: string;
+    community_user?: ThreadFSCommentUser | null;
+  } | null;
+  /** Who removed it, when and why. Only on removed comments. */
+  removal?: {
+    created_at: string;
+    reason: string | null;
+    moderator?: ThreadFSCommentUser | null;
+  } | null;
+};
+
+export type CommentReport = {
+  id: number;
+  created_at: string;
+  reason: string;
+  reason_label: string | null;
+  details: string | null;
+  status: string;
+  reporter?: ThreadFSCommentUser | null;
+  resolver?: ThreadFSCommentUser | null;
+};
+
+export type ReportedComment = {
+  comment: ModerationComment;
+  reports: CommentReport[];
+};
+
+export type CommentFilters = {
+  source?: string;
+  client?: string;
+  communityUserId?: string;
+  threadId?: string;
+  removalReason?: string;
+  withoutRemovalReason?: boolean;
+  removedBy?: string;
+  since?: string;
+  until?: string;
+};
+
+export type CommunityBan = {
+  id: number;
+  created_at: string;
+  community_user?: ThreadFSCommentUser | null;
+  banned_by?: ThreadFSCommentUser | null;
+  lifted_by?: ThreadFSCommentUser | null;
+  reason: string | null;
+  expires_at: string | null;
+  lifted_at: string | null;
+};
+
+export type ModerationUser = ThreadFSCommentUser & {
+  created_at: string;
+  comment_count: number;
+  removed_count: number;
+  report_count: number;
+  is_banned: boolean;
+};
+
+export type UserNote = {
+  id: number;
+  created_at: string;
+  body: string;
+  author?: ThreadFSCommentUser | null;
+};
+
+export type ModerationUserDetail = ModerationUser & {
+  bans: CommunityBan[];
+  notes: UserNote[];
+};
+
+export type ModerationAction = {
+  id: number;
+  created_at: string;
+  action: string;
+  reason: string | null;
+  comment_id: number | null;
+  thread_id: number | null;
+  moderator?: ThreadFSCommentUser | null;
+  target?: ThreadFSCommentUser | null;
+  comment?: { id: number; content: string; status: string } | null;
+  thread?: ThreadFSThread | null;
 };
 
 // Other

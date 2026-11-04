@@ -10,11 +10,11 @@ import type {
   ThreadFSThread,
 } from "./types";
 
-function normalizeApiBaseUrl(apiBaseUrl: string): string {
+export function normalizeApiBaseUrl(apiBaseUrl: string): string {
   return apiBaseUrl.replace(/\/+$/, "");
 }
 
-function buildHeaders(ctx: ThreadFSRequestContext): HeadersInit {
+export function buildHeaders(ctx: ThreadFSRequestContext): HeadersInit {
   const headers: HeadersInit = {
     "X-ThreadFS-Community-Key": ctx.communityKey,
   };
@@ -169,6 +169,8 @@ export async function createComment(
     sourceUrl?: string | null;
     body: string;
     parentId?: string | number | null;
+    source?: string | null;
+    client?: string | null;
   },
 ): Promise<ThreadFSComment> {
   const apiBaseUrl = normalizeApiBaseUrl(ctx.apiBaseUrl);
@@ -184,6 +186,8 @@ export async function createComment(
       title: payload.title ?? null,
       source_url: payload.sourceUrl ?? null,
       content: payload.body,
+      source: payload.source ?? null,
+      client: payload.client ?? null,
       parent_comment_id:
         payload.parentId === undefined || payload.parentId === null
           ? null
@@ -214,6 +218,28 @@ export async function voteComment(
   );
 
   return parseResponseOrThrow<ThreadFSComment>(res);
+}
+
+export async function reportComment(
+  ctx: ThreadFSRequestContext,
+  commentId: string | number,
+  reason: string,
+): Promise<void> {
+  const apiBaseUrl = normalizeApiBaseUrl(ctx.apiBaseUrl);
+
+  const res = await fetch(
+    `${apiBaseUrl}/api/v1/embed/comments/${commentId}/reports`,
+    {
+      method: "POST",
+      headers: {
+        ...buildHeaders(ctx),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ reason }),
+    },
+  );
+
+  return parseResponseOrThrow<void>(res);
 }
 
 export async function getEmbedMe(
