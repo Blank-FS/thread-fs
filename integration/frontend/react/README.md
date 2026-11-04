@@ -317,3 +317,28 @@ docker build \
 - Published npm package
 - Storybook/demo site
 - Stronger accessibility pass
+
+## Moderation
+
+Comments get a Report action, and a comment moderators removed shows as `[removed]`, except to its author. Pass `source` and `client` to `ThreadFSComments` to record where comments come from.
+
+`ThreadFSModeration` is the moderators' screen: the report queue, removed comments, comment search, batch cleanup, users with their history and private notes, bans, and the action log.
+
+```tsx
+<ThreadFSModeration
+  apiBaseUrl="https://threadfs.example.com"
+  communityKey="tfspub_..."
+  getAuthToken={fetchModeratorToken}
+/>
+```
+
+The token must carry a `threadfs_role` claim of `moderator` or `admin`, signed by your server. Mint it only for your own staff, and add the moderation page's origin to the community's allowed origins.
+
+Each community has its own reasons, used for both reporting and removing comments, and the author of a removed comment sees the reason. A community without any uses the defaults: Spam, Harassment, Hate speech, Sexual content and Something else. An `admin` token can edit the list in the widget's settings, or through the API:
+
+```
+PUT /api/v1/moderation/reasons
+{"reasons": [{"key": "spam", "label": "Spam"}, {"key": "wrong_episode", "label": "Wrong episode or series"}]}
+```
+
+Reports and removals keep the label they were made with, so changing the list doesn't rewrite the past.
