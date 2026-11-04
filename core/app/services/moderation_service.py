@@ -44,7 +44,7 @@ async def get_active_ban(session: AsyncSession, *, community_id: UUID, community
 async def require_not_banned(session: AsyncSession, *, community_id: UUID, community_user_id: UUID) -> None:
     ban = await get_active_ban(session, community_id=community_id, community_user_id=community_user_id)
     if ban:
-        until = f" until {ban.expires_at.isoformat()}" if ban.expires_at else ""
+        until = f" until {ban.expires_at.strftime('%b %d, %Y %H:%M UTC')}" if ban.expires_at else ""
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"You are banned from this community{until}",
