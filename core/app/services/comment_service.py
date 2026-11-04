@@ -182,6 +182,7 @@ def present_comments(comments, viewer) -> list[CommentRead]:
             viewer is None or comment.community_user_id != viewer.id
         ):
             comment.content = ""
+            comment.removal_reason = None
             comment.community_user = None
             comment.community_user_id = None
             comment.upvote_count = 0

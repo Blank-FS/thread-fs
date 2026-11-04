@@ -37,6 +37,7 @@ from app.services import (
     comment_service,
     vote_service,
     comment_mutation_service,
+    reason_service,
     report_service,
 )
 
@@ -51,6 +52,7 @@ router = APIRouter(prefix="/embed", tags=["embed"])
 
 @router.get("/config", response_model=EmbedCommunityConfigRead)
 async def get_embed_config(
+    session: AsyncSession = Depends(get_async_session),
     community: Community = Depends(require_valid_embed_context),
 ):
     return EmbedCommunityConfigRead(
@@ -59,6 +61,7 @@ async def get_embed_config(
         slug=community.slug,
         allow_anonymous_read=community.allow_anonymous_read,
         allow_anonymous_comment=community.allow_anonymous_comment,
+        report_reasons=await reason_service.list_reasons(session, community.id),
     )
 
 

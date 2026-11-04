@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from uuid import UUID
-from typing import Generic, Literal, TypeVar
+from typing import Generic, TypeVar
 from pydantic import BaseModel, Field
 
 T = TypeVar("T")
@@ -17,12 +17,20 @@ class PageResponse(BaseModel, Generic[T]):
     total: int | None = None
 
 
+class ReasonRead(BaseModel):
+    key: str
+    label: str
+
+    model_config = {"from_attributes": True}
+
+
 class EmbedCommunityConfigRead(BaseModel):
     community_id: UUID
     name: str
     slug: str
     allow_anonymous_read: bool = True
     allow_anonymous_comment: bool = False
+    report_reasons: list[ReasonRead] = []
 
 
 class ResolveThreadRequest(BaseModel):
@@ -114,6 +122,8 @@ class CommentRead(BaseModel):
 
     content: str
     status: str
+    # Why moderators removed it: only its author gets this
+    removal_reason: str | None = None
 
     upvote_count: int
     downvote_count: int
@@ -130,7 +140,8 @@ class CommentRead(BaseModel):
 
 
 class ReportRequest(BaseModel):
-    reason: Literal["spam", "harassment", "spoilers", "hate", "sexual", "wrong_thread", "other"]
+    # A key from the community's reasons
+    reason: str = Field(min_length=1, max_length=64)
     details: str | None = Field(default=None, max_length=1000)
 
 
