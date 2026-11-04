@@ -2,6 +2,7 @@
 
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.core.common import utc_now
 from app.db.base import Base
@@ -50,6 +51,9 @@ class ModerationAction(Base):
 
     reason = Column(Text, nullable=True)
 
+    moderator = relationship("CommunityUser", foreign_keys=[moderator_community_user_id])
+    target = relationship("CommunityUser", foreign_keys=[target_community_user_id])
+
     __table_args__ = (
         Index("ix_moderation_actions_community_created_at", "community_id", "created_at"),
     )
@@ -88,6 +92,8 @@ class CommunityBan(Base):
         ForeignKey("community_users.id", ondelete="SET NULL"),
         nullable=True,
     )
+
+    community_user = relationship("CommunityUser", foreign_keys=[community_user_id])
 
     __table_args__ = (
         Index("ix_community_bans_user", "community_id", "community_user_id"),

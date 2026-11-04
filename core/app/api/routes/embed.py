@@ -16,6 +16,7 @@ from app.api.rate_limits import (
     limit_delete_comment,
     limit_edit_comment,
     limit_read_comments,
+    limit_report_comment,
     limit_vote_comment,
 )
 from app.schemas.embed import (
@@ -24,6 +25,7 @@ from app.schemas.embed import (
     CommentWithThreadRead,
     EmbedCommunityConfigRead,
     EmbedMeRead,
+    ReportRequest,
     ResolveThreadRequest,
     ResolveThreadResponse,
     VoteRequest,
@@ -35,6 +37,7 @@ from app.services import (
     comment_service,
     vote_service,
     comment_mutation_service,
+    report_service,
 )
 
 import app.repositories.thread as thread_repo
@@ -83,6 +86,7 @@ async def get_embed_me(
         display_name=community_user.display_name,
         avatar_url=community_user.avatar_url,
         threadfs_user_id=community_user.threadfs_user_id,
+        staff_role=community_user.staff_role,
     )
 
 
@@ -150,7 +154,7 @@ async def list_embed_comments(
             parent_comment_id,
         )
 
-        if not parent_comment or parent_comment.status not in ("visible", "deleted"):
+        if not parent_comment or parent_comment.status not in comment_repo.THREAD_STATUSES:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Parent comment not found",
@@ -192,7 +196,7 @@ async def list_embed_comments(
     has_more = next_offset < total
 
     return PageResponse[CommentRead](
-        items=comments,
+        items=comment_service.present_comments(comments, community_user),
         limit=limit,
         offset=offset,
         next_offset=next_offset if has_more else None,
@@ -244,10 +248,14 @@ async def list_my_embed_comments(
 
         target_user = viewer
 
+    # Removed comments show only to their author, never on someone else's view of a profile
+    own_comments = viewer is not None and viewer.id == target_user.id
+
     total = await comment_repo.count_comments_by_community_user(
         session,
         community_user_id=target_user.id,
         community_id=community.id,
+        include_hidden=own_comments,
     )
 
     comments = await comment_repo.list_comments_by_community_user(
@@ -256,6 +264,7 @@ async def list_my_embed_comments(
         community_id=community.id,
         limit=limit,
         offset=offset,
+        include_hidden=own_comments,
     )
 
     if viewer and comments:
@@ -300,6 +309,27 @@ async def create_embed_comment(
         content=payload.content,
         parent_comment_id=payload.parent_comment_id,
         user_agent=user_agent,
+        source=payload.source,
+        client=payload.client,
+    )
+
+
+@router.post("/comments/{comment_id}/reports", status_code=status.HTTP_204_NO_CONTENT)
+async def report_embed_comment(
+    comment_id: int,
+    payload: ReportRequest,
+    session: AsyncSession = Depends(get_async_session),
+    limited_context: tuple[Community, CommunityUser] = Depends(limit_report_comment),
+):
+    community, community_user = limited_context
+
+    await report_service.report_comment(
+        session,
+        community=community,
+        community_user=community_user,
+        comment_id=comment_id,
+        reason=payload.reason,
+        details=payload.details,
     )
 
 

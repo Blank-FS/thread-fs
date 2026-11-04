@@ -9,6 +9,8 @@ from app.models.community_user import CommunityUser
 from app.repositories import comment as comment_repo
 from app.repositories import thread as thread_repo
 from app.core.sanitize import sanitize_comment_markdown
+from app.schemas.embed import CommentRead
+from app.services import moderation_service
 
 
 async def get_or_create_thread_for_comment(
@@ -80,7 +82,15 @@ async def create_embed_comment(
     parent_comment_id: int | None,
     ip_hash: str | None = None,
     user_agent: str | None = None,
+    source: str | None = None,
+    client: str | None = None,
 ):
+    await moderation_service.require_not_banned(
+        session,
+        community_id=community.id,
+        community_user_id=community_user.id,
+    )
+
     thread = await get_or_create_thread_for_comment(
         session,
         community=community,
@@ -137,6 +147,8 @@ async def create_embed_comment(
         parent_comment_id=parent_comment_id,
         ip_hash=ip_hash,
         user_agent=user_agent,
+        source=source,
+        client=client,
     )
 
     thread.comment_count += 1
@@ -158,3 +170,21 @@ async def create_embed_comment(
         )
 
     return created
+
+
+def present_comments(comments, viewer) -> list[CommentRead]:
+    """Comments as a viewer may see them: one moderators removed keeps its place as an empty "[removed]", with its text
+    and author withheld, unless the viewer wrote it. Works on copies, so nothing here can be saved back."""
+    presented = [CommentRead.model_validate(comment) for comment in comments]
+
+    for comment in presented:
+        if comment.status == "hidden" and (
+            viewer is None or comment.community_user_id != viewer.id
+        ):
+            comment.content = ""
+            comment.community_user = None
+            comment.community_user_id = None
+            comment.upvote_count = 0
+            comment.downvote_count = 0
+
+    return presented

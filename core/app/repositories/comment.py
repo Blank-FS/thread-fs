@@ -10,6 +10,12 @@ from app.models.thread import Thread
 
 CommentSort = Literal["latest", "oldest", "top"]
 
+# What a thread lists: deleted and hidden comments keep their place so replies stay attached (their text is withheld
+# by comment_service.present_comments)
+THREAD_STATUSES = ["visible", "deleted", "hidden"]
+# A person's own list of comments: they still see ones moderators removed (others' view of it is visible ones only)
+OWN_STATUSES = ["visible", "hidden"]
+
 
 def _comment_order_by(sort: CommentSort):
     if sort == "latest":
@@ -38,7 +44,7 @@ async def count_comments(
             Comment.parent_comment_id.is_(None)
             if parent_comment_id is None
             else Comment.parent_comment_id == parent_comment_id,
-            Comment.status.in_(["visible", "deleted"]),
+            Comment.status.in_(THREAD_STATUSES),
         )
     )
 
@@ -62,7 +68,7 @@ async def list_comments(
             Comment.parent_comment_id.is_(None)
             if parent_comment_id is None
             else Comment.parent_comment_id == parent_comment_id,
-            Comment.status.in_(["visible", "deleted"]),
+            Comment.status.in_(THREAD_STATUSES),
         )
         .order_by(*_comment_order_by(sort))
         .limit(limit)
@@ -77,6 +83,7 @@ async def count_comments_by_community_user(
     *,
     community_user_id,
     community_id,
+    include_hidden: bool = False,
 ) -> int:
     result = await session.execute(
         select(func.count(Comment.id))
@@ -84,7 +91,7 @@ async def count_comments_by_community_user(
         .where(
             Comment.community_user_id == community_user_id,
             Thread.community_id == community_id,
-            Comment.status == "visible",
+            Comment.status.in_(OWN_STATUSES if include_hidden else ["visible"]),
         )
     )
 
@@ -98,6 +105,7 @@ async def list_comments_by_community_user(
     community_id,
     limit: int,
     offset: int,
+    include_hidden: bool = False,
 ) -> list[Comment]:
     result = await session.execute(
         select(Comment)
@@ -109,7 +117,7 @@ async def list_comments_by_community_user(
         .where(
             Comment.community_user_id == community_user_id,
             Thread.community_id == community_id,
-            Comment.status == "visible",
+            Comment.status.in_(OWN_STATUSES if include_hidden else ["visible"]),
         )
         .order_by(Comment.created_at.desc(), Comment.id.desc())
         .limit(limit)
@@ -141,6 +149,8 @@ async def create_comment(
     parent_comment_id: int | None = None,
     ip_hash: str | None = None,
     user_agent: str | None = None,
+    source: str | None = None,
+    client: str | None = None,
 ) -> Comment:
     comment = Comment(
         thread_id=thread_id,
@@ -150,6 +160,8 @@ async def create_comment(
         status="visible",
         ip_hash=ip_hash,
         user_agent=user_agent,
+        source=source,
+        client=client,
     )
 
     session.add(comment)

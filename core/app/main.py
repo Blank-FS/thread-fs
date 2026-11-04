@@ -3,7 +3,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import embed
+from app.api.routes import embed, moderation
 
 from app.core.config import settings
 from app.db.init_db import reset_db, seed_db
@@ -39,6 +39,7 @@ app.add_middleware(
 )
 
 app.include_router(embed.router, prefix="/api/v1")
+app.include_router(moderation.router, prefix="/api/v1")
 
 
 @app.get("/health")

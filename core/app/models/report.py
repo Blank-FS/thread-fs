@@ -11,6 +11,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.core.common import utc_now
 from app.db.base import Base
@@ -44,6 +45,8 @@ class CommentReport(Base):
         ForeignKey("community_users.id", ondelete="SET NULL"),
         nullable=True,
     )
+
+    reporter = relationship("CommunityUser", foreign_keys=[reporter_community_user_id])
 
     __table_args__ = (
         # One report per person per comment

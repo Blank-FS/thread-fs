@@ -52,6 +52,21 @@ async def limit_create_comment(
     return community, community_user
 
 
+async def limit_report_comment(
+    community: Community = Depends(require_valid_embed_context),
+    community_user: CommunityUser = Depends(require_current_community_user),
+) -> tuple[Community, CommunityUser]:
+    check_user_rate_limit(
+        community_id=str(community.id),
+        community_user_id=str(community_user.id),
+        name="report_comment",
+        limit=settings.RATE_LIMIT_REPORT_PER_HOUR,
+        window_seconds=3600,
+    )
+
+    return community, community_user
+
+
 async def limit_vote_comment(
     community: Community = Depends(require_valid_embed_context),
     community_user: CommunityUser = Depends(require_current_community_user),

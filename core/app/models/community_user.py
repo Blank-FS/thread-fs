@@ -12,6 +12,9 @@ from app.core.common import utc_now
 class CommunityUser(Base):
     __tablename__ = "community_users"
 
+    # This request's staff role, from its signed token (app.api.deps). Not a column: the host decides per token.
+    staff_role = None
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     community_id = Column(

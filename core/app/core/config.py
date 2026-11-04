@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_COMMENT_EDIT_PER_HOUR: int = 20
     RATE_LIMIT_COMMENT_DELETE_PER_HOUR: int = 20
     RATE_LIMIT_VOTE_PER_MINUTE: int = 60
+    RATE_LIMIT_REPORT_PER_HOUR: int = 20
 
     model_config = SettingsConfigDict(
         env_file=".env",

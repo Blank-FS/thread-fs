@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from uuid import UUID
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 from pydantic import BaseModel, Field
 
 T = TypeVar("T")
@@ -59,6 +59,7 @@ class EmbedMeRead(BaseModel):
     display_name: str | None = None
     avatar_url: str | None = None
     threadfs_user_id: UUID | None = None
+    staff_role: str | None = None
 
 
 class ExternalIdentityPayload(BaseModel):
@@ -77,6 +78,10 @@ class CommentCreateRequest(BaseModel):
 
     content: str = Field(min_length=1, max_length=10_000)
     parent_comment_id: int | None = None
+
+    # Where it's posted from, for moderation: a site or app slug, and the kind of client
+    source: str | None = Field(default=None, max_length=255)
+    client: str | None = Field(default=None, max_length=32)
 
 
 class VoteRequest(BaseModel):
@@ -102,7 +107,8 @@ class CommentRead(BaseModel):
     id: int
     thread_id: int
     parent_comment_id: int | None
-    community_user_id: UUID
+    # Both empty on a comment moderators removed, unless the viewer wrote it
+    community_user_id: UUID | None
 
     community_user: CommunityUserRead | None = None
 
@@ -121,6 +127,11 @@ class CommentRead(BaseModel):
     modified_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ReportRequest(BaseModel):
+    reason: Literal["spam", "harassment", "spoilers", "hate", "sexual", "wrong_thread", "other"]
+    details: str | None = Field(default=None, max_length=1000)
 
 
 class CommentWithThreadRead(CommentRead):

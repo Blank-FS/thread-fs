@@ -19,12 +19,20 @@ class VerifiedIdentity:
         display_name: str | None,
         avatar_url: str | None,
         threadfs_user_id: UUID | None = None,
+        staff_role: str | None = None,
     ):
         self.identity_provider = identity_provider
         self.external_user_id = external_user_id
         self.display_name = display_name
         self.avatar_url = avatar_url
         self.threadfs_user_id = threadfs_user_id
+        self.staff_role = staff_role
+
+
+# The host site decides who its staff are: it signs this claim into the token, so nobody can give it to themselves
+# without the community's auth secret, and no ThreadFS account is needed.
+STAFF_ROLE_CLAIM = "threadfs_role"
+STAFF_ROLES = {"moderator", "admin"}
 
 
 def _unverified_issuer(token: str) -> str:
@@ -120,6 +128,9 @@ async def verify_external_identity_token(
         external_user_id=subject,
         display_name=display_name,
         avatar_url=avatar_url,
+        staff_role=claims.get(STAFF_ROLE_CLAIM)
+        if claims.get(STAFF_ROLE_CLAIM) in STAFF_ROLES
+        else None,
     )
 
 

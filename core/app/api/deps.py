@@ -84,6 +84,9 @@ async def get_optional_current_community_user(
         identity=identity,
     )
 
+    # From this request's token, never stored: taking a role away only needs the host to stop signing it
+    community_user.staff_role = identity.staff_role
+
     return community_user
 
 
@@ -97,3 +100,16 @@ async def require_current_community_user(
         )
 
     return community_user
+
+
+async def require_moderator(
+    community: Community = Depends(require_valid_embed_context),
+    community_user: CommunityUser = Depends(require_current_community_user),
+) -> tuple[Community, CommunityUser]:
+    if community_user.staff_role is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Moderator permissions required",
+        )
+
+    return community, community_user

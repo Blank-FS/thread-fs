@@ -9,6 +9,7 @@ from app.models.community import Community
 from app.models.community_user import CommunityUser
 from app.repositories import comment as comment_repo
 from app.repositories import thread as thread_repo
+from app.services import moderation_service
 
 
 async def _get_owned_visible_comment(
@@ -57,6 +58,12 @@ async def edit_own_comment(
     comment_id: int,
     content: str,
 ):
+    await moderation_service.require_not_banned(
+        session,
+        community_id=community.id,
+        community_user_id=community_user.id,
+    )
+
     comment = await _get_owned_visible_comment(
         session,
         community=community,

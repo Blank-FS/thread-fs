@@ -8,6 +8,7 @@ from app.models.community_user import CommunityUser
 from app.repositories import comment as comment_repo
 from app.repositories import comment_vote as vote_repo
 from app.repositories import thread as thread_repo
+from app.services import moderation_service
 
 
 async def vote_on_comment(
@@ -23,6 +24,12 @@ async def vote_on_comment(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Vote value must be -1, 0, or 1",
         )
+
+    await moderation_service.require_not_banned(
+        session,
+        community_id=community.id,
+        community_user_id=community_user.id,
+    )
 
     comment = await comment_repo.get_comment_by_id(session, comment_id)
 
