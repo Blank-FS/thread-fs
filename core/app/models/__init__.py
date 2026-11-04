@@ -6,6 +6,8 @@ from app.models.community_auth_provider import CommunityAuthProvider
 from app.models.community_staff import CommunityStaff
 from app.models.community_user import CommunityUser
 from app.models.community import Community
+from app.models.moderation import CommunityBan, ModerationAction
+from app.models.report import CommentReport
 from app.models.thread import Thread
 from app.models.user import User
 
@@ -20,4 +22,7 @@ __all__ = [
     "Thread",
     "Comment",
     "CommentVote",
+    "CommentReport",
+    "ModerationAction",
+    "CommunityBan",
 ]

@@ -80,6 +80,11 @@ class Comment(Base):
     # visible | deleted | hidden
     status = Column(String(32), nullable=False, default="visible")
 
+    # Where it was posted from, for moderation: the site or app it came through (a host-defined slug or domain, sent by
+    # the client, so useful for grouping and cleanup but not proof) and the kind of client (site, extension, embed).
+    source = Column(String(255), nullable=True)
+    client = Column(String(32), nullable=True)
+
     ip_hash = Column(String(128), nullable=True)
     user_agent = Column(String(512), nullable=True)
 
@@ -91,4 +96,5 @@ class Comment(Base):
             "community_user_id",
             "created_at",
         ),
+        Index("ix_comments_source_created_at", "source", "created_at"),
     )
