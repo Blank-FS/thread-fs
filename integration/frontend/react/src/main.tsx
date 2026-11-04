@@ -3,6 +3,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { ThreadFSMyComments } from "./components/MyComments";
 import { ThreadFSComments } from "./components/ThreadFSComments";
+import { ThreadFSModeration } from "./components/ThreadFSModeration";
 import { ModeToggle } from "./components/other/mode-toggle";
 import { ThemeProvider } from "./components/other/theme-provider";
 import "./styles.css";
@@ -27,6 +28,9 @@ function App() {
           <TabsTrigger value="ThreadFSMyComments" className="w-36">
             Comments
           </TabsTrigger>
+          <TabsTrigger value="ThreadFSModeration" className="w-36">
+            Moderation
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="ThreadFSComments">
           <ThreadFSComments
@@ -49,6 +53,13 @@ function App() {
             communityKey={communityKey}
             externalUserId={externalUserId}
             authToken={authToken}
+          />
+        </TabsContent>
+        <TabsContent value="ThreadFSModeration">
+          <ThreadFSModeration
+            apiBaseUrl={apiBaseUrl}
+            communityKey={communityKey}
+            authToken={env.VITE_THREADFS_MODERATOR_TOKEN || authToken}
           />
         </TabsContent>
       </Tabs>
