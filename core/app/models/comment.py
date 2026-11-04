@@ -71,6 +71,9 @@ class Comment(Base):
         foreign_keys=[deleted_by_user_id],
     )
 
+    # Why moderators removed it, shown to its author only
+    removal_reason = Column(String(128), nullable=True)
+
     upvote_count = Column(Integer, nullable=False, default=0)
     downvote_count = Column(Integer, nullable=False, default=0)
     reply_count = Column(Integer, nullable=False, default=0)

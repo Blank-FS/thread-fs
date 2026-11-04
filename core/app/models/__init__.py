@@ -4,9 +4,10 @@ from app.models.community_allowed_origin import CommunityAllowedOrigin
 from app.models.community_api_key import CommunityApiKey
 from app.models.community_auth_provider import CommunityAuthProvider
 from app.models.community_staff import CommunityStaff
+from app.models.community_reason import CommunityReason
 from app.models.community_user import CommunityUser
 from app.models.community import Community
-from app.models.moderation import CommunityBan, ModerationAction
+from app.models.moderation import CommunityBan, ModerationAction, UserNote
 from app.models.report import CommentReport
 from app.models.thread import Thread
 from app.models.user import User
@@ -25,4 +26,6 @@ __all__ = [
     "CommentReport",
     "ModerationAction",
     "CommunityBan",
+    "CommunityReason",
+    "UserNote",
 ]

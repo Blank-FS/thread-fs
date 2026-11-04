@@ -31,6 +31,7 @@ class ModerationAction(Base):
     )
 
     # hide_comment | restore_comment | ban_user | unban_user | lock_thread | unlock_thread
+    # | dismiss_reports | resolve_reports | reopen_reports
     action = Column(String(64), nullable=False)
 
     comment_id = Column(
@@ -53,9 +54,44 @@ class ModerationAction(Base):
 
     moderator = relationship("CommunityUser", foreign_keys=[moderator_community_user_id])
     target = relationship("CommunityUser", foreign_keys=[target_community_user_id])
+    comment = relationship("Comment", foreign_keys=[comment_id])
+    thread = relationship("Thread", foreign_keys=[thread_id])
 
     __table_args__ = (
         Index("ix_moderation_actions_community_created_at", "community_id", "created_at"),
+    )
+
+
+class UserNote(Base):
+    """A private note between moderators about a user. Never shown to the user."""
+
+    __tablename__ = "community_user_notes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+    community_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("communities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    community_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("community_users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    author_community_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("community_users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    body = Column(Text, nullable=False)
+
+    author = relationship("CommunityUser", foreign_keys=[author_community_user_id])
+
+    __table_args__ = (
+        Index("ix_community_user_notes_user", "community_id", "community_user_id"),
     )
 
 
@@ -94,6 +130,8 @@ class CommunityBan(Base):
     )
 
     community_user = relationship("CommunityUser", foreign_keys=[community_user_id])
+    banned_by = relationship("CommunityUser", foreign_keys=[banned_by_community_user_id])
+    lifted_by = relationship("CommunityUser", foreign_keys=[lifted_by_community_user_id])
 
     __table_args__ = (
         Index("ix_community_bans_user", "community_id", "community_user_id"),

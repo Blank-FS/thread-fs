@@ -34,7 +34,9 @@ class CommentReport(Base):
         nullable=True,
     )
 
+    # The community's reason at the time: its key, and its label, which outlives any change to the community's list
     reason = Column(String(64), nullable=False)
+    reason_label = Column(String(128), nullable=True)
     details = Column(Text, nullable=True)
 
     # open | resolved | dismissed
@@ -47,6 +49,7 @@ class CommentReport(Base):
     )
 
     reporter = relationship("CommunityUser", foreign_keys=[reporter_community_user_id])
+    resolver = relationship("CommunityUser", foreign_keys=[resolved_by_community_user_id])
 
     __table_args__ = (
         # One report per person per comment
