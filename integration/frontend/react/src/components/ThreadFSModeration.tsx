@@ -224,12 +224,14 @@ export function ThreadFSModeration({
         )}
         data-threadfs-community-key={communityKey}
       >
-        {title && (
+        {(title || me?.staff_role) && (
           <div className="flex items-center justify-between gap-2">
-            <h2 className="border-tfs-brand-strong dark:border-tfs-brand border-l-4 pl-4 text-lg font-bold sm:text-xl">
-              {title}
-            </h2>
-            <div className="flex items-center gap-1">
+            {title && (
+              <h2 className="border-tfs-brand-strong dark:border-tfs-brand border-l-4 pl-4 text-lg font-bold sm:text-xl">
+                {title}
+              </h2>
+            )}
+            <div className="ml-auto flex items-center gap-1">
               {me?.staff_role && (
                 <Badge variant="outline" className="capitalize">
                   {me.staff_role}
