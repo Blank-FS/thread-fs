@@ -1,6 +1,9 @@
+import scopeToWidget from "./postcss-scope.mjs";
+
 export default {
-  plugins: {
-    "@tailwindcss/postcss": {},
-    autoprefixer: {},
-  },
+  plugins: [
+    (await import("@tailwindcss/postcss")).default(),
+    (await import("autoprefixer")).default(),
+    scopeToWidget(),
+  ],
 };

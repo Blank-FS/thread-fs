@@ -318,6 +318,10 @@ docker build \
 - Storybook/demo site
 - Stronger accessibility pass
 
+## Styles
+
+Every rule in the stylesheet applies only inside `.threadfs-root` (`postcss-scope.mjs`), so it can't change the rest of your page, even if your site uses Tailwind too. A new component that renders outside the widget, such as a popup in a portal, needs that class on its own root.
+
 ## Moderation
 
 Comments get a Report action, and a comment moderators removed shows as `[removed]`, except to its author. Pass `source` and `client` to `ThreadFSComments` to record where comments come from.

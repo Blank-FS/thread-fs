@@ -18,7 +18,7 @@ const authToken = env.VITE_THREADFS_AUTH_TOKEN || undefined;
 
 function App() {
   return (
-    <main className="mx-auto min-h-screen max-w-3xl space-y-4 p-2 sm:p-4">
+    <main className="threadfs-root bg-background text-foreground mx-auto min-h-screen max-w-3xl space-y-4 p-2 sm:p-4">
       <ModeToggle />
       <Tabs defaultValue="ThreadFSComments" className="w-full">
         <TabsList>
