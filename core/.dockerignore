@@ -31,3 +31,12 @@ logs/
 docker-compose.yml
 docker-compose.*.yml
 README.md
+
+# Local only, and not needed to run
+tests/
+temp/
+
+# Keys and environment files, wherever they are: .env above only matches the top level
+**/.env
+**/.env.*
+**/*.pem
