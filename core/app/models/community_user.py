@@ -14,6 +14,9 @@ class CommunityUser(Base):
 
     # This request's staff role, from its signed token (app.api.deps). Not a column: the host decides per token.
     staff_role = None
+    # Likewise: whether the host vouches for its threads, and the thread this token names (identity_service)
+    signed_threads = False
+    thread_claim = None
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 

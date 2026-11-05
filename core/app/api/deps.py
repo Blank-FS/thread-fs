@@ -86,6 +86,8 @@ async def get_optional_current_community_user(
 
     # From this request's token, never stored: taking a role away only needs the host to stop signing it
     community_user.staff_role = identity.staff_role
+    community_user.signed_threads = identity.signed_threads
+    community_user.thread_claim = identity.thread_claim
 
     return community_user
 

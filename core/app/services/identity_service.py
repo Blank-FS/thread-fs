@@ -1,5 +1,6 @@
 # app/services/identity_service.py
 
+from dataclasses import dataclass
 from uuid import UUID
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
@@ -8,6 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.community import Community
 from app.repositories import community_auth_provider as auth_provider_repo
 from app.repositories import community_user as community_user_repo
+
+
+@dataclass(frozen=True)
+class ThreadClaim:
+    """What the host's server says about a thread, signed into the token."""
+
+    id: str
+    title: str | None
+    url: str | None
 
 
 class VerifiedIdentity:
@@ -20,6 +30,8 @@ class VerifiedIdentity:
         avatar_url: str | None,
         threadfs_user_id: UUID | None = None,
         staff_role: str | None = None,
+        signed_threads: bool = False,
+        thread_claim: ThreadClaim | None = None,
     ):
         self.identity_provider = identity_provider
         self.external_user_id = external_user_id
@@ -27,12 +39,33 @@ class VerifiedIdentity:
         self.avatar_url = avatar_url
         self.threadfs_user_id = threadfs_user_id
         self.staff_role = staff_role
+        self.signed_threads = signed_threads
+        self.thread_claim = thread_claim
 
 
 # The host site decides who its staff are: it signs this claim into the token, so nobody can give it to themselves
 # without the community's auth secret, and no ThreadFS account is needed.
 STAFF_ROLE_CLAIM = "threadfs_role"
 STAFF_ROLES = {"moderator", "admin"}
+
+# A thread's title and link come from whoever posts, unless the host vouches for them. A host that sets
+# SIGNED_THREADS_CLAIM says its server decides: browser-sent details are ignored, and only a thread named in
+# THREAD_CLAIM can be created. The host can't be impersonated here, for the same reason as the staff role.
+SIGNED_THREADS_CLAIM = "threadfs_signed_threads"
+THREAD_CLAIM = "threadfs_thread"
+
+
+def _thread_claim(claims: dict) -> ThreadClaim | None:
+    value = claims.get(THREAD_CLAIM)
+    if not isinstance(value, dict) or not isinstance(value.get("id"), str):
+        return None
+
+    title, url = value.get("title"), value.get("url")
+    return ThreadClaim(
+        id=value["id"],
+        title=title[:512] if isinstance(title, str) else None,
+        url=url[:2048] if isinstance(url, str) else None,
+    )
 
 
 def _unverified_issuer(token: str) -> str:
@@ -131,6 +164,8 @@ async def verify_external_identity_token(
         staff_role=claims.get(STAFF_ROLE_CLAIM)
         if claims.get(STAFF_ROLE_CLAIM) in STAFF_ROLES
         else None,
+        signed_threads=claims.get(SIGNED_THREADS_CLAIM) is True,
+        thread_claim=_thread_claim(claims),
     )
 
 

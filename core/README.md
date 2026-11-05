@@ -367,6 +367,21 @@ Do not use `allow_origins=["*"]` with credentials.
 
 ThreadFS includes basic rate limiting for reads, comments, votes, edits, and deletes. For a single-instance prototype, the in-memory limiter is acceptable. For multi-instance deployment, replace it with Redis.
 
+## Thread titles and links
+
+Threads are created by their first comment, so a browser-sent title and link can't be trusted: anyone signed in can send anything. Hosts should have their server vouch for them, by signing these claims into the embed token:
+
+```json
+{
+  "threadfs_signed_threads": true,
+  "threadfs_thread": { "id": "anime:1:ep:1", "title": "Frieren Episode 1", "url": "https://example.com/anime/1/episode/1" }
+}
+```
+
+With `threadfs_signed_threads`, browser-sent details are ignored, and a token can only create the thread named in `threadfs_thread`. It can still comment on any existing thread. A matching claim also updates an existing thread's details.
+
+Without it, a thread keeps the details of its first comment, and a link is dropped unless it's on one of the community's allowed origins. The title isn't checked, so a host that shows titles should sign them.
+
 ## Deployment on EC2
 
 The examples below use Aniworks as a sample host website. Replace the domain, issuer, and thread IDs with your own application values.

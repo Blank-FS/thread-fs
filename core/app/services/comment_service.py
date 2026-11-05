@@ -9,6 +9,8 @@ from app.models.community_user import CommunityUser
 from app.repositories import comment as comment_repo
 from app.repositories import thread as thread_repo
 from app.core.sanitize import sanitize_comment_markdown
+from app.core.origin import normalize_origin
+from app.repositories.community import is_origin_allowed_for_community
 from app.schemas.embed import CommentRead
 from app.services import moderation_service
 
@@ -20,7 +22,10 @@ async def get_or_create_thread_for_comment(
     external_thread_id: str,
     title: str | None,
     source_url: str | None,
+    trusted: bool = False,
+    may_create: bool = True,
 ):
+    """Finds or creates a thread. Only trusted details change an existing one, so a commenter can't repoint it."""
     existing = await thread_repo.get_thread_by_unique_id(
         session,
         community_id=community.id,
@@ -30,11 +35,11 @@ async def get_or_create_thread_for_comment(
     if existing:
         changed = False
 
-        if title and existing.title != title:
+        if trusted and title and existing.title != title:
             existing.title = title
             changed = True
 
-        if source_url and existing.source_url != source_url:
+        if trusted and source_url and existing.source_url != source_url:
             existing.source_url = source_url
             changed = True
 
@@ -42,6 +47,12 @@ async def get_or_create_thread_for_comment(
             await session.flush()
 
         return existing
+
+    if not may_create:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Thread not found",
+        )
 
     try:
         thread = await thread_repo.create_thread(
@@ -70,6 +81,27 @@ async def get_or_create_thread_for_comment(
         return existing
 
 
+async def _source_url_on_community(
+    session: AsyncSession,
+    community: Community,
+    source_url: str | None,
+) -> str | None:
+    """A browser-sent link, kept only if it points at one of the community's own sites."""
+    if not source_url:
+        return None
+
+    try:
+        origin = normalize_origin(source_url)
+    except ValueError:
+        return None
+
+    if not origin.startswith(("https://", "http://")):
+        return None
+
+    allowed = await is_origin_allowed_for_community(session, community_id=community.id, origin=origin)
+    return source_url if allowed else None
+
+
 async def create_embed_comment(
     session: AsyncSession,
     *,
@@ -91,12 +123,22 @@ async def create_embed_comment(
         community_user_id=community_user.id,
     )
 
+    claim = community_user.thread_claim
+    vouched = claim is not None and claim.id == external_thread_id
+
+    if community_user.signed_threads:
+        title, source_url = (claim.title, claim.url) if vouched else (None, None)
+    else:
+        source_url = await _source_url_on_community(session, community, source_url)
+
     thread = await get_or_create_thread_for_comment(
         session,
         community=community,
         external_thread_id=external_thread_id,
         title=title,
         source_url=source_url,
+        trusted=vouched,
+        may_create=vouched or not community_user.signed_threads,
     )
 
     if thread.is_deleted:
