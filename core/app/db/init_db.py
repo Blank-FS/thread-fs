@@ -98,6 +98,10 @@ async def seed_demo_data(session: AsyncSession) -> None:
         ),
         CommunityAllowedOrigin(
             community_id=community.id,
+            origin="http://localhost:3001",
+        ),
+        CommunityAllowedOrigin(
+            community_id=community.id,
             origin="http://localhost:5173",
         ),
     ]
