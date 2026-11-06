@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ThreadFSApiError } from "@/lib/errors";
-import { MessagesSquare } from "lucide-react";
+import { MessageSquareOff, MessagesSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createComment,
@@ -590,7 +590,11 @@ export function ThreadFSComments({
                   />
                 ))
               ) : (
-                <div className="rounded-md border border-dashed px-6 py-10 text-center">
+                <div className="rounded-md border border-dashed px-6 py-16 text-center">
+                  <MessageSquareOff
+                    aria-hidden
+                    className="text-muted-foreground mx-auto mb-3 size-8"
+                  />
                   <p className="font-medium">No comments yet</p>
                   <p className="text-muted-foreground mt-1 text-sm">
                     Start the conversation
