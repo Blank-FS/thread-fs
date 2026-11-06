@@ -1,5 +1,6 @@
 import { Flag, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -41,7 +42,7 @@ import {
   ReasonSelect,
   useModeration,
   usePagedList,
-  userName,
+  UserLink,
   type PagedList,
 } from "./shared";
 import { UserPicker } from "./UserPicker";
@@ -204,9 +205,17 @@ function SelectionBar({
   );
 }
 
-function reportOutcome(report: CommentReport) {
-  if (report.status === "open") return null;
-  return `${report.status} by ${userName(report.resolver)}`;
+/** The closed reports in a group, one per outcome: several closed together read as one. */
+function reportOutcomes(reports: CommentReport[]) {
+  const outcomes = new Map<string, CommentReport>();
+
+  for (const report of reports) {
+    if (report.status === "open") continue;
+    const key = `${report.status}:${report.resolver?.id}`;
+    if (!outcomes.has(key)) outcomes.set(key, report);
+  }
+
+  return [...outcomes.values()];
 }
 
 /** The reason a reported comment's removal starts on: its most reported one still on the community's list. */
@@ -243,16 +252,20 @@ function ReportSummary({ reports }: { reports: ReportedComment["reports"] }) {
           )}
           <span className="text-muted-foreground">
             {" "}
-            from {group.map((report) => userName(report.reporter)).join(", ")}
+            from{" "}
+            {group.map((report, index) => (
+              <Fragment key={report.id}>
+                {index > 0 && ", "}
+                <UserLink user={report.reporter} />
+              </Fragment>
+            ))}
           </span>
-          {[...new Set(group.map(reportOutcome).filter(Boolean))].map(
-            (outcome) => (
-              <span key={outcome} className="text-muted-foreground">
-                {" "}
-                · {outcome}
-              </span>
-            ),
-          )}
+          {reportOutcomes(group).map((report) => (
+            <span key={report.id} className="text-muted-foreground">
+              {" "}
+              · {report.status} by <UserLink user={report.resolver} />
+            </span>
+          ))}
           {group
             .filter((report) => report.details)
             .map((report) => (
