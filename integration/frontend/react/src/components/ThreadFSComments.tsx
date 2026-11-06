@@ -591,7 +591,7 @@ export function ThreadFSComments({
                   />
                 ))
               ) : (
-                <div className="rounded-md border border-dashed px-6 py-16 text-center">
+                <div className="px-6 py-16 text-center">
                   <MessageSquareOff
                     aria-hidden
                     className="text-muted-foreground mx-auto mb-3 size-8"

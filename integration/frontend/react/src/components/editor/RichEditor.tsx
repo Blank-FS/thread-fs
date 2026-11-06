@@ -188,7 +188,7 @@ const RichEditor = ({
         </div>
 
         {showControls && (
-          <div className="mt-1 flex flex-wrap items-center gap-1">
+          <div className="@container mt-1 flex flex-wrap items-center gap-1">
             {mode === "rich" && (
               <button
                 type="button"
@@ -233,12 +233,12 @@ const RichEditor = ({
               {mode === "rich" ? (
                 <>
                   <Code2 className="size-3.5" />
-                  Markdown
+                  <span className="hidden @[14rem]:inline">Markdown</span>
                 </>
               ) : (
                 <>
                   <Pilcrow className="size-3.5" />
-                  Rich text
+                  <span className="hidden @[14rem]:inline">Rich text</span>
                 </>
               )}
             </button>
