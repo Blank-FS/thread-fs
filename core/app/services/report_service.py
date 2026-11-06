@@ -9,7 +9,7 @@ from app.models.community_user import CommunityUser
 from app.models.report import CommentReport
 from app.repositories import comment as comment_repo
 from app.repositories import thread as thread_repo
-from app.services import reason_service
+from app.services import moderation_service, reason_service
 
 
 async def report_comment(
@@ -22,6 +22,12 @@ async def report_comment(
     details: str | None,
 ) -> None:
     """Reports a comment to the community's moderators. Reporting it again does nothing."""
+    await moderation_service.require_not_banned(
+        session,
+        community_id=community.id,
+        community_user_id=community_user.id,
+    )
+
     comment = await comment_repo.get_comment_by_id(session, comment_id)
     thread = await thread_repo.get_thread_by_id(session, comment.thread_id) if comment else None
 
