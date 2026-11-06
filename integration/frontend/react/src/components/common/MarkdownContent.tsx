@@ -98,7 +98,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
         ),
         a: ({ node, ...props }) => (
           <a
-            className="text-tfs-brand-strong underline hover:text-tfs-brand"
+            className="text-tfs-brand-strong dark:hover:text-tfs-brand underline"
             target="_blank"
             rel="noreferrer noopener"
             {...props}

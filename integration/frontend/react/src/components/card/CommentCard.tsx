@@ -280,8 +280,8 @@ function CommentCard({
                 aria-pressed={viewerVote === 1}
                 aria-label={`Upvote (${comment.upvote_count ?? 0})`}
                 className={cn(
-                  "flex items-center gap-1 hover:cursor-pointer hover:text-tfs-brand",
-                  viewerVote === 1 && "text-tfs-brand",
+                  "flex items-center gap-1 hover:cursor-pointer hover:text-tfs-brand-strong dark:hover:text-tfs-brand",
+                  viewerVote === 1 && "text-tfs-brand-strong dark:text-tfs-brand",
                 )}
               >
                 <ArrowBigUp
@@ -310,7 +310,7 @@ function CommentCard({
                 <button
                   type="button"
                   onClick={handleReplyClick}
-                  className="flex items-center gap-1 hover:cursor-pointer hover:text-tfs-brand"
+                  className="flex items-center gap-1 hover:cursor-pointer hover:text-tfs-brand-strong dark:hover:text-tfs-brand"
                 >
                   <MessageSquare className="size-4" />
                   Reply

@@ -471,8 +471,8 @@ export function ThreadFSMyComments({
                         aria-pressed={viewerVote === 1}
                         aria-label={`Upvote (${comment.upvote_count ?? 0})`}
                         className={cn(
-                          "hover:text-tfs-brand flex items-center gap-1 hover:cursor-pointer",
-                          viewerVote === 1 && "text-tfs-brand",
+                          "hover:text-tfs-brand-strong dark:hover:text-tfs-brand flex items-center gap-1 hover:cursor-pointer",
+                          viewerVote === 1 && "text-tfs-brand-strong dark:text-tfs-brand",
                         )}
                       >
                         <ArrowBigUp
@@ -513,7 +513,7 @@ export function ThreadFSMyComments({
                           <button
                             type="button"
                             onClick={() => setEditingCommentId(comment.id)}
-                            className="hover:text-tfs-brand hover:cursor-pointer hover:underline"
+                            className="hover:text-tfs-brand-strong dark:hover:text-tfs-brand hover:cursor-pointer hover:underline"
                           >
                             Edit
                           </button>

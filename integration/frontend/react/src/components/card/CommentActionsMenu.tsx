@@ -69,7 +69,7 @@ export default function CommentActionsMenu({
     >
       <DropdownMenuTrigger
         aria-label="More actions"
-        className="hover:text-tfs-brand -m-1 rounded-full p-1 hover:cursor-pointer"
+        className="hover:text-tfs-brand-strong dark:hover:text-tfs-brand -m-1 rounded-full p-1 hover:cursor-pointer"
       >
         <MoreHorizontal className="size-4" />
       </DropdownMenuTrigger>
