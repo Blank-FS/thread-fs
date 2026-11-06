@@ -3,6 +3,7 @@ import {
   ArrowBigUp,
   ChevronDown,
   ChevronUp,
+  CornerDownRight,
   MessageSquare,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -26,11 +27,16 @@ import RemoveCommentForm from "./RemoveCommentForm";
 import ReportDetailsForm from "./ReportDetailsForm";
 import ThreadConnector from "./ThreadConnector";
 
+// Every level of indent costs a phone reading width, so deeper replies line up and say who they answer
+const MAX_PHONE_INDENT = 4;
+
 type CommentCardProps = {
   comment: ThreadFSComment;
   currentCommunityUserId?: string | null;
   currentUser?: ThreadFSCommentUser | null;
   depth?: number;
+  /** Who this replies to, shown where the indent no longer says so. */
+  parentName?: string;
   canReply: boolean;
   isLocked?: boolean;
   onReply: (parentId: string, body: string) => Promise<void> | void;
@@ -63,6 +69,7 @@ function CommentCard({
   currentCommunityUserId = null,
   currentUser = null,
   depth = 0,
+  parentName,
   canReply,
   isLocked = false,
   onReply,
@@ -205,12 +212,12 @@ function CommentCard({
                 href={authorUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-semibold text-tfs-brand-strong hover:cursor-pointer hover:underline dark:text-tfs-brand"
+                className="text-sm font-semibold text-tfs-brand-strong hover:cursor-pointer hover:underline dark:text-tfs-brand"
               >
                 {displayName}
               </a>
             ) : (
-              <span className="font-semibold text-tfs-brand-strong dark:text-tfs-brand">
+              <span className="text-sm font-semibold text-tfs-brand-strong dark:text-tfs-brand">
                 {displayName}
               </span>
             )}
@@ -221,6 +228,13 @@ function CommentCard({
               <span className="text-muted-foreground text-xs">(edited)</span>
             )}
           </div>
+
+          {parentName && depth > MAX_PHONE_INDENT && (
+            <p className="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs sm:hidden">
+              <CornerDownRight aria-hidden className="size-3 shrink-0" />
+              <span className="truncate">Replying to {parentName}</span>
+            </p>
+          )}
 
           {isDeleted ? (
             <p className="text-muted-foreground mt-2 text-sm italic">
@@ -273,7 +287,7 @@ function CommentCard({
           )}
 
           {comment.status === "visible" && (
-            <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-medium">
+            <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium">
               <button
                 type="button"
                 onClick={() => onVote?.(comment.id, 1)}
@@ -392,7 +406,7 @@ function CommentCard({
               onClick={() => void handleToggleReplies()}
               disabled={isLoadingReplies}
               aria-expanded={areRepliesExpanded}
-              className="text-primary hover:bg-primary/10 inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium hover:cursor-pointer hover:underline disabled:opacity-60"
+              className="text-primary hover:bg-primary/10 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium hover:cursor-pointer hover:underline disabled:opacity-60"
             >
               {areRepliesExpanded ? (
                 <ChevronUp className="size-4" />
@@ -421,7 +435,7 @@ function CommentCard({
               key={reply.id}
               className={cn(
                 "relative",
-                getReplyIndentClass(Math.min(depth + 1, 3)),
+                getReplyIndentClass(depth + 1),
               )}
             >
               <CommentCard
@@ -430,6 +444,7 @@ function CommentCard({
                 currentCommunityUserId={currentCommunityUserId}
                 currentUser={currentUser}
                 depth={depth + 1}
+                parentName={displayName}
                 canReply={canReply}
                 isLocked={isLocked}
                 onReply={onReply}
@@ -451,7 +466,7 @@ function CommentCard({
             <div
               className={cn(
                 "mt-2",
-                getReplyIndentClass(Math.min(depth + 1, 3)),
+                getReplyIndentClass(depth + 1),
               )}
             >
               <Button
@@ -614,5 +629,5 @@ function getReplyIndentClass(depth: number): string {
   if (depth <= 0) return "ml-0";
   if (depth === 1) return "ml-6 sm:ml-[52px]";
   if (depth === 2) return "ml-4 sm:ml-10";
-  return "ml-3 sm:ml-8";
+  return depth <= MAX_PHONE_INDENT ? "ml-3 sm:ml-8" : "ml-0 sm:ml-8";
 }

@@ -72,7 +72,8 @@ function ThreadConnector({
   const path = [
     `M ${railX} ${startY}`,
     `V ${railEndY}`,
-    ...branchPoints.flatMap((point) => [
+    // A reply lined up under its parent needs no branch: the rail runs straight into its avatar
+    ...branchPoints.filter((point) => point.x > railX + 1).flatMap((point) => [
       `M ${railX} ${point.y - radius}`,
       `Q ${railX} ${point.y} ${railX + radius} ${point.y}`,
       `H ${branchEndX}`,

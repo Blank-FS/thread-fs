@@ -70,7 +70,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
           <h1
             className={cn(
               "my-4 border-b border-tfs-brand/30 pb-2 font-bold tracking-tight",
-              "text-2xl sm:text-3xl",
+              "text-lg",
             )}
             {...props}
           />
@@ -79,7 +79,7 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
           <h2
             className={cn(
               "my-4 border-b border-tfs-brand/30 pb-2 font-bold tracking-tight",
-              "text-xl sm:text-2xl",
+              "text-base",
             )}
             {...props}
           />
@@ -88,13 +88,13 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
           <h3
             className={cn(
               "my-4 font-bold tracking-tight",
-              "text-lg sm:text-xl",
+              "text-sm",
             )}
             {...props}
           />
         ),
         p: ({ node, ...props }) => (
-          <p className="mb-4 text-base leading-relaxed" {...props} />
+          <p className="mb-2 text-sm leading-6 last:mb-0" {...props} />
         ),
         a: ({ node, ...props }) => (
           <a

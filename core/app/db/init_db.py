@@ -281,6 +281,8 @@ async def seed_demo_comments(session: AsyncSession) -> None:
         interval_minutes=10,
     )
 
+    await _seed_nested_replies(session, thread=thread, users=users)
+
     thread.comment_count = await _count_all_thread_comments(session, thread.id)
 
     await session.commit()
@@ -375,6 +377,66 @@ async def _seed_replies_for_parent(
 
     parent.reply_count += count
     await session.flush()
+
+
+# For seeing how deep threads behave, especially on a phone: short and long text, and things that can't wrap
+NESTED_REPLIES = [
+    "Level 1. Short replies should stay tidy.",
+    "Level 2. A longer one, to see how a paragraph wraps once the column starts to narrow. "
+    "It has a few sentences, like the replies people actually write when they disagree about an ending.",
+    "Level 3. Agreed.",
+    "Level 4. A long link: https://example.com/articles/2026/a-rather-long-article-title/comments?sort=top&from=notification",
+    "Level 5. `inline code` and a block:\n\n```\nconst deeplyNestedValue = thread.replies[0].replies[0].replies[0];\n```",
+    "Level 6. Averyveryveryveryveryveryveryveryveryveryveryveryveryverylongwordwithnospaces",
+    "Level 7. Another paragraph, now that the indent has built up. If the column is too narrow by this point, "
+    "it will take a lot of lines and be tiring to read.",
+    "Level 8. Still going.",
+    "Level 9. Is this still readable?",
+    "Level 10. A last long one, to compare with level 2 and see how much width has been lost along the way.",
+    "Level 11. Nearly there.",
+    "Level 12. The bottom of the thread.",
+]
+
+
+async def _seed_nested_replies(
+    session: AsyncSession,
+    *,
+    thread: Thread,
+    users: list[CommunityUser],
+) -> None:
+    now = utc_now()
+    parent = Comment(
+        thread_id=thread.id,
+        parent_comment_id=None,
+        community_user_id=users[0].id,
+        content="Nested replies test: this one goes 12 levels deep. Open each level to see how it behaves.",
+        status="visible",
+        upvote_count=3,
+        downvote_count=0,
+        reply_count=0,
+        created_at=now,
+        modified_at=now,
+    )
+    session.add(parent)
+    await session.flush()
+
+    for index, content in enumerate(NESTED_REPLIES):
+        reply = Comment(
+            thread_id=thread.id,
+            parent_comment_id=parent.id,
+            community_user_id=users[(index + 1) % len(users)].id,
+            content=content,
+            status="visible",
+            upvote_count=index % 3,
+            downvote_count=0,
+            reply_count=0,
+            created_at=now,
+            modified_at=now,
+        )
+        session.add(reply)
+        await session.flush()
+        parent.reply_count = 1
+        parent = reply
 
 
 async def _count_all_thread_comments(session: AsyncSession, thread_id: int) -> int:

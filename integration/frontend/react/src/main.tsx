@@ -22,14 +22,14 @@ function App() {
     <main className="threadfs-root bg-background text-foreground mx-auto min-h-screen max-w-3xl space-y-4 p-2 sm:p-4">
       <ModeToggle />
       <Tabs defaultValue="ThreadFSComments" className="w-full">
-        <TabsList>
-          <TabsTrigger value="ThreadFSComments" className="w-36">
+        <TabsList className="w-full">
+          <TabsTrigger value="ThreadFSComments" className="flex-1">
             Discussion
           </TabsTrigger>
-          <TabsTrigger value="ThreadFSMyComments" className="w-36">
+          <TabsTrigger value="ThreadFSMyComments" className="flex-1">
             Comments
           </TabsTrigger>
-          <TabsTrigger value="ThreadFSModeration" className="w-36">
+          <TabsTrigger value="ThreadFSModeration" className="flex-1">
             Moderation
           </TabsTrigger>
         </TabsList>
