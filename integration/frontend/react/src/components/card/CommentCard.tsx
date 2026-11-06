@@ -1,4 +1,10 @@
-import { ArrowBigDown, ArrowBigUp, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ArrowBigDown,
+  ArrowBigUp,
+  ChevronDown,
+  ChevronUp,
+  MessageSquare,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CommentRemoval } from "../../lib/moderationApi";
 import type {
@@ -13,12 +19,7 @@ import { MarkdownContent } from "../common/MarkdownContent";
 import CommentEditor from "../editor/CommentEditor";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
+import CommentActionsMenu from "./CommentActionsMenu";
 import CommentTimestamp from "./CommentTimestamp";
 import RemoveCommentForm from "./RemoveCommentForm";
 import ThreadConnector from "./ThreadConnector";
@@ -144,6 +145,17 @@ function CommentCard({
   async function handleReport(reason: string) {
     if (await onReport?.(comment.id, reason)) {
       setIsReported(true);
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm("Delete this comment? This cannot be undone.")) return;
+
+    try {
+      setIsDeleting(true);
+      await onDelete?.(comment.id);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -288,84 +300,24 @@ function CommentCard({
                 <button
                   type="button"
                   onClick={handleReplyClick}
-                  className="hover:cursor-pointer hover:text-tfs-brand hover:underline"
+                  className="flex items-center gap-1 hover:cursor-pointer hover:text-tfs-brand"
                 >
+                  <MessageSquare className="size-4" />
                   Reply
                 </button>
               )}
-              {!isOwnComment &&
-                onReport &&
-                reportReasons.length > 0 &&
-                (isReported ? (
-                  <span>Reported</span>
-                ) : canReply ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="hover:cursor-pointer hover:text-rose-500 hover:underline">
-                      Report
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56">
-                      {reportReasons.map(({ key, label }) => (
-                        <DropdownMenuItem
-                          key={key}
-                          onSelect={() => void handleReport(key)}
-                        >
-                          {label}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={onAuthRequired}
-                    className="hover:cursor-pointer hover:text-rose-500 hover:underline"
-                  >
-                    Report
-                  </button>
-                ))}
-              {!isOwnComment && onRemove && (
-                <button
-                  type="button"
-                  aria-expanded={isRemoving}
-                  onClick={() => setIsRemoving((value) => !value)}
-                  className="hover:cursor-pointer hover:text-rose-500 hover:underline"
-                >
-                  Remove
-                </button>
-              )}
-              {isOwnComment && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(true)}
-                    className="hover:cursor-pointer hover:text-tfs-brand hover:underline"
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isDeleting}
-                    onClick={async () => {
-                      const confirmed = window.confirm(
-                        "Delete this comment? This cannot be undone.",
-                      );
-
-                      if (!confirmed) return;
-
-                      try {
-                        setIsDeleting(true);
-                        await onDelete?.(comment.id);
-                      } finally {
-                        setIsDeleting(false);
-                      }
-                    }}
-                    className="hover:cursor-pointer hover:text-rose-500 hover:underline disabled:opacity-60"
-                  >
-                    {isDeleting ? "Deleting..." : "Delete"}
-                  </button>
-                </>
-              )}
+              <CommentActionsMenu
+                isOwnComment={isOwnComment}
+                canReport={canReply}
+                isReported={isReported}
+                reportReasons={reportReasons}
+                isDeleting={isDeleting}
+                onEdit={() => setIsEditing(true)}
+                onDelete={() => void handleDelete()}
+                onReport={onReport && ((reason) => void handleReport(reason))}
+                onRemove={onRemove && (() => setIsRemoving(true))}
+                onAuthRequired={onAuthRequired}
+              />
             </div>
           )}
 
