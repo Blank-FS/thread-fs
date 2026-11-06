@@ -190,7 +190,7 @@ function CommentCard({
       />
 
       <div className="relative z-10 flex gap-3">
-        <div className="size-8 shrink-0 sm:size-10">
+        <div className="size-8 shrink-0">
           <img
             ref={setParentAvatarRef}
             src={avatarUrl}
@@ -199,49 +199,52 @@ function CommentCard({
               e.currentTarget.onerror = null;
             }}
             alt={`${displayName}'s avatar`}
-            className="border-muted size-8 rounded-full border object-cover sm:size-10"
+            className="border-muted size-8 rounded-full border object-cover"
             loading="lazy"
             referrerPolicy="no-referrer"
           />
         </div>
 
         <div className="mb-2 min-w-0 flex-1 overflow-hidden">
-          <div className="flex flex-wrap items-center gap-2">
-            {authorUrl ? (
-              <a
-                href={authorUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-semibold text-tfs-brand-strong hover:cursor-pointer hover:underline dark:text-tfs-brand"
-              >
-                {displayName}
-              </a>
-            ) : (
-              <span className="text-sm font-semibold text-tfs-brand-strong dark:text-tfs-brand">
-                {displayName}
-              </span>
-            )}
+          {/* As tall as the avatar, so the name sits level with its middle */}
+          <div className="flex min-h-8 flex-col justify-center">
+            <div className="flex flex-wrap items-center gap-2">
+              {authorUrl ? (
+                <a
+                  href={authorUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-tfs-brand-strong dark:text-tfs-brand text-sm font-semibold hover:cursor-pointer hover:underline"
+                >
+                  {displayName}
+                </a>
+              ) : (
+                <span className="text-tfs-brand-strong dark:text-tfs-brand text-sm font-semibold">
+                  {displayName}
+                </span>
+              )}
 
-            {isOwnComment && <Badge>You</Badge>}
-            <CommentTimestamp value={comment.created_at} />
-            {comment.edited_at && comment.status === "visible" && (
-              <span className="text-muted-foreground text-xs">(edited)</span>
+              {isOwnComment && <Badge>You</Badge>}
+              <CommentTimestamp value={comment.created_at} />
+              {comment.edited_at && comment.status === "visible" && (
+                <span className="text-muted-foreground text-xs">(edited)</span>
+              )}
+            </div>
+
+            {parentName && depth > MAX_PHONE_INDENT && (
+              <p className="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs sm:hidden">
+                <CornerDownRight aria-hidden className="size-3 shrink-0" />
+                <span className="truncate">Replying to {parentName}</span>
+              </p>
             )}
           </div>
 
-          {parentName && depth > MAX_PHONE_INDENT && (
-            <p className="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs sm:hidden">
-              <CornerDownRight aria-hidden className="size-3 shrink-0" />
-              <span className="truncate">Replying to {parentName}</span>
-            </p>
-          )}
-
           {isDeleted ? (
-            <p className="text-muted-foreground mt-2 text-sm italic">
+            <p className="text-muted-foreground text-sm italic">
               This comment was deleted
             </p>
           ) : isRemovedForViewer ? (
-            <p className="text-muted-foreground mt-2 text-sm italic">
+            <p className="text-muted-foreground text-sm italic">
               [removed]
             </p>
           ) : isEditing ? (
@@ -272,7 +275,7 @@ function CommentCard({
           ) : (
             <CollapsibleContent
               maxHeight={320}
-              className="threadfs-comment-content overflow-wrap-anywhere mt-2 text-sm leading-6 wrap-break-word"
+              className="threadfs-comment-content overflow-wrap-anywhere text-sm leading-6 wrap-break-word"
             >
               <MarkdownContent markdown={comment.content} />
             </CollapsibleContent>
@@ -294,8 +297,9 @@ function CommentCard({
                 aria-pressed={viewerVote === 1}
                 aria-label={`Upvote (${comment.upvote_count ?? 0})`}
                 className={cn(
-                  "flex items-center gap-1 hover:cursor-pointer hover:text-tfs-brand-strong dark:hover:text-tfs-brand",
-                  viewerVote === 1 && "text-tfs-brand-strong dark:text-tfs-brand",
+                  "hover:text-tfs-brand-strong dark:hover:text-tfs-brand flex items-center gap-1 hover:cursor-pointer",
+                  viewerVote === 1 &&
+                    "text-tfs-brand-strong dark:text-tfs-brand",
                 )}
               >
                 <ArrowBigUp
@@ -324,7 +328,7 @@ function CommentCard({
                 <button
                   type="button"
                   onClick={handleReplyClick}
-                  className="flex items-center gap-1 hover:cursor-pointer hover:text-tfs-brand-strong dark:hover:text-tfs-brand"
+                  className="hover:text-tfs-brand-strong dark:hover:text-tfs-brand flex items-center gap-1 hover:cursor-pointer"
                 >
                   <MessageSquare className="size-4" />
                   Reply
@@ -397,7 +401,7 @@ function CommentCard({
 
       {hasReplies && (
         <div className="relative z-10 flex gap-3">
-          <div className="w-8 shrink-0 sm:w-10" />
+          <div className="w-8 shrink-0" />
 
           <div className="min-w-0 flex-1">
             <button
@@ -433,10 +437,7 @@ function CommentCard({
           {loadedReplies.map((reply) => (
             <div
               key={reply.id}
-              className={cn(
-                "relative",
-                getReplyIndentClass(depth + 1),
-              )}
+              className={cn("relative", getReplyIndentClass(depth + 1))}
             >
               <CommentCard
                 comment={reply}
@@ -463,12 +464,7 @@ function CommentCard({
           ))}
 
           {comment.replies_has_more && (
-            <div
-              className={cn(
-                "mt-2",
-                getReplyIndentClass(depth + 1),
-              )}
-            >
+            <div className={cn("mt-2", getReplyIndentClass(depth + 1))}>
               <Button
                 type="button"
                 variant="secondary"
@@ -627,7 +623,7 @@ function getAvatarUrl(comment: ThreadFSComment): string {
 
 function getReplyIndentClass(depth: number): string {
   if (depth <= 0) return "ml-0";
-  if (depth === 1) return "ml-6 sm:ml-[52px]";
+  if (depth === 1) return "ml-6 sm:ml-11";
   if (depth === 2) return "ml-4 sm:ml-10";
   return depth <= MAX_PHONE_INDENT ? "ml-3 sm:ml-8" : "ml-0 sm:ml-8";
 }
