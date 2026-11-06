@@ -550,11 +550,6 @@ export function ThreadFSComments({
             currentUser={currentUserForEditor}
             authorProfileUrl={authorProfileUrl}
             disabled={!isAuthenticated || isLoading}
-            placeholder={
-              isAuthenticated
-                ? "Join the discussion..."
-                : "Sign in to join the discussion..."
-            }
             onSubmit={(body) => handleCreateComment(body)}
             onAuthRequired={onAuthRequired}
           />

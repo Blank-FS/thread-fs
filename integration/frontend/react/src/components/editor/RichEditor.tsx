@@ -14,7 +14,7 @@ import {
   PanelBottomOpen,
   Pilcrow,
 } from "lucide-react";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState, type ReactNode } from "react";
 import "./style.css";
 
 import { cn } from "@/lib/utils";
@@ -52,6 +52,10 @@ type RichEditorProps = {
   autoFocus?: boolean;
   initialMarkdown?: string | null;
   minHeightClassName?: string;
+  /** Whether the formatting and mode buttons, and actions, are showing. */
+  showControls?: boolean;
+  /** Goes at the end of the row of buttons, such as a submit button. */
+  actions?: ReactNode;
   onChange?: (value: RichEditorValue) => void;
 };
 
@@ -60,6 +64,8 @@ const RichEditor = ({
   placeholder = "Join the discussion...",
   autoFocus = false,
   initialMarkdown = null,
+  showControls = true,
+  actions,
   onChange,
 }: RichEditorProps) => {
   const editorRef = useRef<LexicalEditor | null>(null);
@@ -131,15 +137,15 @@ const RichEditor = ({
 
   return (
     <LexicalComposer initialConfig={editorConfig}>
-      <div className="editor-container p-2">
-        {mode === "rich" && isToolbarVisible && (
+      <div className="editor-container">
+        {showControls && mode === "rich" && isToolbarVisible && (
           <>
             <ToolbarPlugin disabled={disabled} />
             <Separator className="h-px" />
           </>
         )}
 
-        <div className="editor-inner relative my-2">
+        <div className="editor-inner relative">
           <div className={cn(mode === "markdown" && "hidden")}>
             <RichTextPlugin
               contentEditable={
@@ -181,61 +187,65 @@ const RichEditor = ({
           {autoFocus && mode === "rich" && <AutoFocusPlugin />}
         </div>
 
-        <div className="mt-1 flex items-center justify-between">
-          {mode === "rich" ? (
+        {showControls && (
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            {mode === "rich" && (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => setIsToolbarVisible((value) => !value)}
+                aria-label={
+                  isToolbarVisible
+                    ? "Hide formatting toolbar"
+                    : "Show formatting toolbar"
+                }
+                title={isToolbarVisible ? "Hide formatting" : "Show formatting"}
+                className="text-muted-foreground hover:bg-primary/20 flex size-7 items-center justify-center rounded-lg"
+              >
+                {isToolbarVisible ? (
+                  <PanelBottomClose className="size-4" />
+                ) : (
+                  <PanelBottomOpen className="size-4" />
+                )}
+              </button>
+            )}
+
             <button
               type="button"
-              disabled={disabled}
-              onClick={() => setIsToolbarVisible((value) => !value)}
-              aria-label={
-                isToolbarVisible
-                  ? "Hide formatting toolbar"
-                  : "Show formatting toolbar"
+              disabled={disabled || !canSwitchToRich}
+              onClick={
+                mode === "rich" ? switchToMarkdownMode : switchToRichMode
               }
-              title={isToolbarVisible ? "Hide formatting" : "Show formatting"}
-              className="text-muted-foreground hover:bg-primary/20 flex size-7 items-center justify-center rounded-lg"
+              aria-label={
+                mode === "rich"
+                  ? "Switch to markdown mode"
+                  : "Switch to rich text mode"
+              }
+              title={
+                mode === "rich"
+                  ? "Switch to markdown"
+                  : canSwitchToRich
+                    ? "Switch to rich text"
+                    : "This uses formatting the rich text editor can't show"
+              }
+              className="text-muted-foreground hover:bg-primary/20 flex items-center gap-1 rounded-lg px-2 py-1 text-xs disabled:opacity-50 disabled:hover:bg-transparent"
             >
-              {isToolbarVisible ? (
-                <PanelBottomClose className="size-4" />
+              {mode === "rich" ? (
+                <>
+                  <Code2 className="size-3.5" />
+                  Markdown
+                </>
               ) : (
-                <PanelBottomOpen className="size-4" />
+                <>
+                  <Pilcrow className="size-3.5" />
+                  Rich text
+                </>
               )}
             </button>
-          ) : (
-            <span />
-          )}
 
-          <button
-            type="button"
-            disabled={disabled || !canSwitchToRich}
-            onClick={mode === "rich" ? switchToMarkdownMode : switchToRichMode}
-            aria-label={
-              mode === "rich"
-                ? "Switch to markdown mode"
-                : "Switch to rich text mode"
-            }
-            title={
-              mode === "rich"
-                ? "Switch to markdown"
-                : canSwitchToRich
-                  ? "Switch to rich text"
-                  : "This uses formatting the rich text editor can't show"
-            }
-            className="text-muted-foreground hover:bg-primary/20 flex items-center gap-1 rounded-lg px-2 py-1 text-xs disabled:opacity-50 disabled:hover:bg-transparent"
-          >
-            {mode === "rich" ? (
-              <>
-                <Code2 className="size-3.5" />
-                Markdown
-              </>
-            ) : (
-              <>
-                <Pilcrow className="size-3.5" />
-                Rich text
-              </>
-            )}
-          </button>
-        </div>
+            <div className="ml-auto flex items-center gap-1">{actions}</div>
+          </div>
+        )}
       </div>
       <TreeViewPlugin className="hidden" />
     </LexicalComposer>

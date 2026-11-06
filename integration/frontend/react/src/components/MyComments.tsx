@@ -431,6 +431,7 @@ export function ThreadFSMyComments({
                         currentUser={currentUserForEditor}
                         submitLabel="Save"
                         placeholder="Edit your comment..."
+                        startOpen
                         initialMarkdown={comment.content}
                         onSubmit={(body) => handleEdit(comment.id, body)}
                         onAuthRequired={onAuthRequired}

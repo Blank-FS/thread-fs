@@ -255,6 +255,7 @@ function CommentCard({
                 authorProfileUrl={authorProfileUrl}
                 submitLabel="Save"
                 placeholder="Edit your comment..."
+                startOpen
                 disabled={!canReply}
                 initialMarkdown={comment.content}
                 onSubmit={async (body) => {
@@ -386,6 +387,7 @@ function CommentCard({
                 authorProfileUrl={authorProfileUrl}
                 submitLabel="Reply"
                 placeholder={`Reply to ${displayName}...`}
+                startOpen
                 disabled={!canReply}
                 onSubmit={async (body) => {
                   await onReply(comment.id, body);
