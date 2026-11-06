@@ -20,6 +20,7 @@ import {
   updateComment,
   voteComment,
 } from "../lib/api";
+import { hideComment, type CommentRemoval } from "../lib/moderationApi";
 import {
   CommentSort,
   PageResponse,
@@ -42,7 +43,7 @@ export type ThreadFSCommentsProps = {
   communityKey: string;
   threadId: string;
 
-  authToken?: string | null;
+  /** A token with a threadfs_role claim also gives the viewer a Remove action on comments. */
   getAuthToken?: () => Promise<string | null>;
 
   onAuthRequired?: () => void;
@@ -62,7 +63,6 @@ export function ThreadFSComments({
   apiBaseUrl,
   communityKey,
   threadId,
-  authToken,
   getAuthToken,
   onAuthRequired,
   authorProfileUrl,
@@ -86,7 +86,7 @@ export function ThreadFSComments({
   const [me, setMe] = useState<EmbedMe | null>(null);
   const [reportReasons, setReportReasons] = useState<ThreadFSReason[]>([]);
   const [resolvedAuthToken, setResolvedAuthToken] = useState<string | null>(
-    authToken ?? null,
+    null,
   );
 
   const currentUserForEditor: ThreadFSCommentUser | null = me?.authenticated
@@ -100,20 +100,10 @@ export function ThreadFSComments({
     : null;
 
   const resolveAuthToken = useCallback(async (): Promise<string | null> => {
-    if (authToken) {
-      setResolvedAuthToken(authToken);
-      return authToken;
-    }
-
-    if (!getAuthToken) {
-      setResolvedAuthToken(null);
-      return null;
-    }
-
-    const token = await getAuthToken();
+    const token = (await getAuthToken?.()) ?? null;
     setResolvedAuthToken(token);
     return token;
-  }, [authToken, getAuthToken]);
+  }, [getAuthToken]);
 
   const requestContext = useMemo(
     () => ({
@@ -198,16 +188,6 @@ export function ThreadFSComments({
     };
   }, [apiBaseUrl, communityKey, threadId, pageSize, resolveAuthToken]);
 
-  async function refreshAuthToken(): Promise<string | null> {
-    if (!getAuthToken) {
-      return authToken ?? resolvedAuthToken;
-    }
-
-    const token = await getAuthToken();
-    setResolvedAuthToken(token);
-    return token;
-  }
-
   async function withAuthRetry<T>(
     action: (ctx: ThreadFSRequestContext) => Promise<T>,
   ): Promise<T> {
@@ -218,7 +198,7 @@ export function ThreadFSComments({
         throw err;
       }
 
-      const freshToken = await refreshAuthToken();
+      const freshToken = await resolveAuthToken();
 
       if (!freshToken) {
         setMe(null);
@@ -454,6 +434,14 @@ export function ThreadFSComments({
     }
   }
 
+  async function handleRemove(commentId: string, removal: CommentRemoval) {
+    const removed = await withAuthRetry((ctx) =>
+      hideComment(ctx, commentId, removal),
+    );
+
+    setComments((current) => replaceCommentInTree(current, removed));
+  }
+
   function attachReplies(
     comments: ThreadFSComment[],
     parentId: string,
@@ -594,6 +582,7 @@ export function ThreadFSComments({
                     onDelete={handleDeleteComment}
                     onReport={handleReport}
                     reportReasons={reportReasons}
+                    onRemove={me?.staff_role ? handleRemove : undefined}
                     onLoadReplies={handleLoadReplies}
                     onLoadMoreReplies={handleLoadMoreReplies}
                     onAuthRequired={onAuthRequired}

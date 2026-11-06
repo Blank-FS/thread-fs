@@ -1,5 +1,6 @@
 import { ArrowBigDown, ArrowBigUp, ChevronDown, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CommentRemoval } from "../../lib/moderationApi";
 import type {
   ThreadFSComment,
   ThreadFSCommentUser,
@@ -19,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import CommentTimestamp from "./CommentTimestamp";
+import RemoveCommentForm from "./RemoveCommentForm";
 import ThreadConnector from "./ThreadConnector";
 
 type CommentCardProps = {
@@ -35,6 +37,8 @@ type CommentCardProps = {
   /** Resolves to whether the report went through. */
   onReport?: (commentId: string, reason: string) => Promise<boolean>;
   reportReasons?: ThreadFSReason[];
+  /** Only passed for moderators. */
+  onRemove?: (commentId: string, removal: CommentRemoval) => Promise<void>;
   onLoadReplies?: (parentId: string) => Promise<void> | void;
   onLoadMoreReplies?: (parentId: string) => Promise<void> | void;
   onAuthRequired?: () => void;
@@ -60,6 +64,7 @@ function CommentCard({
   onDelete,
   onReport,
   reportReasons = [],
+  onRemove,
   onLoadReplies,
   onLoadMoreReplies,
   onAuthRequired,
@@ -73,6 +78,7 @@ function CommentCard({
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isReported, setIsReported] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   const isDeleted = comment.status === "deleted";
   const isHidden = comment.status === "hidden";
@@ -317,6 +323,16 @@ function CommentCard({
                     Report
                   </button>
                 ))}
+              {!isOwnComment && onRemove && (
+                <button
+                  type="button"
+                  aria-expanded={isRemoving}
+                  onClick={() => setIsRemoving((value) => !value)}
+                  className="hover:cursor-pointer hover:text-rose-500 hover:underline"
+                >
+                  Remove
+                </button>
+              )}
               {isOwnComment && (
                 <>
                   <button
@@ -351,6 +367,15 @@ function CommentCard({
                 </>
               )}
             </div>
+          )}
+
+          {isRemoving && onRemove && comment.status === "visible" && (
+            <RemoveCommentForm
+              authorName={displayName}
+              reasons={reportReasons}
+              onRemove={(removal) => onRemove(comment.id, removal)}
+              onCancel={() => setIsRemoving(false)}
+            />
           )}
 
           {isReplying && (
@@ -431,6 +456,7 @@ function CommentCard({
                 onDelete={onDelete}
                 onReport={onReport}
                 reportReasons={reportReasons}
+                onRemove={onRemove}
                 onLoadReplies={onLoadReplies}
                 onLoadMoreReplies={onLoadMoreReplies}
                 onAuthRequired={onAuthRequired}

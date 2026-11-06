@@ -119,15 +119,17 @@ export const searchComments = (
   });
 };
 
+export type CommentRemoval = {
+  reasonKey: string | null;
+  note: string | null;
+  ban: boolean;
+  banExpiresAt: string | null;
+};
+
 export const hideComment = (
   ctx: ThreadFSRequestContext,
   commentId: string | number,
-  payload: {
-    reasonKey: string | null;
-    note: string | null;
-    ban: boolean;
-    banExpiresAt: string | null;
-  },
+  payload: CommentRemoval,
 ) =>
   post<ModerationComment>(ctx, `/comments/${commentId}/hide`, {
     reason_key: payload.reasonKey,

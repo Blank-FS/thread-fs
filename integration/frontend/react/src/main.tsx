@@ -15,6 +15,7 @@ const communityKey = env.VITE_THREADFS_COMMUNITY_KEY;
 const threadId = env.VITE_THREADFS_THREAD_ID;
 const externalUserId = env.VITE_THREADFS_EXTERNAL_USER_ID;
 const authToken = env.VITE_THREADFS_AUTH_TOKEN || undefined;
+const getDemoToken = async () => authToken ?? null;
 
 function App() {
   return (
@@ -37,7 +38,7 @@ function App() {
             apiBaseUrl={apiBaseUrl}
             communityKey={communityKey}
             threadId={threadId}
-            authToken={authToken}
+            getAuthToken={getDemoToken}
             authorProfileUrl={(user) =>
               user.external_user_id ? `/users/${user.external_user_id}` : null
             }

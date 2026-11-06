@@ -100,7 +100,6 @@ type ThreadFSCommentsProps = {
   communityKey: string;
   threadId: string;
 
-  authToken?: string | null;
   getAuthToken?: () => Promise<string | null>;
 
   title?: string;
@@ -165,13 +164,7 @@ getAuthToken={async () => {
 }}
 ```
 
-Use this instead of hardcoding an `authToken`.
-
-### `authToken`
-
-A direct token value. Useful for local development, demos, or tests.
-
-For production, prefer `getAuthToken`.
+For local development, demos, or tests, it can return a fixed token.
 
 ### `onAuthRequired`
 
@@ -325,6 +318,8 @@ Every rule in the stylesheet applies only inside `.threadfs-root` (`postcss-scop
 ## Moderation
 
 Comments get a Report action, and a comment moderators removed shows as `[removed]`, except to its author. Pass `source` and `client` to `ThreadFSComments` to record where comments come from.
+
+A viewer whose `getAuthToken` token carries a `threadfs_role` claim gets a Remove action on comments, so moderators can act where they read. Only sign that claim for your own staff, and stop signing it when their role ends.
 
 `ThreadFSModeration` is the moderators' screen: the report queue, removed comments, comment search, batch cleanup, users with their history and private notes, bans, and the action log.
 
