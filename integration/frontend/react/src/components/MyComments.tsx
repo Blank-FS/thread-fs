@@ -456,8 +456,8 @@ export function ThreadFSMyComments({
                   {isHidden && (
                     <p className="text-muted-foreground mt-2 text-xs italic">
                       Removed by a moderator
-                      {comment.removal_reason
-                        ? `: ${comment.removal_reason}`
+                      {(comment.removal_detail ?? comment.removal_reason)
+                        ? `: ${comment.removal_detail ?? comment.removal_reason}`
                         : ""}
                       . Only you can see this.
                     </p>

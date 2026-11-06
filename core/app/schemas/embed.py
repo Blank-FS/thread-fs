@@ -124,6 +124,7 @@ class CommentRead(BaseModel):
     status: str
     # Why moderators removed it: only its author gets this
     removal_reason: str | None = None
+    removal_detail: str | None = None
 
     upvote_count: int
     downvote_count: int
@@ -142,7 +143,7 @@ class CommentRead(BaseModel):
 class ReportRequest(BaseModel):
     # A key from the community's reasons
     reason: str = Field(min_length=1, max_length=64)
-    details: str | None = Field(default=None, max_length=1000)
+    details: str | None = Field(default=None, max_length=100)
 
 
 class CommentWithThreadRead(CommentRead):

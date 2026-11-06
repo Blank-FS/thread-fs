@@ -39,6 +39,9 @@ import {
   errorMessage,
   ErrorNote,
   ListBody,
+  MAX_REMOVAL_DETAIL,
+  OTHER_REASON,
+  OtherReasonInput,
   ReasonSelect,
   useModeration,
   usePagedList,
@@ -77,6 +80,7 @@ function SelectionBar({
   list,
   statusOf,
   reasonOf,
+  detailOf,
   onDismiss,
 }: {
   selection: ReturnType<typeof useSelection>;
@@ -84,10 +88,14 @@ function SelectionBar({
   statusOf: (id: string) => string | undefined;
   /** A comment's own reason, where it has one. */
   reasonOf?: (id: string) => string;
+  /** What a comment's own Other reason tells its author. */
+  detailOf?: (id: string) => string;
   onDismiss?: (ids: string[]) => Promise<unknown>;
 }) {
   const { request, syncOpenReports } = useModeration();
   const [reasonKey, setReasonKey] = useState(reasonOf ? EACH_REPORT : "");
+  const [reasonDetail, setReasonDetail] = useState("");
+  const isOther = reasonKey === OTHER_REASON;
   const ids = [...selection.selected];
   const removable = ids.filter((id) => statusOf(id) === "visible");
   const restorable = ids.filter((id) => statusOf(id) === "hidden");
@@ -111,22 +119,38 @@ function SelectionBar({
     );
 
   function remove(targets: string[]) {
-    // A batch takes one reason, so comments go in a batch per reason
-    const byReason = new Map<string, string[]>();
+    // A batch takes one reason, so comments go in a batch per reason and wording
+    const batches = new Map<
+      string,
+      { key: string; detail: string; commentIds: number[] }
+    >();
 
     for (const id of targets) {
-      const key = reasonKey === EACH_REPORT ? reasonOf!(id) : reasonKey;
-      byReason.set(key, [...(byReason.get(key) ?? []), id]);
+      const isEach = reasonKey === EACH_REPORT;
+      let key = isEach ? reasonOf!(id) : reasonKey;
+      let detail = "";
+
+      if (key === OTHER_REASON) {
+        detail = isEach ? (detailOf?.(id) ?? "") : reasonDetail.trim();
+        // An old report may not say why, and Other can't go to the author empty
+        if (!detail) key = "";
+      }
+
+      const batchKey = JSON.stringify([key, detail]);
+      const batch = batches.get(batchKey) ?? { key, detail, commentIds: [] };
+      batch.commentIds.push(Number(id));
+      batches.set(batchKey, batch);
     }
 
     return finish(() =>
       request((ctx) =>
         Promise.all(
-          [...byReason].map(([key, commentIds]) =>
+          [...batches.values()].map(({ key, detail, commentIds }) =>
             batchComments(ctx, {
               action: "hide",
-              commentIds: commentIds.map(Number),
+              commentIds,
               reasonKey: key || null,
+              reasonDetail: detail || null,
             }),
           ),
         ),
@@ -163,11 +187,18 @@ function SelectionBar({
                 }
                 className="w-48"
               />
+              {isOther && (
+                <OtherReasonInput
+                  value={reasonDetail}
+                  onChange={setReasonDetail}
+                  className="w-64"
+                />
+              )}
               <Button
                 type="button"
                 size="sm"
                 variant="destructive"
-                disabled={list.isBusy}
+                disabled={list.isBusy || (isOther && !reasonDetail.trim())}
                 className="hover:cursor-pointer"
                 onClick={() => void remove(removable)}
               >
@@ -219,6 +250,14 @@ function reportOutcomes(reports: CommentReport[]) {
 }
 
 /** The reason a reported comment's removal starts on: its most reported one still on the community's list. */
+/** What the latest Other report said, as a start for telling the author. Older reports could run longer. */
+function reportedDetail(reports: CommentReport[]) {
+  const report = reports.find(
+    ({ reason, details }) => reason === OTHER_REASON && details,
+  );
+  return report?.details?.slice(0, MAX_REMOVAL_DETAIL) ?? "";
+}
+
 function likelyReason(reports: CommentReport[], known: ThreadFSReason[]) {
   const counts = new Map<string, number>();
 
@@ -391,6 +430,7 @@ export function ReportsPanel() {
           list={list as PagedList<unknown>}
           statusOf={(id) => findEntry(id)?.comment.status}
           reasonOf={(id) => likelyReason(findEntry(id)?.reports ?? [], reasons)}
+          detailOf={(id) => reportedDetail(findEntry(id)?.reports ?? [])}
           onDismiss={reportStatus === "open" ? dismissAll : undefined}
         />
       )}
@@ -405,6 +445,7 @@ export function ReportsPanel() {
             isSelected={selection.selected.has(comment.id)}
             onSelect={(isOn) => selection.toggle(comment.id, isOn)}
             defaultReasonKey={likelyReason(reports, reasons)}
+            defaultReasonDetail={reportedDetail(reports)}
             extraActions={
               comment.status === "visible" &&
               (reportStatus === "closed" ? (
@@ -847,10 +888,12 @@ function BatchBar({
     matched: number;
   } | null>(null);
   const [reasonKey, setReasonKey] = useState("");
+  const [reasonDetail, setReasonDetail] = useState("");
   const [note, setNote] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const isOther = reasonKey === OTHER_REASON;
 
   // A preview only holds for the filters it counted
   useEffect(() => {
@@ -886,6 +929,8 @@ function BatchBar({
           action,
           filters,
           reasonKey: action === "hide" ? reasonKey || null : null,
+          reasonDetail:
+            action === "hide" && isOther ? reasonDetail.trim() : null,
           note: note.trim() || null,
         }),
       );
@@ -933,6 +978,12 @@ function BatchBar({
               {preview.action === "hide" && (
                 <ReasonSelect value={reasonKey} onChange={setReasonKey} />
               )}
+              {preview.action === "hide" && isOther && (
+                <OtherReasonInput
+                  value={reasonDetail}
+                  onChange={setReasonDetail}
+                />
+              )}
               <Input
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
@@ -947,7 +998,12 @@ function BatchBar({
                 type="button"
                 size="sm"
                 variant={preview.action === "hide" ? "destructive" : "default"}
-                disabled={isBusy}
+                disabled={
+                  isBusy ||
+                  (preview.action === "hide" &&
+                    isOther &&
+                    !reasonDetail.trim())
+                }
                 className="hover:cursor-pointer"
                 onClick={() => void confirm(preview.action)}
               >

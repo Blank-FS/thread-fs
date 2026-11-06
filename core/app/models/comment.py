@@ -73,6 +73,8 @@ class Comment(Base):
 
     # Why moderators removed it, shown to its author only
     removal_reason = Column(String(128), nullable=True)
+    # A moderator's own words to the author, when the reason is "other"
+    removal_detail = Column(String(200), nullable=True)
 
     upvote_count = Column(Integer, nullable=False, default=0)
     downvote_count = Column(Integer, nullable=False, default=0)

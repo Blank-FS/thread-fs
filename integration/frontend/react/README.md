@@ -333,7 +333,7 @@ A viewer whose `getAuthToken` token carries a `threadfs_role` claim gets a Remov
 
 The token must carry a `threadfs_role` claim of `moderator` or `admin`, signed by your server. Mint it only for your own staff, and add the moderation page's origin to the community's allowed origins.
 
-Each community has its own reasons, used for both reporting and removing comments, and the author of a removed comment sees the reason. A community without any uses the defaults: Spam, Harassment, Hate speech, Sexual content and Something else. An `admin` token can edit the list in the widget's settings, or through the API:
+Each community has its own reasons, used for both reporting and removing comments, and the author of a removed comment sees the reason. A community without any uses the defaults: Spam, Harassment or bullying, Hate speech, Threats or violence, Personal information, Sexual content, Off topic and Other. A reason with the key `other` has no meaning of its own: a report with it needs a description of up to 100 characters, and a removal with it needs up to 200 characters telling the author why, starting from what the report said. An `admin` token can edit the list in the widget's settings, or through the API:
 
 ```
 PUT /api/v1/moderation/reasons

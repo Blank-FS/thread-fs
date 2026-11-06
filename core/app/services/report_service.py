@@ -39,6 +39,13 @@ async def report_comment(
 
     community_reason = await reason_service.require_reason(session, community.id, reason)
 
+    details = details.strip() if details else None
+    if community_reason.key == reason_service.OTHER_REASON and not details:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Describe what's wrong with this comment",
+        )
+
     existing = await session.execute(
         select(CommentReport.id).where(
             CommentReport.comment_id == comment_id,

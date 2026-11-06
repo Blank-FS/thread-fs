@@ -326,14 +326,27 @@ async def _load_comment(session: AsyncSession, comment_id: int) -> Comment:
     return comment
 
 
-def _log_reason(label: str | None, note: str | None) -> str | None:
-    return ": ".join(part for part in (label, note) if part) or None
+def _log_reason(*parts: str | None) -> str | None:
+    return ": ".join(part for part in parts if part) or None
 
 
 async def _removal_label(session: AsyncSession, community: Community, reason_key: str | None) -> str | None:
     if not reason_key:
         return None
     return (await reason_service.require_reason(session, community.id, reason_key)).label
+
+
+def _removal_detail(reason_key: str | None, detail: str | None) -> str | None:
+    if reason_key != reason_service.OTHER_REASON:
+        return None
+
+    detail = detail.strip() if detail else None
+    if not detail:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Tell the author why this comment was removed",
+        )
+    return detail
 
 
 async def _comment_in_community(session: AsyncSession, community: Community, comment_id: int) -> Comment:
@@ -370,6 +383,7 @@ async def hide_comment(
     comment_id: int,
     reason_key: str | None,
     note: str | None,
+    reason_detail: str | None = None,
     ban: bool = False,
     ban_expires_at: datetime | None = None,
 ) -> Comment:
@@ -378,7 +392,8 @@ async def hide_comment(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Comment isn't visible")
 
     label = await _removal_label(session, community, reason_key)
-    reason = _log_reason(label, note)
+    detail = _removal_detail(reason_key, reason_detail)
+    reason = _log_reason(label, detail, note)
 
     if ban:
         _require_future(ban_expires_at)
@@ -388,6 +403,7 @@ async def hide_comment(
 
     comment.status = "hidden"
     comment.removal_reason = label
+    comment.removal_detail = detail
     comment.modified_at = utc_now()
     _log(
         session,
@@ -418,6 +434,7 @@ async def restore_comment(
 
     comment.status = "visible"
     comment.removal_reason = None
+    comment.removal_detail = None
     comment.modified_at = utc_now()
     _log(
         session,
@@ -443,6 +460,7 @@ async def batch_comments(
     reason_key: str | None,
     note: str | None,
     dry_run: bool,
+    reason_detail: str | None = None,
 ) -> tuple[int, int]:
     """Hides or restores everything matching the filters: the cleanup for a site or user gone wrong. Every comment gets
     its own log entry, so a batch can be reviewed, and the same filters with "restore" undo it."""
@@ -453,12 +471,14 @@ async def batch_comments(
         return len(comments), 0
 
     label = await _removal_label(session, community, reason_key) if action == "hide" else None
-    reason = _log_reason(label, note)
+    detail = _removal_detail(reason_key, reason_detail) if action == "hide" else None
+    reason = _log_reason(label, detail, note)
 
     now = utc_now()
     for comment in comments:
         comment.status = to_status
         comment.removal_reason = label
+        comment.removal_detail = detail
         comment.modified_at = now
         _log(
             session,

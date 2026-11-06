@@ -69,6 +69,8 @@ export type ThreadFSComment = {
   status: string;
   /** Why moderators removed it. Only its author gets this. */
   removal_reason?: string | null;
+  /** The moderator's own words, when the reason is "other". */
+  removal_detail?: string | null;
 
   upvote_count: number;
   downvote_count: number;

@@ -32,6 +32,8 @@ import { Input } from "../ui/input";
 import {
   banExpiry,
   BanLengthSelect,
+  OTHER_REASON,
+  OtherReasonInput,
   ReasonSelect,
   useModeration,
   UserAvatar,
@@ -47,6 +49,7 @@ export function CommentRow({
   isSelected,
   onSelect,
   defaultReasonKey = "",
+  defaultReasonDetail = "",
   extraActions,
   children,
 }: {
@@ -58,6 +61,8 @@ export function CommentRow({
   onSelect?: (selected: boolean) => void;
   /** The reason the Remove form starts on. */
   defaultReasonKey?: string;
+  /** What the author is told if the reason is Other. */
+  defaultReasonDetail?: string;
   extraActions?: ReactNode;
   children?: ReactNode;
 }) {
@@ -65,11 +70,13 @@ export function CommentRow({
     useModeration();
   const [isRemoving, setIsRemoving] = useState(false);
   const [reasonKey, setReasonKey] = useState("");
+  const [reasonDetail, setReasonDetail] = useState("");
   const [note, setNote] = useState("");
   const [alsoBan, setAlsoBan] = useState(false);
   const [banDays, setBanDays] = useState("7");
   const [isBusy, setIsBusy] = useState(false);
 
+  const isOther = reasonKey === OTHER_REASON;
   const user = comment.community_user ?? null;
   const thread = comment.thread ?? null;
   const parent = comment.parent ?? null;
@@ -93,6 +100,7 @@ export function CommentRow({
         await request((ctx) =>
           hideComment(ctx, comment.id, {
             reasonKey: reasonKey || null,
+            reasonDetail: isOther ? reasonDetail.trim() : null,
             note: note.trim() || null,
             ban: alsoBan,
             banExpiresAt: alsoBan ? banExpiry(banDays) : null,
@@ -291,6 +299,7 @@ export function CommentRow({
                   aria-expanded={isRemoving}
                   onClick={() => {
                     setReasonKey(defaultReasonKey);
+                    setReasonDetail(defaultReasonDetail);
                     setIsRemoving((value) => !value);
                   }}
                 >
@@ -354,6 +363,12 @@ export function CommentRow({
                   className="md:text-sm"
                 />
               </div>
+              {isOther && (
+                <OtherReasonInput
+                  value={reasonDetail}
+                  onChange={setReasonDetail}
+                />
+              )}
               <div className="flex flex-wrap items-center gap-3">
                 <label className="flex items-center gap-2 text-sm hover:cursor-pointer">
                   <Checkbox
@@ -373,7 +388,7 @@ export function CommentRow({
                   type="submit"
                   size="sm"
                   variant="destructive"
-                  disabled={isBusy}
+                  disabled={isBusy || (isOther && !reasonDetail.trim())}
                   className="ml-auto hover:cursor-pointer"
                 >
                   {alsoBan ? "Remove and ban" : "Remove comment"}

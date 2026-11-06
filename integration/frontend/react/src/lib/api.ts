@@ -224,6 +224,7 @@ export async function reportComment(
   ctx: ThreadFSRequestContext,
   commentId: string | number,
   reason: string,
+  details?: string,
 ): Promise<void> {
   const apiBaseUrl = normalizeApiBaseUrl(ctx.apiBaseUrl);
 
@@ -235,7 +236,7 @@ export async function reportComment(
         ...buildHeaders(ctx),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify({ reason, details }),
     },
   );
 

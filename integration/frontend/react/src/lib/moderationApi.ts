@@ -121,6 +121,7 @@ export const searchComments = (
 
 export type CommentRemoval = {
   reasonKey: string | null;
+  reasonDetail: string | null;
   note: string | null;
   ban: boolean;
   banExpiresAt: string | null;
@@ -133,6 +134,7 @@ export const hideComment = (
 ) =>
   post<ModerationComment>(ctx, `/comments/${commentId}/hide`, {
     reason_key: payload.reasonKey,
+    reason_detail: payload.reasonDetail,
     note: payload.note,
     ban: payload.ban,
     ban_expires_at: payload.banExpiresAt,
@@ -150,6 +152,7 @@ export const batchComments = (
     filters?: CommentFilters;
     commentIds?: number[];
     reasonKey?: string | null;
+    reasonDetail?: string | null;
     note?: string | null;
     dryRun?: boolean;
   },
@@ -159,6 +162,7 @@ export const batchComments = (
     comment_ids: params.commentIds ?? null,
     action: params.action,
     reason_key: params.reasonKey ?? null,
+    reason_detail: params.reasonDetail ?? null,
     note: params.note ?? null,
     dry_run: params.dryRun ?? false,
   });

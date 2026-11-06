@@ -423,10 +423,16 @@ export function ThreadFSComments({
     }
   }
 
-  async function handleReport(commentId: string, reason: string) {
+  async function handleReport(
+    commentId: string,
+    reason: string,
+    details?: string,
+  ) {
     try {
       setError(null);
-      await withAuthRetry((ctx) => reportComment(ctx, commentId, reason));
+      await withAuthRetry((ctx) =>
+        reportComment(ctx, commentId, reason, details),
+      );
       return true;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to report comment");

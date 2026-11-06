@@ -28,6 +28,7 @@ export default function CommentActionsMenu({
   onReport,
   onRemove,
   onAuthRequired,
+  onCloseAutoFocus,
 }: {
   isOwnComment: boolean;
   /** Whether the viewer is signed in, and so can pick a reason. */
@@ -41,6 +42,8 @@ export default function CommentActionsMenu({
   /** Only passed for moderators. */
   onRemove?: () => void;
   onAuthRequired?: () => void;
+  /** Lets an action that opens a form keep focus, instead of it returning to the menu's button. */
+  onCloseAutoFocus?: (event: Event) => void;
 }) {
   // The reasons replace the menu rather than open beside it: a narrow panel has no room for a second one
   const [isChoosingReason, setIsChoosingReason] = useState(false);
@@ -70,7 +73,11 @@ export default function CommentActionsMenu({
       >
         <MoreHorizontal className="size-4" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48">
+      <DropdownMenuContent
+        align="start"
+        className="w-48"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <div ref={itemsRef}>
           {isChoosingReason ? (
             <>

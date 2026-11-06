@@ -6,6 +6,8 @@ import {
   BanLengthSelect,
   ChoiceSelect,
   errorMessage,
+  OTHER_REASON,
+  OtherReasonInput,
 } from "../moderation/shared";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
@@ -24,11 +26,14 @@ export default function RemoveCommentForm({
   onCancel: () => void;
 }) {
   const [reasonKey, setReasonKey] = useState("");
+  const [reasonDetail, setReasonDetail] = useState("");
   const [note, setNote] = useState("");
   const [alsoBan, setAlsoBan] = useState(false);
   const [banDays, setBanDays] = useState("7");
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isOther = reasonKey === OTHER_REASON;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -38,6 +43,7 @@ export default function RemoveCommentForm({
       setError(null);
       await onRemove({
         reasonKey: reasonKey || null,
+        reasonDetail: isOther ? reasonDetail.trim() : null,
         note: note.trim() || null,
         ban: alsoBan,
         banExpiresAt: alsoBan ? banExpiry(banDays) : null,
@@ -63,6 +69,9 @@ export default function RemoveCommentForm({
           ...reasons.map(({ key, label }) => ({ value: key, label })),
         ]}
       />
+      {isOther && (
+        <OtherReasonInput value={reasonDetail} onChange={setReasonDetail} />
+      )}
       <Input
         value={note}
         onChange={(event) => setNote(event.target.value)}
@@ -103,7 +112,7 @@ export default function RemoveCommentForm({
           type="submit"
           size="sm"
           variant="destructive"
-          disabled={isBusy}
+          disabled={isBusy || (isOther && !reasonDetail.trim())}
           className="hover:cursor-pointer"
         >
           {alsoBan ? "Remove and ban" : "Remove comment"}

@@ -16,13 +16,19 @@ class Reason:
     label: str
 
 
+# The reason itself says nothing, so a report with it has to say what's wrong, and a removal has to tell the author why
+OTHER_REASON = "other"
+
 # Reasons that make sense anywhere. Anything specific to a community belongs in its own list.
 DEFAULT_REASONS = [
     Reason("spam", "Spam"),
-    Reason("harassment", "Harassment"),
+    Reason("harassment", "Harassment or bullying"),
     Reason("hate", "Hate speech"),
+    Reason("violence", "Threats or violence"),
+    Reason("personal_info", "Personal information"),
     Reason("sexual", "Sexual content"),
-    Reason("other", "Something else"),
+    Reason("off_topic", "Off topic"),
+    Reason(OTHER_REASON, "Other"),
 ]
 
 

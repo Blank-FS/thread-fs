@@ -158,6 +158,7 @@ async def batch_comments(
         filters=payload,
         action=payload.action,
         reason_key=payload.reason_key,
+        reason_detail=payload.reason_detail,
         note=payload.note,
         dry_run=payload.dry_run,
     )
@@ -177,6 +178,7 @@ async def hide_comment(
         moderator=context[1],
         comment_id=comment_id,
         reason_key=payload.reason_key,
+        reason_detail=payload.reason_detail,
         note=payload.note,
         ban=payload.ban,
         ban_expires_at=payload.ban_expires_at,

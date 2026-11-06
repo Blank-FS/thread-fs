@@ -20,6 +20,7 @@ import type {
   ThreadFSThread,
 } from "../../lib/types";
 import { cn } from "../../lib/utils";
+import { Input } from "../ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Button } from "../ui/button";
 import {
@@ -67,6 +68,8 @@ export function useModeration() {
 /** The widget's main action, in the community's accent colour. */
 export const brandButtonClass =
   "bg-tfs-brand-strong dark:bg-tfs-brand text-white hover:opacity-90 hover:cursor-pointer dark:text-black";
+
+export const MAX_REMOVAL_DETAIL = 200;
 
 export const BAN_LENGTHS = [
   { label: "1 day", value: "1" },
@@ -173,6 +176,30 @@ export function ReasonSelect({
         { value: "", label: "No reason given" },
         ...reasons.map(({ key, label }) => ({ value: key, label })),
       ]}
+    />
+  );
+}
+
+/** The reason that has no meaning of its own, so a moderator writes what the author sees. */
+export const OTHER_REASON = "other";
+
+export function OtherReasonInput({
+  value,
+  onChange,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  return (
+    <Input
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      aria-label="Why it was removed, shown to the author"
+      placeholder="Tell the author why it was removed"
+      maxLength={MAX_REMOVAL_DETAIL}
+      className={cn("md:text-sm", className)}
     />
   );
 }

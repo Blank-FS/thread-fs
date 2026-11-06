@@ -67,6 +67,8 @@ class RemoveRequest(BaseModel):
 
     # A key from the community's reasons; its label is what the author sees
     reason_key: str | None = Field(default=None, max_length=64)
+    # What the author sees instead of the label, when the reason is "other"
+    reason_detail: str | None = Field(default=None, max_length=200)
     # Stays private, in the moderation log
     note: str | None = Field(default=None, max_length=1000)
     ban: bool = False
@@ -96,6 +98,7 @@ class BatchRequest(CommentFilters):
 
     action: Literal["hide", "restore"]
     reason_key: str | None = Field(default=None, max_length=64)
+    reason_detail: str | None = Field(default=None, max_length=200)
     note: str | None = Field(default=None, max_length=1000)
     dry_run: bool = False
 

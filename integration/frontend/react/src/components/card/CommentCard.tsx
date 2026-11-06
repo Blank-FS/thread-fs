@@ -17,11 +17,13 @@ import defaultAvatarUrl from "../assets/default-avatar.svg";
 import { CollapsibleContent } from "../common/CollapsibleContent";
 import { MarkdownContent } from "../common/MarkdownContent";
 import CommentEditor from "../editor/CommentEditor";
+import { OTHER_REASON } from "../moderation/shared";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import CommentActionsMenu from "./CommentActionsMenu";
 import CommentTimestamp from "./CommentTimestamp";
 import RemoveCommentForm from "./RemoveCommentForm";
+import ReportDetailsForm from "./ReportDetailsForm";
 import ThreadConnector from "./ThreadConnector";
 
 type CommentCardProps = {
@@ -36,7 +38,11 @@ type CommentCardProps = {
   onEdit?: (commentId: string, body: string) => Promise<void> | void;
   onDelete?: (commentId: string) => Promise<void> | void;
   /** Resolves to whether the report went through. */
-  onReport?: (commentId: string, reason: string) => Promise<boolean>;
+  onReport?: (
+    commentId: string,
+    reason: string,
+    details?: string,
+  ) => Promise<boolean>;
   reportReasons?: ThreadFSReason[];
   /** Only passed for moderators. */
   onRemove?: (commentId: string, removal: CommentRemoval) => Promise<void>;
@@ -79,6 +85,8 @@ function CommentCard({
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isReported, setIsReported] = useState(false);
+  const [isDescribingReport, setIsDescribingReport] = useState(false);
+  const reportFormRef = useRef<HTMLDivElement>(null);
   const [isRemoving, setIsRemoving] = useState(false);
 
   const isDeleted = comment.status === "deleted";
@@ -108,6 +116,7 @@ function CommentCard({
 
   // The server leaves a removed comment's text out for everyone but its author
   const isRemovedForViewer = isHidden && !isOwnComment;
+  const removalReason = comment.removal_detail ?? comment.removal_reason;
 
   const hasReplies = comment.reply_count > 0;
   const loadedReplies = comment.replies ?? [];
@@ -142,9 +151,10 @@ function CommentCard({
     setIsReplying((value) => !value);
   }
 
-  async function handleReport(reason: string) {
-    if (await onReport?.(comment.id, reason)) {
+  async function handleReport(reason: string, details?: string) {
+    if (await onReport?.(comment.id, reason, details)) {
       setIsReported(true);
+      setIsDescribingReport(false);
     }
   }
 
@@ -257,8 +267,8 @@ function CommentCard({
           {isHidden && isOwnComment && (
             <p className="text-muted-foreground mt-2 text-xs italic">
               Removed by a moderator
-              {comment.removal_reason ? `: ${comment.removal_reason}` : ""}.
-              Only you can see this.
+              {removalReason ? `: ${removalReason}` : ""}. Only you can see
+              this.
             </p>
           )}
 
@@ -314,9 +324,29 @@ function CommentCard({
                 isDeleting={isDeleting}
                 onEdit={() => setIsEditing(true)}
                 onDelete={() => void handleDelete()}
-                onReport={onReport && ((reason) => void handleReport(reason))}
+                onReport={
+                  onReport &&
+                  ((reason) =>
+                    reason === OTHER_REASON
+                      ? setIsDescribingReport(true)
+                      : void handleReport(reason))
+                }
                 onRemove={onRemove && (() => setIsRemoving(true))}
                 onAuthRequired={onAuthRequired}
+                onCloseAutoFocus={(event) => {
+                  if (!isDescribingReport) return;
+                  event.preventDefault();
+                  reportFormRef.current?.querySelector("textarea")?.focus();
+                }}
+              />
+            </div>
+          )}
+
+          {isDescribingReport && comment.status === "visible" && (
+            <div ref={reportFormRef}>
+              <ReportDetailsForm
+                onReport={(details) => handleReport(OTHER_REASON, details)}
+                onCancel={() => setIsDescribingReport(false)}
               />
             </div>
           )}

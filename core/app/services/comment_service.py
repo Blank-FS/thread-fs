@@ -225,6 +225,7 @@ def present_comments(comments, viewer) -> list[CommentRead]:
         ):
             comment.content = ""
             comment.removal_reason = None
+            comment.removal_detail = None
             comment.community_user = None
             comment.community_user_id = None
             comment.upvote_count = 0
