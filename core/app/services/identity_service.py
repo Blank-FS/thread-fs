@@ -28,6 +28,7 @@ class VerifiedIdentity:
         external_user_id: str,
         display_name: str | None,
         avatar_url: str | None,
+        updates_avatar: bool = False,
         threadfs_user_id: UUID | None = None,
         staff_role: str | None = None,
         signed_threads: bool = False,
@@ -37,6 +38,7 @@ class VerifiedIdentity:
         self.external_user_id = external_user_id
         self.display_name = display_name
         self.avatar_url = avatar_url
+        self.updates_avatar = updates_avatar
         self.threadfs_user_id = threadfs_user_id
         self.staff_role = staff_role
         self.signed_threads = signed_threads
@@ -149,6 +151,8 @@ async def verify_external_identity_token(
 
     display_name = claims.get("name") or claims.get("username")
     avatar_url = claims.get("avatar_url")
+    # A null avatar means the user has none, so it clears the stored one. A token without the claim says nothing about it
+    updates_avatar = "avatar_url" in claims and (avatar_url is None or isinstance(avatar_url, str))
 
     if display_name is not None and not isinstance(display_name, str):
         display_name = None
@@ -161,6 +165,7 @@ async def verify_external_identity_token(
         external_user_id=subject,
         display_name=display_name,
         avatar_url=avatar_url,
+        updates_avatar=updates_avatar,
         staff_role=claims.get(STAFF_ROLE_CLAIM)
         if claims.get(STAFF_ROLE_CLAIM) in STAFF_ROLES
         else None,
@@ -189,7 +194,7 @@ async def get_or_create_community_user_for_identity(
             existing.display_name = identity.display_name
             changed = True
 
-        if identity.avatar_url and existing.avatar_url != identity.avatar_url:
+        if identity.updates_avatar and existing.avatar_url != identity.avatar_url:
             existing.avatar_url = identity.avatar_url
             changed = True
 
