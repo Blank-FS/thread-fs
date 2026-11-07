@@ -5,7 +5,7 @@ import {
   CircleMinus,
   CirclePlus,
   CornerDownRight,
-  MessageSquare,
+  Reply,
 } from "lucide-react";
 import {
   useCallback,
@@ -380,7 +380,7 @@ function CommentCard({
             )}
 
             {comment.status === "visible" && (
-              <div className="text-muted-foreground relative mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium">
+              <div className="text-muted-foreground relative mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium">
                 {collapseButton}
                 <button
                   type="button"
@@ -424,7 +424,7 @@ function CommentCard({
                     onClick={handleReplyClick}
                     className="hover:text-tfs-brand-strong dark:hover:text-tfs-brand flex items-center gap-1 hover:cursor-pointer"
                   >
-                    <MessageSquare className="size-4" />
+                    <Reply className="size-4" />
                     Reply
                   </button>
                 )}
