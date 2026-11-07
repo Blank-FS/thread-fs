@@ -229,6 +229,13 @@ async def seed_demo_comments(session: AsyncSession) -> None:
             "up": 1,
             "down": 0,
         },
+        {
+            "author": 4,
+            "minutes_ago": 1,
+            "content": "No avatar of my own, so I get the default one.",
+            "up": 2,
+            "down": 0,
+        },
     ]
 
     top_comments: list[Comment] = []
@@ -304,8 +311,8 @@ async def _seed_demo_community_users(
     )
     users = list(existing.scalars().all())
 
-    if len(users) >= 4:
-        return users[:4]
+    if len(users) >= 5:
+        return users[:5]
 
     demo_users = [
         {
@@ -327,6 +334,11 @@ async def _seed_demo_community_users(
             "external_user_id": "demo-user-4",
             "display_name": "Violet",
             "avatar_url": "https://api.dicebear.com/8.x/initials/svg?seed=Violet",
+        },
+        {
+            "external_user_id": "demo-user-5",
+            "display_name": "Nova",
+            "avatar_url": None,
         },
     ]
 

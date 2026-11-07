@@ -22,7 +22,7 @@ import type {
   ThreadFSReason,
 } from "../../lib/types";
 import { cn } from "../../lib/utils";
-import defaultAvatarUrl from "../assets/default-avatar.svg";
+import defaultAvatarUrl from "../assets/default-avatar.png";
 import { CollapsibleContent } from "../common/CollapsibleContent";
 import { MarkdownContent } from "../common/MarkdownContent";
 import CommentEditor from "../editor/CommentEditor";
@@ -702,18 +702,7 @@ function getDisplayName(comment: ThreadFSComment): string {
 }
 
 function getAvatarUrl(comment: ThreadFSComment): string {
-  if (comment.status === "hidden" && !comment.community_user) {
-    return defaultAvatarUrl;
-  }
-
-  const displayName = getDisplayName(comment);
-
-  return (
-    comment.community_user?.avatar_url ||
-    `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(
-      displayName,
-    )}`
-  );
+  return comment.community_user?.avatar_url || defaultAvatarUrl;
 }
 
 function getReplyIndentClass(depth: number): string {

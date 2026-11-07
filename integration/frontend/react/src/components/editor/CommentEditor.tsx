@@ -2,7 +2,7 @@ import type { ThreadFSCommentUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ScrollText } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import defaultAvatarUrl from "../assets/default-avatar.svg";
+import defaultAvatarUrl from "../assets/default-avatar.png";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
@@ -104,6 +104,10 @@ function CommentEditor({
   const avatar = (
     <img
       src={currentUserAvatarUrl ?? defaultAvatarUrl}
+      onError={(e) => {
+        e.currentTarget.src = defaultAvatarUrl;
+        e.currentTarget.onerror = null;
+      }}
       alt={currentUsername ? `${currentUsername}'s avatar` : "Default avatar"}
       className="border-muted bg-background size-8 rounded-full border object-cover"
     />
