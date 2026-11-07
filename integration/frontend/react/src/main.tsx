@@ -19,52 +19,55 @@ const getDemoToken = async () => authToken ?? null;
 
 function App() {
   return (
-    <main className="threadfs-root bg-background text-foreground mx-auto min-h-screen max-w-3xl space-y-4 p-2 sm:p-4">
-      <ModeToggle />
-      <Tabs defaultValue="ThreadFSComments" className="w-full">
-        <TabsList className="w-full">
-          <TabsTrigger value="ThreadFSComments" className="flex-1">
-            Discussion
-          </TabsTrigger>
-          <TabsTrigger value="ThreadFSMyComments" className="flex-1">
-            Comments
-          </TabsTrigger>
-          <TabsTrigger value="ThreadFSModeration" className="flex-1">
-            Moderation
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="ThreadFSComments">
-          <ThreadFSComments
-            apiBaseUrl={apiBaseUrl}
-            communityKey={communityKey}
-            threadId={threadId}
-            getAuthToken={getDemoToken}
-            authorProfileUrl={(user) =>
-              user.external_user_id ? `/users/${user.external_user_id}` : null
-            }
-            onAuthRequired={() => {
-              const next = encodeURIComponent(window.location.href);
-              window.location.href = `/login?next=${next}`;
-            }}
-          />
-        </TabsContent>
-        <TabsContent value="ThreadFSMyComments">
-          <ThreadFSMyComments
-            apiBaseUrl={apiBaseUrl}
-            communityKey={communityKey}
-            externalUserId={externalUserId}
-            authToken={authToken}
-          />
-        </TabsContent>
-        <TabsContent value="ThreadFSModeration">
-          <ThreadFSModeration
-            apiBaseUrl={apiBaseUrl}
-            communityKey={communityKey}
-            authToken={env.VITE_THREADFS_MODERATOR_TOKEN || authToken}
-          />
-        </TabsContent>
-      </Tabs>
-    </main>
+    // The widget's styles stop at .threadfs-root, so here it covers the whole page, not just the column
+    <div className="threadfs-root bg-background text-foreground min-h-screen">
+      <main className="mx-auto max-w-3xl space-y-4 p-2 sm:p-4">
+        <ModeToggle />
+        <Tabs defaultValue="ThreadFSComments" className="w-full">
+          <TabsList className="w-full">
+            <TabsTrigger value="ThreadFSComments" className="flex-1">
+              Discussion
+            </TabsTrigger>
+            <TabsTrigger value="ThreadFSMyComments" className="flex-1">
+              Comments
+            </TabsTrigger>
+            <TabsTrigger value="ThreadFSModeration" className="flex-1">
+              Moderation
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="ThreadFSComments">
+            <ThreadFSComments
+              apiBaseUrl={apiBaseUrl}
+              communityKey={communityKey}
+              threadId={threadId}
+              getAuthToken={getDemoToken}
+              authorProfileUrl={(user) =>
+                user.external_user_id ? `/users/${user.external_user_id}` : null
+              }
+              onAuthRequired={() => {
+                const next = encodeURIComponent(window.location.href);
+                window.location.href = `/login?next=${next}`;
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="ThreadFSMyComments">
+            <ThreadFSMyComments
+              apiBaseUrl={apiBaseUrl}
+              communityKey={communityKey}
+              externalUserId={externalUserId}
+              authToken={authToken}
+            />
+          </TabsContent>
+          <TabsContent value="ThreadFSModeration">
+            <ThreadFSModeration
+              apiBaseUrl={apiBaseUrl}
+              communityKey={communityKey}
+              authToken={env.VITE_THREADFS_MODERATOR_TOKEN || authToken}
+            />
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
   );
 }
 
