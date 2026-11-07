@@ -188,6 +188,7 @@ export function ThreadFSModeration({
       onOpenReports: setOpenReports,
       syncOpenReports,
       setReasons,
+      me,
       openUser: setOpenedUser,
       showUserComments(user: ThreadFSCommentUser) {
         setUserFilter(user);
@@ -212,6 +213,7 @@ export function ThreadFSModeration({
       threadUrl,
       version,
       syncOpenReports,
+      me,
     ],
   );
 

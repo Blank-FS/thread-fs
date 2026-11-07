@@ -30,6 +30,7 @@ import {
 } from "../ui/dropdown-menu";
 import { Input } from "../ui/input";
 import {
+  banBlockedReason,
   banExpiry,
   BanLengthSelect,
   OTHER_REASON,
@@ -66,8 +67,14 @@ export function CommentRow({
   extraActions?: ReactNode;
   children?: ReactNode;
 }) {
-  const { request, threadUrl, openUser, showThreadComments, syncOpenReports } =
-    useModeration();
+  const {
+    request,
+    threadUrl,
+    openUser,
+    showThreadComments,
+    syncOpenReports,
+    me,
+  } = useModeration();
   const [isRemoving, setIsRemoving] = useState(false);
   const [reasonKey, setReasonKey] = useState("");
   const [reasonDetail, setReasonDetail] = useState("");
@@ -78,6 +85,7 @@ export function CommentRow({
 
   const isOther = reasonKey === OTHER_REASON;
   const user = comment.community_user ?? null;
+  const canBan = user !== null && !banBlockedReason(me, user);
   const thread = comment.thread ?? null;
   const parent = comment.parent ?? null;
   const threadHref = threadUrl
@@ -370,14 +378,18 @@ export function CommentRow({
                 />
               )}
               <div className="flex flex-wrap items-center gap-3">
-                <label className="flex items-center gap-2 text-sm hover:cursor-pointer">
-                  <Checkbox
-                    checked={alsoBan}
-                    onCheckedChange={(checked) => setAlsoBan(checked === true)}
-                  />
-                  Also ban {userName(user)}
-                </label>
-                {alsoBan && (
+                {canBan && (
+                  <label className="flex items-center gap-2 text-sm hover:cursor-pointer">
+                    <Checkbox
+                      checked={alsoBan}
+                      onCheckedChange={(checked) =>
+                        setAlsoBan(checked === true)
+                      }
+                    />
+                    Also ban {userName(user)}
+                  </label>
+                )}
+                {canBan && alsoBan && (
                   <BanLengthSelect
                     value={banDays}
                     onChange={setBanDays}

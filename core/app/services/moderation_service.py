@@ -69,7 +69,8 @@ async def ban_user(
     reason: str | None,
     expires_at: datetime | None,
 ) -> CommunityBan:
-    await _require_user(session, community, community_user_id)
+    target = await _require_user(session, community, community_user_id)
+    _require_can_ban(moderator, target)
     _require_future(expires_at)
 
     if await get_active_ban(session, community_id=community.id, community_user_id=community_user_id):
@@ -78,6 +79,20 @@ async def ban_user(
     ban = _add_ban(session, community, moderator, community_user_id, reason, expires_at)
     await session.commit()
     return await _load_ban(session, ban.id)
+
+
+def _require_can_ban(moderator: CommunityUser, target: CommunityUser) -> None:
+    """Staff are known by the role in their latest token, so one who hasn't visited since gaining it isn't protected yet."""
+    if target.id == moderator.id:
+        detail = "You can't ban yourself"
+    elif target.last_staff_role == "admin":
+        detail = "Admins can't be banned"
+    elif target.last_staff_role == "moderator" and moderator.staff_role != "admin":
+        detail = "Only admins can ban moderators"
+    else:
+        return
+
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
 
 def _require_future(expires_at: datetime | None) -> None:
@@ -125,6 +140,10 @@ async def lift_ban(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ban not found")
     if ban.lifted_at is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ban was already lifted")
+
+    target = await _require_user(session, community, ban.community_user_id)
+    if target.last_staff_role == "moderator" and moderator.staff_role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can lift a moderator's ban")
 
     ban.lifted_at = utc_now()
     ban.lifted_by_community_user_id = moderator.id
@@ -396,6 +415,7 @@ async def hide_comment(
     reason = _log_reason(label, detail, note)
 
     if ban:
+        _require_can_ban(moderator, await _require_user(session, community, comment.community_user_id))
         _require_future(ban_expires_at)
         # Someone already banned stays on the ban they have
         if not await get_active_ban(session, community_id=community.id, community_user_id=comment.community_user_id):

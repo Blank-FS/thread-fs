@@ -198,6 +198,10 @@ async def get_or_create_community_user_for_identity(
             existing.avatar_url = identity.avatar_url
             changed = True
 
+        if existing.last_staff_role != identity.staff_role:
+            existing.last_staff_role = identity.staff_role
+            changed = True
+
         if (
             identity.threadfs_user_id
             and existing.threadfs_user_id != identity.threadfs_user_id
@@ -218,6 +222,7 @@ async def get_or_create_community_user_for_identity(
         external_user_id=identity.external_user_id,
         display_name=identity.display_name,
         avatar_url=identity.avatar_url,
+        last_staff_role=identity.staff_role,
         threadfs_user_id=identity.threadfs_user_id,
     )
 

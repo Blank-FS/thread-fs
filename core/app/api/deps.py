@@ -11,7 +11,7 @@ from app.repositories.community import (
 )
 from app.models.community import Community
 from app.models.community_user import CommunityUser
-from app.services import identity_service
+from app.services import identity_service, moderation_service
 
 
 async def require_valid_embed_context(
@@ -86,6 +86,15 @@ async def get_optional_current_community_user(
 
     # From this request's token, never stored: taking a role away only needs the host to stop signing it
     community_user.staff_role = identity.staff_role
+
+    # A ban suspends a moderator's powers too, so they can't lift it themselves. Admins can't be banned
+    if identity.staff_role == "moderator" and await moderation_service.get_active_ban(
+        session,
+        community_id=community.id,
+        community_user_id=community_user.id,
+    ):
+        community_user.staff_role = None
+
     community_user.signed_threads = identity.signed_threads
     community_user.thread_claim = identity.thread_claim
 

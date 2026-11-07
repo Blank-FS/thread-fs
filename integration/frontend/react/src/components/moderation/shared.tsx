@@ -12,17 +12,20 @@ import {
 } from "react";
 import type {
   CommunityBan,
+  EmbedMe,
   ModerationComment,
   PageResponse,
+  StaffAwareUser,
   ThreadFSCommentUser,
   ThreadFSReason,
   ThreadFSRequestContext,
   ThreadFSThread,
 } from "../../lib/types";
 import { cn } from "../../lib/utils";
-import { Input } from "../ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import {
   Select,
   SelectContent,
@@ -49,6 +52,7 @@ type ModerationContextValue = {
   /** Re-counts open reports, after anything that may have closed some. */
   syncOpenReports: () => void;
   setReasons: (reasons: ThreadFSReason[]) => void;
+  me: EmbedMe | null;
   openUser: (user: ThreadFSCommentUser) => void;
   showUserComments: (user: ThreadFSCommentUser) => void;
   showUserLog: (user: ThreadFSCommentUser) => void;
@@ -87,6 +91,19 @@ export function banExpiry(days: string) {
 
 export function userName(user?: ThreadFSCommentUser | null) {
   return user?.display_name?.trim() || "Anonymous";
+}
+
+/** Why the viewer can't ban this user, if they can't. ThreadFS Core enforces the same rules. */
+export function banBlockedReason(me: EmbedMe | null, user: StaffAwareUser) {
+  if (user.id === me?.community_user_id) return "You can't ban yourself";
+  if (user.last_staff_role === "admin") return "Admins can't be banned";
+  if (user.last_staff_role === "moderator" && me?.staff_role !== "admin")
+    return "Only admins can ban moderators";
+  return null;
+}
+
+export function canLiftBan(me: EmbedMe | null, user: StaffAwareUser) {
+  return user.last_staff_role !== "moderator" || me?.staff_role === "admin";
 }
 
 export function isBanActive(ban: CommunityBan) {
@@ -244,6 +261,16 @@ export function UserAvatar({
         {userName(user).slice(0, 2).toUpperCase()}
       </AvatarFallback>
     </Avatar>
+  );
+}
+
+export function StaffBadge({ user }: { user: StaffAwareUser }) {
+  if (!user.last_staff_role) return null;
+
+  return (
+    <Badge variant="outline" className="capitalize">
+      {user.last_staff_role}
+    </Badge>
   );
 }
 

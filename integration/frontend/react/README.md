@@ -341,3 +341,5 @@ PUT /api/v1/moderation/reasons
 ```
 
 Reports and removals keep the label they were made with, so changing the list doesn't rewrite the past.
+
+Moderators can ban regular users. Admins can also ban moderators, and only admins can lift a moderator's ban. Nobody can ban an admin or themselves. A banned moderator loses moderation access until the ban ends. ThreadFS knows staff by the role in their latest token, so someone who's just been given a role is protected from their next visit.

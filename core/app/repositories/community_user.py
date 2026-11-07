@@ -48,6 +48,7 @@ async def create_community_user(
     external_user_id: str,
     display_name: str | None,
     avatar_url: str | None,
+    last_staff_role: str | None = None,
     threadfs_user_id: UUID | None = None,
 ) -> CommunityUser:
     community_user = CommunityUser(
@@ -56,6 +57,7 @@ async def create_community_user(
         external_user_id=external_user_id,
         display_name=display_name,
         avatar_url=avatar_url,
+        last_staff_role=last_staff_role,
         threadfs_user_id=threadfs_user_id,
     )
 

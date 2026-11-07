@@ -58,9 +58,11 @@ import {
 } from "../ui/sheet";
 import { ListStatus } from "./ListStatus";
 import {
+  banBlockedReason,
   banExpiry,
   BanLengthSelect,
   banTerm,
+  canLiftBan,
   ChoiceSelect,
   errorMessage,
   ErrorNote,
@@ -68,6 +70,7 @@ import {
   ListBody,
   ListSkeleton,
   ReasonSelect,
+  StaffBadge,
   useModeration,
   usePagedList,
   UserAvatar,
@@ -195,6 +198,7 @@ export function UsersPanel() {
                   <span className="truncate font-semibold">
                     {userName(user)}
                   </span>
+                  <StaffBadge user={user} />
                   {user.is_banned && (
                     <Badge variant="destructive">Banned</Badge>
                   )}
@@ -598,8 +602,14 @@ export function UserPanel({
 }
 
 function UserDetails({ user }: { user: ThreadFSCommentUser }) {
-  const { request, refresh, showUserComments, showUserLog, authorProfileUrl } =
-    useModeration();
+  const {
+    request,
+    refresh,
+    showUserComments,
+    showUserLog,
+    authorProfileUrl,
+    me,
+  } = useModeration();
   const [record, setRecord] = useState<ModerationUserDetail | null>(null);
   const [comments, setComments] = useState<ModerationComment[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -704,6 +714,7 @@ function UserDetails({ user }: { user: ThreadFSCommentUser }) {
   }
 
   const activeBan = record?.bans.find(isBanActive) ?? null;
+  const banBlocked = record ? banBlockedReason(me, record) : null;
   const profileUrl = authorProfileUrl?.(user);
 
   return (
@@ -711,8 +722,9 @@ function UserDetails({ user }: { user: ThreadFSCommentUser }) {
       <SheetHeader className="flex-row items-center gap-3 pr-12">
         <UserAvatar user={user} size="lg" />
         <div className="min-w-0">
-          <SheetTitle className="truncate text-base">
-            {userName(user)}
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <span className="truncate">{userName(user)}</span>
+            {record && <StaffBadge user={record} />}
           </SheetTitle>
           <SheetDescription className="truncate text-xs">
             {user.external_user_id}
@@ -755,21 +767,25 @@ function UserDetails({ user }: { user: ThreadFSCommentUser }) {
                     </p>
                     {activeBan.reason && <p>{activeBan.reason}</p>}
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={isBusy}
-                    className="hover:cursor-pointer"
-                    onClick={() =>
-                      void act(() =>
-                        request((ctx) => liftBan(ctx, activeBan.id)),
-                      )
-                    }
-                  >
-                    Lift ban
-                  </Button>
+                  {canLiftBan(me, record) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isBusy}
+                      className="hover:cursor-pointer"
+                      onClick={() =>
+                        void act(() =>
+                          request((ctx) => liftBan(ctx, activeBan.id)),
+                        )
+                      }
+                    >
+                      Lift ban
+                    </Button>
+                  )}
                 </div>
+              ) : banBlocked ? (
+                <p className="text-muted-foreground text-sm">{banBlocked}</p>
               ) : (
                 <form onSubmit={ban} className="flex flex-wrap gap-2">
                   <Input

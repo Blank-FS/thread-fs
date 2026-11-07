@@ -37,6 +37,8 @@ class CommunityUser(Base):
 
     display_name = Column(String(255), nullable=True)
     avatar_url = Column(String(2048), nullable=True)
+    # The role in their latest token. Only for protecting and labelling them, as what they may do comes from staff_role
+    last_staff_role = Column(String(16), nullable=True)
 
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
     modified_at = Column(

@@ -30,9 +30,16 @@ class RemovalRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class StaffAwareUserRead(CommunityUserRead):
+    """A user as moderators see them, so what they may do to them can be shown."""
+
+    last_staff_role: str | None = None
+
+
 class ModerationCommentRead(CommentRead):
     """A comment as moderators see it: nothing withheld, plus where it came from."""
 
+    community_user: StaffAwareUserRead | None = None
     source: str | None = None
     client: str | None = None
     thread: ThreadRead | None = None
@@ -146,7 +153,7 @@ class BanRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class ModerationUserRead(CommunityUserRead):
+class ModerationUserRead(StaffAwareUserRead):
     created_at: datetime
     comment_count: int = 0
     removed_count: int = 0

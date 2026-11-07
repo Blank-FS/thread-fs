@@ -112,7 +112,13 @@ export type EmbedMe = {
 
 export type ThreadFSStaffRole = "moderator" | "admin";
 
+/** A user as moderators see them: the role in their latest token, for protecting and labelling them. */
+export type StaffAwareUser = ThreadFSCommentUser & {
+  last_staff_role?: ThreadFSStaffRole | null;
+};
+
 export type ModerationComment = ThreadFSComment & {
+  community_user?: StaffAwareUser | null;
   source?: string | null;
   client?: string | null;
   parent?: {
@@ -168,7 +174,7 @@ export type CommunityBan = {
   lifted_at: string | null;
 };
 
-export type ModerationUser = ThreadFSCommentUser & {
+export type ModerationUser = StaffAwareUser & {
   created_at: string;
   comment_count: number;
   removed_count: number;
