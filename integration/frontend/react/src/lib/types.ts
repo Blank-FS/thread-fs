@@ -54,7 +54,7 @@ export type ThreadFSCommentUser = {
   external_user_id: string;
   display_name: string | null;
   avatar_url: string | null;
-  /** Drawn over the avatar, about 1.4 times its size. */
+  /** Drawn over the avatar, 1.2 times its size. */
   avatar_frame_url?: string | null;
 };
 
