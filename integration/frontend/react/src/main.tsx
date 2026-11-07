@@ -1,5 +1,12 @@
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import React from "react";
+import React, { useCallback, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { ThreadFSMyComments } from "./components/MyComments";
 import { ThreadFSComments } from "./components/ThreadFSComments";
@@ -8,21 +15,59 @@ import { ModeToggle } from "./components/other/mode-toggle";
 import { ThemeProvider } from "./components/other/theme-provider";
 import "./styles.css";
 
+type DemoUser = {
+  id: string;
+  name: string;
+  role: string | null;
+  token: string;
+};
+
 // Test-site config comes from .env (see .env.example).
 const env = import.meta.env;
 const apiBaseUrl = env.VITE_THREADFS_API_BASE_URL;
 const communityKey = env.VITE_THREADFS_COMMUNITY_KEY;
 const threadId = env.VITE_THREADFS_THREAD_ID;
-const externalUserId = env.VITE_THREADFS_EXTERNAL_USER_ID;
-const authToken = env.VITE_THREADFS_AUTH_TOKEN || undefined;
-const getDemoToken = async () => authToken ?? null;
+const demoUsers: DemoUser[] = JSON.parse(env.VITE_THREADFS_DEMO_USERS || "[]");
+
+const SIGNED_OUT = "signed-out";
+const USER_STORAGE_KEY = "threadfs-demo-user";
+
+function storedUserId() {
+  const id = localStorage.getItem(USER_STORAGE_KEY);
+  return demoUsers.some((user) => user.id === id) ? id! : SIGNED_OUT;
+}
 
 function App() {
+  const [userId, setUserId] = useState(storedUserId);
+  const user = demoUsers.find(({ id }) => id === userId) ?? null;
+  const token = user?.token ?? null;
+  const getDemoToken = useCallback(async () => token, [token]);
+
+  function switchUser(id: string) {
+    localStorage.setItem(USER_STORAGE_KEY, id);
+    setUserId(id);
+  }
+
   return (
     // The widget's styles stop at .threadfs-root, so here it covers the whole page, not just the column
     <div className="threadfs-root bg-background text-foreground min-h-screen">
       <main className="mx-auto max-w-3xl space-y-4 p-2 sm:p-4">
-        <ModeToggle />
+        <div className="flex items-center gap-2">
+          <ModeToggle />
+          <Select value={userId} onValueChange={switchUser}>
+            <SelectTrigger aria-label="Viewing as" className="w-52">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SIGNED_OUT}>Signed out</SelectItem>
+              {demoUsers.map(({ id, name, role }) => (
+                <SelectItem key={id} value={id}>
+                  {name} ({role ?? "user"})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <Tabs defaultValue="ThreadFSComments" className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="ThreadFSComments" className="flex-1">
@@ -35,34 +80,39 @@ function App() {
               Moderation
             </TabsTrigger>
           </TabsList>
+          {/* Keyed by user, so a switch starts each widget fresh, as a new page load would */}
           <TabsContent value="ThreadFSComments">
             <ThreadFSComments
+              key={userId}
               apiBaseUrl={apiBaseUrl}
               communityKey={communityKey}
               threadId={threadId}
               getAuthToken={getDemoToken}
-              authorProfileUrl={(user) =>
-                user.external_user_id ? `/users/${user.external_user_id}` : null
+              authorProfileUrl={(author) =>
+                author.external_user_id
+                  ? `/users/${author.external_user_id}`
+                  : null
               }
-              onAuthRequired={() => {
-                const next = encodeURIComponent(window.location.href);
-                window.location.href = `/login?next=${next}`;
-              }}
+              onAuthRequired={() =>
+                window.alert("Pick a user from the menu to sign in")
+              }
             />
           </TabsContent>
           <TabsContent value="ThreadFSMyComments">
             <ThreadFSMyComments
+              key={userId}
               apiBaseUrl={apiBaseUrl}
               communityKey={communityKey}
-              externalUserId={externalUserId}
-              authToken={authToken}
+              externalUserId={user?.id}
+              authToken={token}
             />
           </TabsContent>
           <TabsContent value="ThreadFSModeration">
             <ThreadFSModeration
+              key={userId}
               apiBaseUrl={apiBaseUrl}
               communityKey={communityKey}
-              authToken={env.VITE_THREADFS_MODERATOR_TOKEN || authToken}
+              authToken={token}
             />
           </TabsContent>
         </Tabs>
