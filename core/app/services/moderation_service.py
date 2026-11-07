@@ -1,6 +1,6 @@
 # app/services/moderation_service.py
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -12,7 +12,7 @@ from app.core.common import utc_now
 from app.models.comment import Comment
 from app.models.community import Community
 from app.models.community_user import CommunityUser
-from app.models.moderation import CommunityBan, ModerationAction, UserNote
+from app.models.moderation import CommunityBan, ModerationAction, ModerationBatch, UserNote
 from app.models.report import CommentReport
 from app.models.thread import Thread
 from app.schemas.moderation import CommentFilters
@@ -23,6 +23,16 @@ from app.services import reason_service
 
 
 # Everything a BanRead shows
+# What a moderator can change in bulk: admins have no limit. A wide filter would otherwise reach every comment at once
+MAX_BATCH_SIZE = 50
+MAX_DAILY_BATCH_CHANGES = 200
+
+# Filtering the log by an action also finds the batches of it, which read as one line
+BATCH_SUMMARIES = {
+    "hide_comment": ["hide_comment", "hide_batch"],
+    "restore_comment": ["restore_comment", "restore_batch"],
+}
+
 BAN_DETAILS = (
     selectinload(CommunityBan.community_user),
     selectinload(CommunityBan.banned_by),
@@ -481,21 +491,37 @@ async def batch_comments(
     note: str | None,
     dry_run: bool,
     reason_detail: str | None = None,
-) -> tuple[int, int]:
+) -> tuple[int, int, str | None]:
     """Hides or restores everything matching the filters: the cleanup for a site or user gone wrong. Every comment gets
-    its own log entry, so a batch can be reviewed, and the same filters with "restore" undo it."""
+    its own log entry, so a batch can be reviewed, and an admin can undo it. A dry run says if it would be refused."""
     from_status, to_status = ("visible", "hidden") if action == "hide" else ("hidden", "visible")
     result = await session.execute(_comments_query(community, filters, status_filter=from_status, search=None))
     comments = list(result.scalars().all())
+
+    counted = await _counts_toward_limit(session, community, moderator, filters, action)
+    refused = await _batch_refusal(session, moderator, len(comments), counted)
     if dry_run or not comments:
-        return len(comments), 0
+        return len(comments), 0, refused
+    if refused:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=refused)
 
     label = await _removal_label(session, community, reason_key) if action == "hide" else None
     detail = _removal_detail(reason_key, reason_detail) if action == "hide" else None
     reason = _log_reason(label, detail, note)
 
+    batch = ModerationBatch(
+        community_id=community.id,
+        moderator_community_user_id=moderator.id,
+        action=action,
+        comment_count=len(comments),
+        counts_toward_limit=counted,
+    )
+    session.add(batch)
+    await session.flush()
+
     now = utc_now()
     for comment in comments:
+        previous_reason, previous_detail = comment.removal_reason, comment.removal_detail
         comment.status = to_status
         comment.removal_reason = label
         comment.removal_detail = detail
@@ -509,11 +535,124 @@ async def batch_comments(
             thread_id=comment.thread_id,
             target_community_user_id=comment.community_user_id,
             reason=reason,
+            batch_id=batch.id,
+            previous_removal_reason=previous_reason,
+            previous_removal_detail=previous_detail,
         )
+    _log(session, community, moderator, f"{action}_batch", batch_id=batch.id, reason=reason)
     if action == "hide":
         await _resolve_open_reports(session, moderator, [comment.id for comment in comments], "resolved")
     await session.commit()
-    return len(comments), len(comments)
+    return len(comments), len(comments), None
+
+
+async def _counts_toward_limit(
+    session: AsyncSession,
+    community: Community,
+    moderator: CommunityUser,
+    filters: CommentFilters,
+    action: str,
+) -> bool:
+    """Admins have no limit. Clearing out one regular user is the everyday cleanup for a spammer, and can't reach far."""
+    if moderator.staff_role == "admin":
+        return False
+    if action == "hide" and filters.community_user_id:
+        target = await session.get(CommunityUser, filters.community_user_id)
+        return target is None or target.community_id != community.id or target.last_staff_role is not None
+    return True
+
+
+async def _batch_refusal(session: AsyncSession, moderator: CommunityUser, count: int, counted: bool) -> str | None:
+    if not counted or not count:
+        return None
+    if count > MAX_BATCH_SIZE:
+        return f"This would change {count} comments. Moderators can change up to {MAX_BATCH_SIZE} at once"
+
+    since = utc_now() - timedelta(days=1)
+    used = await session.scalar(
+        select(func.coalesce(func.sum(ModerationBatch.comment_count), 0)).where(
+            ModerationBatch.moderator_community_user_id == moderator.id,
+            ModerationBatch.counts_toward_limit.is_(True),
+            ModerationBatch.created_at >= since,
+        )
+    )
+    left = max(MAX_DAILY_BATCH_CHANGES - int(used or 0), 0)
+    if count > left:
+        return (
+            f"This would change {count} comments, and moderators can change {MAX_DAILY_BATCH_CHANGES} a day in bulk. "
+            f"You have {left} left"
+        )
+    return None
+
+
+async def undo_batch(
+    session: AsyncSession,
+    *,
+    community: Community,
+    moderator: CommunityUser,
+    batch_id: UUID,
+) -> tuple[int, int]:
+    """Puts back exactly what a batch changed, reasons included. A comment that's changed since stays as it is."""
+    batch = await session.get(ModerationBatch, batch_id)
+    if not batch or batch.community_id != community.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Batch not found")
+    if batch.undone_at is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Batch was already undone")
+
+    entries = list(
+        (
+            await session.execute(
+                select(ModerationAction)
+                .options(selectinload(ModerationAction.comment))
+                .where(ModerationAction.batch_id == batch.id, ModerationAction.comment_id.is_not(None))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    latest = dict(
+        (
+            await session.execute(
+                select(ModerationAction.comment_id, func.max(ModerationAction.id))
+                .where(
+                    ModerationAction.comment_id.in_([entry.comment_id for entry in entries]),
+                    ModerationAction.action.in_(["hide_comment", "restore_comment"]),
+                )
+                .group_by(ModerationAction.comment_id)
+            )
+        ).all()
+    )
+
+    was_hide = batch.action == "hide"
+    changed = 0
+    now = utc_now()
+    for entry in entries:
+        comment = entry.comment
+        if comment.status != ("hidden" if was_hide else "visible") or latest.get(comment.id) != entry.id:
+            continue
+
+        comment.status = "visible" if was_hide else "hidden"
+        comment.removal_reason = None if was_hide else entry.previous_removal_reason
+        comment.removal_detail = None if was_hide else entry.previous_removal_detail
+        comment.modified_at = now
+        _log(
+            session,
+            community,
+            moderator,
+            "restore_comment" if was_hide else "hide_comment",
+            comment_id=comment.id,
+            thread_id=comment.thread_id,
+            target_community_user_id=comment.community_user_id,
+            reason=None if was_hide else _log_reason(comment.removal_reason, comment.removal_detail),
+            batch_id=batch.id,
+        )
+        changed += 1
+
+    batch.undone_at = now
+    batch.undone_by_community_user_id = moderator.id
+    _log(session, community, moderator, "undo_batch", batch_id=batch.id)
+    await session.commit()
+    return changed, len(entries) - changed
 
 
 #=============== Reports ===============
@@ -815,7 +954,10 @@ async def list_actions(
 ):
     conditions = [ModerationAction.community_id == community.id]
     if action:
-        conditions.append(ModerationAction.action == action)
+        conditions.append(ModerationAction.action.in_(BATCH_SUMMARIES.get(action, [action])))
+    # A batch reads as its one summary line, unless the log is about one user
+    if not target:
+        conditions.append(or_(ModerationAction.batch_id.is_(None), ModerationAction.comment_id.is_(None)))
     if moderator:
         conditions.append(ModerationAction.moderator_community_user_id == moderator)
     if target:
@@ -832,6 +974,7 @@ async def list_actions(
             selectinload(ModerationAction.target),
             selectinload(ModerationAction.comment),
             selectinload(ModerationAction.thread),
+            selectinload(ModerationAction.batch),
         )
         .where(*conditions)
         .order_by(ModerationAction.created_at.desc(), ModerationAction.id.desc())

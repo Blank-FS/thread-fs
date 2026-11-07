@@ -205,6 +205,12 @@ export type ModerationAction = {
   target?: ThreadFSCommentUser | null;
   comment?: { id: number; content: string; status: string } | null;
   thread?: ThreadFSThread | null;
+  /** On a batch's summary entry. */
+  batch?: {
+    id: string;
+    comment_count: number;
+    undone_at: string | null;
+  } | null;
 };
 
 // Other

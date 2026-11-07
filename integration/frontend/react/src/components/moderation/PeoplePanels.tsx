@@ -29,6 +29,7 @@ import {
   listBans,
   searchComments,
   searchUsers,
+  undoBatch,
   type BanSort,
   type BanStatus,
   type UserSort,
@@ -337,10 +338,18 @@ export function BansPanel() {
 }
 
 /** What a log entry says happened. Targets are links, like every other name here. */
-function ActionText({ action, target }: ModerationAction) {
+function ActionText({ action, target, batch }: ModerationAction) {
   const who = <UserLink user={target} />;
+  const count = batch?.comment_count ?? 0;
+  const comments = `${count} ${count === 1 ? "comment" : "comments"}`;
 
   switch (action) {
+    case "hide_batch":
+      return <>removed {comments}</>;
+    case "restore_batch":
+      return <>restored {comments}</>;
+    case "undo_batch":
+      return <>undid a batch of {comments}</>;
     case "hide_comment":
       return <>removed {who}'s comment</>;
     case "restore_comment":
@@ -406,6 +415,9 @@ function ActionSubject({ entry }: { entry: ModerationAction }) {
 const ACTION_ICONS: Record<string, typeof Ban> = {
   hide_comment: EyeOff,
   restore_comment: Eye,
+  hide_batch: EyeOff,
+  restore_batch: Eye,
+  undo_batch: RotateCcw,
   ban_user: Ban,
   unban_user: ShieldCheck,
   lock_thread: Lock,
@@ -437,7 +449,7 @@ export function LogPanel({
   target: ThreadFSCommentUser | null;
   onTarget: (user: ThreadFSCommentUser | null) => void;
 }) {
-  const { request } = useModeration();
+  const { request, refresh, me } = useModeration();
   const [action, setAction] = useState("");
   const [moderator, setModerator] = useState<ThreadFSCommentUser | null>(null);
   const [since, setSince] = useState("");
@@ -460,6 +472,18 @@ export function LogPanel({
   );
   const list = usePagedList<ModerationAction>(load);
   const isFiltered = Boolean(action || moderator || target || since || until);
+
+  async function undo(batch: NonNullable<ModerationAction["batch"]>) {
+    const confirmed = window.confirm(
+      `Undo this batch of ${batch.comment_count} comments? Any that changed since will be left alone.`,
+    );
+    if (!confirmed) return;
+
+    if (await list.run(() => request((ctx) => undoBatch(ctx, batch.id)))) {
+      list.reload();
+      refresh();
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -539,6 +563,24 @@ export function LogPanel({
                     )}
                     <ActionSubject entry={entry} />
                   </div>
+                  {entry.batch &&
+                    entry.action !== "undo_batch" &&
+                    (entry.batch.undone_at ? (
+                      <Badge variant="outline">Undone</Badge>
+                    ) : (
+                      me?.staff_role === "admin" && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={list.isBusy}
+                          className="hover:cursor-pointer"
+                          onClick={() => void undo(entry.batch!)}
+                        >
+                          Undo
+                        </Button>
+                      )
+                    ))}
                 </div>
               </article>
             );
@@ -619,6 +661,7 @@ function UserDetails({ user }: { user: ThreadFSCommentUser }) {
   const [banReason, setBanReason] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [removeCount, setRemoveCount] = useState<number | null>(null);
+  const [removeRefused, setRemoveRefused] = useState<string | null>(null);
   const [reasonKey, setReasonKey] = useState("");
 
   const load = useCallback(async () => {
@@ -687,7 +730,7 @@ function UserDetails({ user }: { user: ThreadFSCommentUser }) {
   async function previewRemoveAll() {
     try {
       setError(null);
-      const { matched } = await request((ctx) =>
+      const { matched, refused } = await request((ctx) =>
         batchComments(ctx, {
           action: "hide",
           filters: { communityUserId: user.id },
@@ -695,6 +738,7 @@ function UserDetails({ user }: { user: ThreadFSCommentUser }) {
         }),
       );
       setRemoveCount(matched);
+      setRemoveRefused(refused ?? null);
     } catch (err: unknown) {
       setError(errorMessage(err, "Action failed"));
     }
@@ -924,6 +968,8 @@ function UserDetails({ user }: { user: ThreadFSCommentUser }) {
               <p className="text-muted-foreground text-sm">
                 They have no visible comments to remove
               </p>
+            ) : removeRefused ? (
+              <p className="text-muted-foreground text-sm">{removeRefused}</p>
             ) : (
               <div className="space-y-2 rounded-lg bg-rose-500/10 p-3 text-sm">
                 <p className="font-medium">

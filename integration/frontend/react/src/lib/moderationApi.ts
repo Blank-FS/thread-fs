@@ -157,15 +157,19 @@ export const batchComments = (
     dryRun?: boolean;
   },
 ) =>
-  post<{ matched: number; changed: number }>(ctx, "/comments/batch", {
-    ...filterFields(params.filters ?? {}),
-    comment_ids: params.commentIds ?? null,
-    action: params.action,
-    reason_key: params.reasonKey ?? null,
-    reason_detail: params.reasonDetail ?? null,
-    note: params.note ?? null,
-    dry_run: params.dryRun ?? false,
-  });
+  post<{ matched: number; changed: number; refused?: string }>(
+    ctx,
+    "/comments/batch",
+    {
+      ...filterFields(params.filters ?? {}),
+      comment_ids: params.commentIds ?? null,
+      action: params.action,
+      reason_key: params.reasonKey ?? null,
+      reason_detail: params.reasonDetail ?? null,
+      note: params.note ?? null,
+      dry_run: params.dryRun ?? false,
+    },
+  );
 
 export const listBans = (
   ctx: ThreadFSRequestContext,
@@ -232,6 +236,13 @@ export const replaceReasons = (
   ctx: ThreadFSRequestContext,
   reasons: ThreadFSReason[],
 ) => send<ThreadFSReason[]>("PUT", ctx, "/reasons", { reasons });
+
+export const undoBatch = (ctx: ThreadFSRequestContext, batchId: string) =>
+  post<{ changed: number; skipped: number }>(
+    ctx,
+    `/batches/${batchId}/undo`,
+    {},
+  );
 
 export const listActions = (
   ctx: ThreadFSRequestContext,

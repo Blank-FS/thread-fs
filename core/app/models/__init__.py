@@ -7,7 +7,7 @@ from app.models.community_staff import CommunityStaff
 from app.models.community_reason import CommunityReason
 from app.models.community_user import CommunityUser
 from app.models.community import Community
-from app.models.moderation import CommunityBan, ModerationAction, UserNote
+from app.models.moderation import CommunityBan, ModerationAction, ModerationBatch, UserNote
 from app.models.report import CommentReport
 from app.models.thread import Thread
 from app.models.user import User
@@ -25,6 +25,7 @@ __all__ = [
     "CommentVote",
     "CommentReport",
     "ModerationAction",
+    "ModerationBatch",
     "CommunityBan",
     "CommunityReason",
     "UserNote",

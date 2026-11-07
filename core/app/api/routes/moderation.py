@@ -17,6 +17,7 @@ from app.schemas.moderation import (
     BanRequest,
     BatchRequest,
     BatchResult,
+    UndoBatchResult,
     CommentFilters,
     LockThreadRequest,
     ModerationActionRead,
@@ -145,13 +146,13 @@ async def search_comments(
     return page(items, limit=limit, offset=offset, total=total)
 
 
-@router.post("/comments/batch", response_model=BatchResult)
+@router.post("/comments/batch", response_model=BatchResult, response_model_exclude_none=True)
 async def batch_comments(
     payload: BatchRequest,
     session: AsyncSession = Depends(get_async_session),
     context: Moderator = Depends(require_moderator),
 ):
-    matched, changed = await moderation_service.batch_comments(
+    matched, changed, refused = await moderation_service.batch_comments(
         session,
         community=context[0],
         moderator=context[1],
@@ -162,7 +163,19 @@ async def batch_comments(
         note=payload.note,
         dry_run=payload.dry_run,
     )
-    return BatchResult(matched=matched, changed=changed)
+    return BatchResult(matched=matched, changed=changed, refused=refused)
+
+
+@router.post("/batches/{batch_id}/undo", response_model=UndoBatchResult)
+async def undo_batch(
+    batch_id: UUID,
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_admin),
+):
+    changed, skipped = await moderation_service.undo_batch(
+        session, community=context[0], moderator=context[1], batch_id=batch_id
+    )
+    return UndoBatchResult(changed=changed, skipped=skipped)
 
 
 @router.post("/comments/{comment_id}/hide", response_model=ModerationCommentRead)

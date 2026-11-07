@@ -131,6 +131,22 @@ class BatchRequest(CommentFilters):
 class BatchResult(BaseModel):
     matched: int
     changed: int
+    # On a dry run: why running it would be refused
+    refused: str | None = None
+
+
+class UndoBatchResult(BaseModel):
+    changed: int
+    # Comments that changed again after the batch, and so were left alone
+    skipped: int
+
+
+class BatchRead(BaseModel):
+    id: UUID
+    comment_count: int
+    undone_at: datetime | None
+
+    model_config = {"from_attributes": True}
 
 
 class BanRequest(BaseModel):
@@ -220,5 +236,6 @@ class ModerationActionRead(BaseModel):
     target: CommunityUserRead | None = None
     comment: ActionCommentRead | None = None
     thread: ThreadRead | None = None
+    batch: BatchRead | None = None
 
     model_config = {"from_attributes": True}

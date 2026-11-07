@@ -1,11 +1,49 @@
 # app/models/moderation.py
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
+import uuid
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.core.common import utc_now
 from app.db.base import Base
+
+
+class ModerationBatch(Base):
+    """One bulk action on comments: what the daily limit counts, and what an admin can undo in one step."""
+
+    __tablename__ = "moderation_batches"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+    community_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("communities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    moderator_community_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("community_users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    # hide | restore
+    action = Column(String(16), nullable=False)
+    comment_count = Column(Integer, nullable=False)
+    counts_toward_limit = Column(Boolean, nullable=False, default=True)
+
+    undone_at = Column(DateTime(timezone=True), nullable=True)
+    undone_by_community_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("community_users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        Index("ix_moderation_batches_moderator_created_at", "moderator_community_user_id", "created_at"),
+    )
 
 
 class ModerationAction(Base):
@@ -31,7 +69,7 @@ class ModerationAction(Base):
     )
 
     # hide_comment | restore_comment | ban_user | unban_user | lock_thread | unlock_thread
-    # | dismiss_reports | resolve_reports | reopen_reports
+    # | dismiss_reports | resolve_reports | reopen_reports | hide_batch | restore_batch | undo_batch
     action = Column(String(64), nullable=False)
 
     comment_id = Column(
@@ -52,6 +90,18 @@ class ModerationAction(Base):
 
     reason = Column(Text, nullable=True)
 
+    # A batch logs one summary entry, plus one entry per comment that the log only shows for a chosen user
+    batch_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("moderation_batches.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    # What a batch restore cleared from the comment, so undoing it can put that back
+    previous_removal_reason = Column(String(128), nullable=True)
+    previous_removal_detail = Column(String(200), nullable=True)
+
+    batch = relationship("ModerationBatch", foreign_keys=[batch_id])
     moderator = relationship("CommunityUser", foreign_keys=[moderator_community_user_id])
     target = relationship("CommunityUser", foreign_keys=[target_community_user_id])
     comment = relationship("Comment", foreign_keys=[comment_id])

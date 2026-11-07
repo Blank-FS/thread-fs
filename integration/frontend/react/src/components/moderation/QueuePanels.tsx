@@ -886,6 +886,7 @@ function BatchBar({
   const [preview, setPreview] = useState<{
     action: "hide" | "restore";
     matched: number;
+    refused?: string;
   } | null>(null);
   const [reasonKey, setReasonKey] = useState("");
   const [reasonDetail, setReasonDetail] = useState("");
@@ -916,10 +917,10 @@ function BatchBar({
 
   const count = (action: "hide" | "restore") =>
     attempt(async () => {
-      const { matched } = await request((ctx) =>
+      const { matched, refused } = await request((ctx) =>
         batchComments(ctx, { action, filters, dryRun: true }),
       );
-      setPreview({ action, matched });
+      setPreview({ action, matched, refused });
     });
 
   const confirm = (action: "hide" | "restore") =>
@@ -956,9 +957,11 @@ function BatchBar({
   return (
     <div className="bg-muted/50 space-y-2 rounded-lg p-3 text-sm">
       {preview ? (
-        preview.matched === 0 ? (
+        preview.matched === 0 || preview.refused ? (
           <p>
-            No comments to {preview.action === "hide" ? "remove" : "restore"}.{" "}
+            {preview.refused ??
+              `No comments to ${preview.action === "hide" ? "remove" : "restore"}`}
+            .{" "}
             <button
               type="button"
               onClick={() => setPreview(null)}
@@ -1000,9 +1003,7 @@ function BatchBar({
                 variant={preview.action === "hide" ? "destructive" : "default"}
                 disabled={
                   isBusy ||
-                  (preview.action === "hide" &&
-                    isOther &&
-                    !reasonDetail.trim())
+                  (preview.action === "hide" && isOther && !reasonDetail.trim())
                 }
                 className="hover:cursor-pointer"
                 onClick={() => void confirm(preview.action)}
