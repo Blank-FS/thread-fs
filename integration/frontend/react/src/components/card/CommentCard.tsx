@@ -2,11 +2,19 @@ import {
   ArrowBigDown,
   ArrowBigUp,
   ChevronDown,
-  ChevronUp,
+  CircleMinus,
+  CirclePlus,
   CornerDownRight,
   MessageSquare,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type PointerEvent,
+} from "react";
 import type { CommentRemoval } from "../../lib/moderationApi";
 import type {
   ThreadFSComment,
@@ -29,6 +37,13 @@ import ThreadConnector from "./ThreadConnector";
 
 // Every level of indent costs a phone reading width, so deeper replies line up and say who they answer
 const MAX_PHONE_INDENT = 4;
+
+// What a click on a comment is meant for, rather than hiding it
+const COMMENT_CONTROLS =
+  "a, button, input, textarea, label, form, [role=button], [contenteditable=true], [data-no-collapse]";
+
+const COLLAPSE_BUTTON_CLASS =
+  "text-muted-foreground hover:text-tfs-brand-strong dark:hover:text-tfs-brand flex items-center justify-center hover:cursor-pointer";
 
 type CommentCardProps = {
   comment: ThreadFSComment;
@@ -93,6 +108,8 @@ function CommentCard({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isReported, setIsReported] = useState(false);
   const [isDescribingReport, setIsDescribingReport] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isRailHovered, setIsRailHovered] = useState(false);
   const reportFormRef = useRef<HTMLDivElement>(null);
   const [isRemoving, setIsRemoving] = useState(false);
 
@@ -129,13 +146,8 @@ function CommentCard({
   const loadedReplies = comment.replies ?? [];
   const hasLoadedReplies = loadedReplies.length > 0;
 
-  async function handleToggleReplies() {
+  async function handleViewReplies() {
     if (!hasReplies) return;
-
-    if (areRepliesExpanded) {
-      setAreRepliesExpanded(false);
-      return;
-    }
 
     if (!hasLoadedReplies && onLoadReplies) {
       try {
@@ -176,6 +188,54 @@ function CommentCard({
     }
   }
 
+  function collapse() {
+    setIsCollapsed(true);
+    // What was hovered is about to disappear, so it won't report the mouse leaving
+    setIsRailHovered(false);
+  }
+
+  // A real mouse only: a tap would leave them lit, with nothing to end the hover
+  const railHoverProps = {
+    onPointerEnter: (event: PointerEvent) => {
+      if (event.pointerType === "mouse") setIsRailHovered(true);
+    },
+    onPointerLeave: () => setIsRailHovered(false),
+  };
+
+  // On the thread line, which only a comment with replies has
+  const collapseButton = hasReplies && (
+    <button
+      type="button"
+      onClick={collapse}
+      {...railHoverProps}
+      aria-expanded
+      aria-label="Collapse comment"
+      title="Collapse comment"
+      className={cn(
+        COLLAPSE_BUTTON_CLASS,
+        "absolute top-1/2 -left-11 z-30 h-6 w-8 -translate-y-1/2",
+        isRailHovered && "text-tfs-brand-strong dark:text-tfs-brand",
+      )}
+    >
+      <CircleMinus
+        strokeWidth={1.5}
+        className="bg-background size-4 rounded-full"
+      />
+    </button>
+  );
+
+  // Clicking the comment itself hides it, or brings it back, as long as the click wasn't meant for something in it
+  function handleCommentClick(event: MouseEvent<HTMLDivElement>) {
+    const { target, currentTarget } = event;
+
+    // A menu's clicks reach here through React, though it's rendered elsewhere on the page
+    if (!(target instanceof Element) || !currentTarget.contains(target)) return;
+    if (target.closest(COMMENT_CONTROLS)) return;
+    if (window.getSelection()?.toString()) return;
+
+    setIsCollapsed((value) => !value);
+  }
+
   return (
     <article ref={setContainerRef} className="threadfs-comment relative py-1">
       <ThreadConnector
@@ -184,13 +244,17 @@ function CommentCard({
         repliesButtonRef={repliesButtonRef}
         replyAvatarRefs={replyAvatarRefs}
         replies={loadedReplies}
-        hasReplies={hasReplies}
+        hasReplies={hasReplies && !isCollapsed}
         areRepliesExpanded={areRepliesExpanded}
         measureVersion={measureVersion}
+        onRailClick={collapse}
+        isHighlighted={isRailHovered}
+        hoverProps={railHoverProps}
       />
 
-      <div className="relative z-10 flex gap-3">
-        <div className="size-8 shrink-0">
+      {/* No z-index of its own, so the collapse button on the thread line can sit above the line's click area */}
+      <div className="relative flex gap-3">
+        <div className="relative size-8 shrink-0">
           <img
             ref={setParentAvatarRef}
             src={avatarUrl}
@@ -199,15 +263,40 @@ function CommentCard({
               e.currentTarget.onerror = null;
             }}
             alt={`${displayName}'s avatar`}
-            className="border-muted size-8 rounded-full border object-cover"
+            // Kept in place when collapsed: the parent's connector lands on it
+            className={cn(
+              "border-muted size-8 rounded-full border object-cover",
+              isCollapsed && "invisible",
+            )}
             loading="lazy"
             referrerPolicy="no-referrer"
           />
+          {isCollapsed && (
+            <button
+              type="button"
+              onClick={() => setIsCollapsed(false)}
+              aria-expanded={false}
+              aria-label="Expand comment"
+              title="Expand comment"
+              className={cn(COLLAPSE_BUTTON_CLASS, "absolute inset-0 z-30")}
+            >
+              <CirclePlus
+                strokeWidth={1.5}
+                className="bg-background size-4 rounded-full"
+              />
+            </button>
+          )}
         </div>
 
-        <div className="mb-2 min-w-0 flex-1 overflow-hidden">
+        <div
+          onClick={handleCommentClick}
+          className={cn(
+            "min-w-0 flex-1",
+            isCollapsed ? "hover:cursor-pointer" : "mb-2",
+          )}
+        >
           {/* As tall as the avatar, so the name sits level with its middle */}
-          <div className="flex min-h-8 flex-col justify-center">
+          <div className="flex min-h-8 min-w-0 flex-col justify-center overflow-hidden">
             <div className="flex flex-wrap items-center gap-2">
               {authorUrl ? (
                 <a
@@ -231,7 +320,7 @@ function CommentCard({
               )}
             </div>
 
-            {parentName && depth > MAX_PHONE_INDENT && (
+            {parentName && depth > MAX_PHONE_INDENT && !isCollapsed && (
               <p className="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs sm:hidden">
                 <CornerDownRight aria-hidden className="size-3 shrink-0" />
                 <span className="truncate">Replying to {parentName}</span>
@@ -239,249 +328,253 @@ function CommentCard({
             )}
           </div>
 
-          {isDeleted ? (
-            <p className="text-muted-foreground text-sm italic">
-              This comment was deleted
-            </p>
-          ) : isRemovedForViewer ? (
-            <p className="text-muted-foreground text-sm italic">
-              [removed]
-            </p>
-          ) : isEditing ? (
-            <div className="mt-4">
-              <CommentEditor
-                key={`edit-${comment.id}-${comment.modified_at}`}
-                currentUser={currentUser}
-                authorProfileUrl={authorProfileUrl}
-                submitLabel="Save"
-                placeholder="Edit your comment..."
-                startOpen
-                disabled={!canReply}
-                initialMarkdown={comment.content}
-                onSubmit={async (body) => {
-                  await onEdit?.(comment.id, body);
-                  setIsEditing(false);
-                }}
-                onAuthRequired={onAuthRequired}
-              />
-
-              <button
-                type="button"
-                onClick={() => setIsEditing(false)}
-                className="text-muted-foreground mt-2 text-sm hover:underline"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <CollapsibleContent
-              maxHeight={320}
-              className="threadfs-comment-content overflow-wrap-anywhere text-sm leading-6 wrap-break-word"
-            >
-              <MarkdownContent markdown={comment.content} />
-            </CollapsibleContent>
-          )}
-
-          {isHidden && isOwnComment && (
-            <p className="text-muted-foreground mt-2 text-xs italic">
-              Removed by a moderator
-              {removalReason ? `: ${removalReason}` : ""}. Only you can see
-              this.
-            </p>
-          )}
-
-          {comment.status === "visible" && (
-            <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium">
-              <button
-                type="button"
-                onClick={() => onVote?.(comment.id, 1)}
-                aria-pressed={viewerVote === 1}
-                aria-label={`Upvote (${comment.upvote_count ?? 0})`}
-                className={cn(
-                  "hover:text-tfs-brand-strong dark:hover:text-tfs-brand flex items-center gap-1 hover:cursor-pointer",
-                  viewerVote === 1 &&
-                    "text-tfs-brand-strong dark:text-tfs-brand",
-                )}
-              >
-                <ArrowBigUp
-                  className={cn("size-4", viewerVote === 1 && "fill-current")}
+          {/* Hidden rather than removed, so open replies and a half-written reply are still there on expanding */}
+          <div className={cn(isCollapsed && "hidden")}>
+            {isDeleted ? (
+              <p className="text-muted-foreground text-sm italic">
+                This comment was deleted
+              </p>
+            ) : isRemovedForViewer ? (
+              <p className="text-muted-foreground text-sm italic">[removed]</p>
+            ) : isEditing ? (
+              <div data-no-collapse className="mt-4">
+                <CommentEditor
+                  key={`edit-${comment.id}-${comment.modified_at}`}
+                  currentUser={currentUser}
+                  authorProfileUrl={authorProfileUrl}
+                  submitLabel="Save"
+                  placeholder="Edit your comment..."
+                  startOpen
+                  disabled={!canReply}
+                  initialMarkdown={comment.content}
+                  onSubmit={async (body) => {
+                    await onEdit?.(comment.id, body);
+                    setIsEditing(false);
+                  }}
+                  onAuthRequired={onAuthRequired}
                 />
-                <span>{comment.upvote_count ?? 0}</span>
-              </button>
 
-              <button
-                type="button"
-                onClick={() => onVote?.(comment.id, -1)}
-                aria-pressed={viewerVote === -1}
-                aria-label={`Downvote (${comment.downvote_count ?? 0})`}
-                className={cn(
-                  "flex items-center gap-1 hover:cursor-pointer hover:text-rose-500",
-                  viewerVote === -1 && "text-rose-500",
-                )}
-              >
-                <ArrowBigDown
-                  className={cn("size-4", viewerVote === -1 && "fill-current")}
-                />
-                <span>{comment.downvote_count ?? 0}</span>
-              </button>
-
-              {!isLocked && (
                 <button
                   type="button"
-                  onClick={handleReplyClick}
-                  className="hover:text-tfs-brand-strong dark:hover:text-tfs-brand flex items-center gap-1 hover:cursor-pointer"
+                  onClick={() => setIsEditing(false)}
+                  className="text-muted-foreground mt-2 text-sm hover:underline"
                 >
-                  <MessageSquare className="size-4" />
-                  Reply
+                  Cancel
                 </button>
-              )}
-              <CommentActionsMenu
-                isOwnComment={isOwnComment}
-                canReport={canReply}
-                isReported={isReported}
-                reportReasons={reportReasons}
-                isDeleting={isDeleting}
-                onEdit={() => setIsEditing(true)}
-                onDelete={() => void handleDelete()}
-                onReport={
-                  onReport &&
-                  ((reason) =>
-                    reason === OTHER_REASON
-                      ? setIsDescribingReport(true)
-                      : void handleReport(reason))
-                }
-                onRemove={onRemove && (() => setIsRemoving(true))}
-                onAuthRequired={onAuthRequired}
-                onCloseAutoFocus={(event) => {
-                  if (!isDescribingReport) return;
-                  event.preventDefault();
-                  reportFormRef.current?.querySelector("textarea")?.focus();
-                }}
-              />
-            </div>
-          )}
+              </div>
+            ) : (
+              <CollapsibleContent
+                maxHeight={320}
+                className="threadfs-comment-content overflow-wrap-anywhere overflow-hidden text-sm leading-6 wrap-break-word"
+              >
+                <MarkdownContent markdown={comment.content} />
+              </CollapsibleContent>
+            )}
 
-          {isDescribingReport && comment.status === "visible" && (
-            <div ref={reportFormRef}>
-              <ReportDetailsForm
-                onReport={(details) => handleReport(OTHER_REASON, details)}
-                onCancel={() => setIsDescribingReport(false)}
-              />
-            </div>
-          )}
+            {isHidden && isOwnComment && (
+              <p className="text-muted-foreground mt-2 text-xs italic">
+                Removed by a moderator
+                {removalReason ? `: ${removalReason}` : ""}. Only you can see
+                this.
+              </p>
+            )}
 
-          {isRemoving && onRemove && comment.status === "visible" && (
-            <RemoveCommentForm
-              authorName={displayName}
-              reasons={reportReasons}
-              onRemove={(removal) => onRemove(comment.id, removal)}
-              onCancel={() => setIsRemoving(false)}
-            />
-          )}
+            {comment.status === "visible" && (
+              <div className="text-muted-foreground relative mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium">
+                {collapseButton}
+                <button
+                  type="button"
+                  onClick={() => onVote?.(comment.id, 1)}
+                  aria-pressed={viewerVote === 1}
+                  aria-label={`Upvote (${comment.upvote_count ?? 0})`}
+                  className={cn(
+                    "hover:text-tfs-brand-strong dark:hover:text-tfs-brand flex items-center gap-1 hover:cursor-pointer",
+                    viewerVote === 1 &&
+                      "text-tfs-brand-strong dark:text-tfs-brand",
+                  )}
+                >
+                  <ArrowBigUp
+                    className={cn("size-4", viewerVote === 1 && "fill-current")}
+                  />
+                  <span>{comment.upvote_count ?? 0}</span>
+                </button>
 
-          {isReplying && (
-            <div className="mt-4">
-              <CommentEditor
-                key={`reply-${comment.id}`}
-                currentUser={currentUser}
-                authorProfileUrl={authorProfileUrl}
-                submitLabel="Reply"
-                placeholder={`Reply to ${displayName}...`}
-                startOpen
-                disabled={!canReply}
-                onSubmit={async (body) => {
-                  await onReply(comment.id, body);
-                  setIsReplying(false);
-                  setAreRepliesExpanded(true);
-                }}
-                onAuthRequired={onAuthRequired}
+                <button
+                  type="button"
+                  onClick={() => onVote?.(comment.id, -1)}
+                  aria-pressed={viewerVote === -1}
+                  aria-label={`Downvote (${comment.downvote_count ?? 0})`}
+                  className={cn(
+                    "flex items-center gap-1 hover:cursor-pointer hover:text-rose-500",
+                    viewerVote === -1 && "text-rose-500",
+                  )}
+                >
+                  <ArrowBigDown
+                    className={cn(
+                      "size-4",
+                      viewerVote === -1 && "fill-current",
+                    )}
+                  />
+                  <span>{comment.downvote_count ?? 0}</span>
+                </button>
+
+                {!isLocked && (
+                  <button
+                    type="button"
+                    onClick={handleReplyClick}
+                    className="hover:text-tfs-brand-strong dark:hover:text-tfs-brand flex items-center gap-1 hover:cursor-pointer"
+                  >
+                    <MessageSquare className="size-4" />
+                    Reply
+                  </button>
+                )}
+                <CommentActionsMenu
+                  isOwnComment={isOwnComment}
+                  canReport={canReply}
+                  isReported={isReported}
+                  reportReasons={reportReasons}
+                  isDeleting={isDeleting}
+                  onEdit={() => setIsEditing(true)}
+                  onDelete={() => void handleDelete()}
+                  onReport={
+                    onReport &&
+                    ((reason) =>
+                      reason === OTHER_REASON
+                        ? setIsDescribingReport(true)
+                        : void handleReport(reason))
+                  }
+                  onRemove={onRemove && (() => setIsRemoving(true))}
+                  onAuthRequired={onAuthRequired}
+                  onCloseAutoFocus={(event) => {
+                    if (!isDescribingReport) return;
+                    event.preventDefault();
+                    reportFormRef.current?.querySelector("textarea")?.focus();
+                  }}
+                />
+              </div>
+            )}
+
+            {comment.status !== "visible" && hasReplies && (
+              <div className="relative mt-3 h-6">{collapseButton}</div>
+            )}
+
+            {isDescribingReport && comment.status === "visible" && (
+              <div ref={reportFormRef}>
+                <ReportDetailsForm
+                  onReport={(details) => handleReport(OTHER_REASON, details)}
+                  onCancel={() => setIsDescribingReport(false)}
+                />
+              </div>
+            )}
+
+            {isRemoving && onRemove && comment.status === "visible" && (
+              <RemoveCommentForm
+                authorName={displayName}
+                reasons={reportReasons}
+                onRemove={(removal) => onRemove(comment.id, removal)}
+                onCancel={() => setIsRemoving(false)}
               />
-            </div>
-          )}
+            )}
+
+            {isReplying && (
+              <div data-no-collapse className="mt-4">
+                <CommentEditor
+                  key={`reply-${comment.id}`}
+                  currentUser={currentUser}
+                  authorProfileUrl={authorProfileUrl}
+                  submitLabel="Reply"
+                  placeholder={`Reply to ${displayName}...`}
+                  startOpen
+                  disabled={!canReply}
+                  onSubmit={async (body) => {
+                    // Adding this reply makes the rest look loaded, with no View more left to fetch them
+                    const hadUnloadedReplies = hasReplies && !hasLoadedReplies;
+
+                    await onReply(comment.id, body);
+                    setIsReplying(false);
+                    if (hadUnloadedReplies) await onLoadReplies?.(comment.id);
+                    setAreRepliesExpanded(true);
+                  }}
+                  onAuthRequired={onAuthRequired}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {hasReplies && (
-        <div className="relative z-10 flex gap-3">
-          <div className="w-8 shrink-0" />
+      <div className={cn(isCollapsed && "hidden")}>
+        {hasReplies && !areRepliesExpanded && (
+          <div className="relative z-10 flex gap-3">
+            <div className="w-8 shrink-0" />
 
-          <div className="min-w-0 flex-1">
-            <button
-              ref={setRepliesButtonRef}
-              type="button"
-              onClick={() => void handleToggleReplies()}
-              disabled={isLoadingReplies}
-              aria-expanded={areRepliesExpanded}
-              className="text-primary hover:bg-primary/10 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium hover:cursor-pointer hover:underline disabled:opacity-60"
-            >
-              {areRepliesExpanded ? (
-                <ChevronUp className="size-4" />
-              ) : (
-                <ChevronDown className="size-4" />
-              )}
-
-              <span>
-                {isLoadingReplies
-                  ? "Loading replies..."
-                  : areRepliesExpanded
-                    ? "Hide replies"
-                    : `${comment.reply_count} ${
-                        comment.reply_count === 1 ? "reply" : "replies"
-                      }`}
-              </span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {areRepliesExpanded && hasLoadedReplies && (
-        <div className="relative z-10 mt-2">
-          {loadedReplies.map((reply) => (
-            <div
-              key={reply.id}
-              className={cn("relative", getReplyIndentClass(depth + 1))}
-            >
-              <CommentCard
-                comment={reply}
-                avatarRef={getReplyAvatarRef(reply.id)}
-                currentCommunityUserId={currentCommunityUserId}
-                currentUser={currentUser}
-                depth={depth + 1}
-                parentName={displayName}
-                canReply={canReply}
-                isLocked={isLocked}
-                onReply={onReply}
-                onVote={onVote}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onReport={onReport}
-                reportReasons={reportReasons}
-                onRemove={onRemove}
-                onLoadReplies={onLoadReplies}
-                onLoadMoreReplies={onLoadMoreReplies}
-                onAuthRequired={onAuthRequired}
-                authorProfileUrl={authorProfileUrl}
-              />
-            </div>
-          ))}
-
-          {comment.replies_has_more && (
-            <div className={cn("mt-2", getReplyIndentClass(depth + 1))}>
-              <Button
+            <div className="min-w-0 flex-1">
+              <button
+                ref={setRepliesButtonRef}
                 type="button"
-                variant="secondary"
-                disabled={comment.replies_is_loading_more}
-                onClick={() => void onLoadMoreReplies?.(comment.id)}
-                className="hover:cursor-pointer hover:underline"
+                onClick={() => void handleViewReplies()}
+                disabled={isLoadingReplies}
+                className="text-primary hover:bg-primary/10 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium hover:cursor-pointer hover:underline disabled:opacity-60"
               >
-                {comment.replies_is_loading_more
-                  ? "Loading replies..."
-                  : "Load more replies"}
-              </Button>
+                <ChevronDown className="size-4" />
+                <span>
+                  {isLoadingReplies ? "Loading replies..." : "View more"}
+                </span>
+              </button>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+
+        {areRepliesExpanded && hasLoadedReplies && (
+          <div className="relative mt-2">
+            {/* No z-index on this one, so a reply's collapse buttons can sit above this comment's line */}
+            {loadedReplies.map((reply) => (
+              <div
+                key={reply.id}
+                className={cn("relative", getReplyIndentClass(depth + 1))}
+              >
+                <CommentCard
+                  comment={reply}
+                  avatarRef={getReplyAvatarRef(reply.id)}
+                  currentCommunityUserId={currentCommunityUserId}
+                  currentUser={currentUser}
+                  depth={depth + 1}
+                  parentName={displayName}
+                  canReply={canReply}
+                  isLocked={isLocked}
+                  onReply={onReply}
+                  onVote={onVote}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onReport={onReport}
+                  reportReasons={reportReasons}
+                  onRemove={onRemove}
+                  onLoadReplies={onLoadReplies}
+                  onLoadMoreReplies={onLoadMoreReplies}
+                  onAuthRequired={onAuthRequired}
+                  authorProfileUrl={authorProfileUrl}
+                />
+              </div>
+            ))}
+
+            {comment.replies_has_more && (
+              <div className={cn("mt-2", getReplyIndentClass(depth + 1))}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={comment.replies_is_loading_more}
+                  onClick={() => void onLoadMoreReplies?.(comment.id)}
+                  className="hover:cursor-pointer hover:underline"
+                >
+                  {comment.replies_is_loading_more
+                    ? "Loading replies..."
+                    : "Load more replies"}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </article>
   );
 }
