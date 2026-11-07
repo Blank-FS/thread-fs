@@ -137,6 +137,41 @@ async def _require_user(session: AsyncSession, community: Community, community_u
     return user
 
 
+async def clear_user_images(
+    session: AsyncSession,
+    *,
+    community: Community,
+    moderator: CommunityUser,
+    external_user_id: str,
+    avatar: bool,
+    frame: bool,
+    reason: str | None,
+) -> None:
+    """
+    Forgets the avatar or frame URL kept for a user, for when the host has taken the image down: comments stop showing
+    it straight away, rather than at the user's next visit. The host stays the source, so their next token sets both
+    again from its claims. Someone who has never used the community has nothing stored, which is fine.
+    """
+    result = await session.execute(
+        select(CommunityUser).where(
+            CommunityUser.community_id == community.id,
+            CommunityUser.identity_provider == moderator.identity_provider,
+            CommunityUser.external_user_id == external_user_id,
+        )
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        return
+
+    if avatar and user.avatar_url:
+        user.avatar_url = None
+        _log(session, community, moderator, "clear_avatar", target_community_user_id=user.id, reason=reason)
+    if frame and user.avatar_frame_url:
+        user.avatar_frame_url = None
+        _log(session, community, moderator, "clear_avatar_frame", target_community_user_id=user.id, reason=reason)
+    await session.commit()
+
+
 async def lift_ban(
     session: AsyncSession,
     *,

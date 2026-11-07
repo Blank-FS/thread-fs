@@ -18,6 +18,7 @@ from app.schemas.moderation import (
     BatchRequest,
     AdminOverviewRead,
     BatchResult,
+    ClearImagesRequest,
     LimitsRequest,
     UndoBatchResult,
     CommentFilters,
@@ -304,6 +305,24 @@ async def search_users(
         session, community=context[0], search=q, only=only, sort=sort, limit=limit, offset=offset
     )
     return page(items, limit=limit, offset=offset, total=total)
+
+
+@router.post("/users/clear-images", status_code=status.HTTP_204_NO_CONTENT)
+async def clear_user_images(
+    payload: ClearImagesRequest,
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_moderator),
+):
+    """For the host to call when it removes a user's avatar or frame, so comments stop showing it at once."""
+    await moderation_service.clear_user_images(
+        session,
+        community=context[0],
+        moderator=context[1],
+        external_user_id=payload.external_user_id,
+        avatar=payload.avatar,
+        frame=payload.frame,
+        reason=payload.reason,
+    )
 
 
 @router.get("/users/{community_user_id}", response_model=ModerationUserDetailRead)

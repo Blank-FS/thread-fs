@@ -54,6 +54,8 @@ export type ThreadFSCommentUser = {
   external_user_id: string;
   display_name: string | null;
   avatar_url: string | null;
+  /** Drawn over the avatar, about 1.4 times its size. */
+  avatar_frame_url?: string | null;
 };
 
 export type ThreadFSComment = {
@@ -106,6 +108,7 @@ export type EmbedMe = {
   external_user_id: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  avatar_frame_url?: string | null;
   threadfs_user_id: string | null;
   staff_role: ThreadFSStaffRole | null;
 };

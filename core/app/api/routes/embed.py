@@ -88,6 +88,7 @@ async def get_embed_me(
         external_user_id=community_user.external_user_id,
         display_name=community_user.display_name,
         avatar_url=community_user.avatar_url,
+        avatar_frame_url=community_user.avatar_frame_url,
         threadfs_user_id=community_user.threadfs_user_id,
         staff_role=community_user.staff_role,
     )

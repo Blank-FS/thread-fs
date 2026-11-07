@@ -22,6 +22,7 @@ import type {
   ThreadFSThread,
 } from "../../lib/types";
 import { cn } from "../../lib/utils";
+import AvatarFrame from "../card/AvatarFrame";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -241,26 +242,32 @@ export function BanLengthSelect({
   );
 }
 
+/** The avatar with its frame, as comments show them. Pickers leave the frame off, as it would crowd the list. */
 export function UserAvatar({
   user,
   size,
+  frame = true,
 }: {
   user?: ThreadFSCommentUser | null;
   size?: "sm" | "default" | "lg";
+  frame?: boolean;
 }) {
   return (
-    <Avatar size={size}>
-      {user?.avatar_url && (
-        <AvatarImage
-          src={user.avatar_url}
-          alt=""
-          referrerPolicy="no-referrer"
-        />
-      )}
-      <AvatarFallback>
-        {userName(user).slice(0, 2).toUpperCase()}
-      </AvatarFallback>
-    </Avatar>
+    <span className="relative inline-flex shrink-0">
+      <Avatar size={size}>
+        {user?.avatar_url && (
+          <AvatarImage
+            src={user.avatar_url}
+            alt=""
+            referrerPolicy="no-referrer"
+          />
+        )}
+        <AvatarFallback>
+          {userName(user).slice(0, 2).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+      {frame && <AvatarFrame url={user?.avatar_frame_url} />}
+    </span>
   );
 }
 

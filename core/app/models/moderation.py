@@ -70,6 +70,7 @@ class ModerationAction(Base):
 
     # hide_comment | restore_comment | ban_user | unban_user | lock_thread | unlock_thread
     # | dismiss_reports | resolve_reports | reopen_reports | hide_batch | restore_batch | undo_batch
+    # | clear_avatar | clear_avatar_frame
     action = Column(String(64), nullable=False)
 
     comment_id = Column(

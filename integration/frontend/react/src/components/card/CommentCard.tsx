@@ -29,6 +29,7 @@ import CommentEditor from "../editor/CommentEditor";
 import { OTHER_REASON } from "../moderation/shared";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import AvatarFrame from "./AvatarFrame";
 import CommentActionsMenu from "./CommentActionsMenu";
 import CommentTimestamp from "./CommentTimestamp";
 import RemoveCommentForm from "./RemoveCommentForm";
@@ -271,6 +272,9 @@ function CommentCard({
             loading="lazy"
             referrerPolicy="no-referrer"
           />
+          {!isCollapsed && (
+            <AvatarFrame url={comment.community_user?.avatar_frame_url} />
+          )}
           {isCollapsed && (
             <button
               type="button"

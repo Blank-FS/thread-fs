@@ -162,3 +162,31 @@ async def test_any_signed_in_request_keeps_the_avatar_up_to_date(client, session
     # Saying nothing leaves it, and saying there's none clears it
     assert await me(omit_avatar=True) == "https://example.com/b.png"
     assert await me(avatar_url=None) is None
+
+
+@pytest.mark.anyio
+async def test_the_avatar_frame_follows_the_token_like_the_avatar(client, session):
+    setup = await create_community_setup(session)
+
+    async def me(**token_args):
+        token = create_test_token(secret=setup["secret"], issuer=setup["issuer"], subject="alice", **token_args)
+        res = await client.get(
+            f"{API}/me",
+            headers=embed_headers(public_key=setup["public_key"], origin=setup["origin"], token=token),
+        )
+        return res.json()["avatar_frame_url"]
+
+    frame = {"avatar_frame_url": "https://example.com/frame.webp"}
+    assert await me(claims=frame) == "https://example.com/frame.webp"
+    # Saying nothing leaves it, a non-string is ignored, and a null clears it
+    assert await me() == "https://example.com/frame.webp"
+    assert await me(claims={"avatar_frame_url": 42}) == "https://example.com/frame.webp"
+
+    comments = await client.get(
+        f"{API}/comments",
+        params={"thread_id": THREAD},
+        headers=embed_headers(public_key=setup["public_key"], origin=setup["origin"]),
+    )
+    assert comments.status_code == 200
+
+    assert await me(claims={"avatar_frame_url": None}) is None

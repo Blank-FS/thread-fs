@@ -4,6 +4,7 @@ import {
   Eye,
   EyeOff,
   FlagOff,
+  ImageOff,
   Lock,
   LockOpen,
   RotateCcw,
@@ -371,6 +372,10 @@ function ActionText({ action, target, batch }: ModerationAction) {
       return <>resolved reports on {who}'s comment</>;
     case "reopen_reports":
       return <>reopened reports on {who}'s comment</>;
+    case "clear_avatar":
+      return <>cleared {who}'s avatar</>;
+    case "clear_avatar_frame":
+      return <>cleared {who}'s avatar frame</>;
     default:
       return <>{action}</>;
   }
@@ -429,6 +434,8 @@ const ACTION_ICONS: Record<string, typeof Ban> = {
   dismiss_reports: FlagOff,
   resolve_reports: Check,
   reopen_reports: RotateCcw,
+  clear_avatar: ImageOff,
+  clear_avatar_frame: ImageOff,
 };
 
 const LOG_ACTIONS = [

@@ -37,6 +37,8 @@ class CommunityUser(Base):
 
     display_name = Column(String(255), nullable=True)
     avatar_url = Column(String(2048), nullable=True)
+    # Drawn over the avatar. Like the avatar, the host signs it, so users can't point it at any image they like
+    avatar_frame_url = Column(String(2048), nullable=True)
     # The role in their latest token. Only for protecting and labelling them, as what they may do comes from staff_role
     last_staff_role = Column(String(16), nullable=True)
 

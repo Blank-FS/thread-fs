@@ -178,6 +178,15 @@ class BatchRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ClearImagesRequest(BaseModel):
+    """Which of a user's images to clear, naming them by the host's own user id (the token's subject)."""
+
+    external_user_id: str = Field(min_length=1, max_length=255)
+    avatar: bool = False
+    frame: bool = False
+    reason: str | None = Field(default=None, max_length=1000)
+
+
 class BanRequest(BaseModel):
     community_user_id: UUID
     reason: str | None = Field(default=None, max_length=1000)

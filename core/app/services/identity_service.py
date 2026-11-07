@@ -29,6 +29,8 @@ class VerifiedIdentity:
         display_name: str | None,
         avatar_url: str | None,
         updates_avatar: bool = False,
+        avatar_frame_url: str | None = None,
+        updates_avatar_frame: bool = False,
         threadfs_user_id: UUID | None = None,
         staff_role: str | None = None,
         signed_threads: bool = False,
@@ -39,6 +41,8 @@ class VerifiedIdentity:
         self.display_name = display_name
         self.avatar_url = avatar_url
         self.updates_avatar = updates_avatar
+        self.avatar_frame_url = avatar_frame_url
+        self.updates_avatar_frame = updates_avatar_frame
         self.threadfs_user_id = threadfs_user_id
         self.staff_role = staff_role
         self.signed_threads = signed_threads
@@ -153,6 +157,11 @@ async def verify_external_identity_token(
     avatar_url = claims.get("avatar_url")
     # A null avatar means the user has none, so it clears the stored one. A token without the claim says nothing about it
     updates_avatar = "avatar_url" in claims and (avatar_url is None or isinstance(avatar_url, str))
+    # The same for the frame drawn over it
+    avatar_frame_url = claims.get("avatar_frame_url")
+    updates_avatar_frame = "avatar_frame_url" in claims and (
+        avatar_frame_url is None or isinstance(avatar_frame_url, str)
+    )
 
     if display_name is not None and not isinstance(display_name, str):
         display_name = None
@@ -166,6 +175,8 @@ async def verify_external_identity_token(
         display_name=display_name,
         avatar_url=avatar_url,
         updates_avatar=updates_avatar,
+        avatar_frame_url=avatar_frame_url if isinstance(avatar_frame_url, str) else None,
+        updates_avatar_frame=updates_avatar_frame,
         staff_role=claims.get(STAFF_ROLE_CLAIM)
         if claims.get(STAFF_ROLE_CLAIM) in STAFF_ROLES
         else None,
@@ -198,6 +209,10 @@ async def get_or_create_community_user_for_identity(
             existing.avatar_url = identity.avatar_url
             changed = True
 
+        if identity.updates_avatar_frame and existing.avatar_frame_url != identity.avatar_frame_url:
+            existing.avatar_frame_url = identity.avatar_frame_url
+            changed = True
+
         if existing.last_staff_role != identity.staff_role:
             existing.last_staff_role = identity.staff_role
             changed = True
@@ -222,6 +237,7 @@ async def get_or_create_community_user_for_identity(
         external_user_id=identity.external_user_id,
         display_name=identity.display_name,
         avatar_url=identity.avatar_url,
+        avatar_frame_url=identity.avatar_frame_url,
         last_staff_role=identity.staff_role,
         threadfs_user_id=identity.threadfs_user_id,
     )

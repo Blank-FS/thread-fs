@@ -33,6 +33,8 @@ export default defineConfig({
     },
   },
   build: {
+    // public/ only holds the test site's files, which don't belong in the package
+    copyPublicDir: false,
     lib: {
       entry: path.resolve(__dirname, "src/index.ts"),
       name: "ThreadFSReact",

@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { ScrollText } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import defaultAvatarUrl from "../assets/default-avatar.png";
+import AvatarFrame from "../card/AvatarFrame";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
@@ -125,10 +126,11 @@ function CommentEditor({
         <div className="shrink-0 pt-[5px]">
           {isLoading ? (
             <Skeleton className="size-8 rounded-full" />
-          ) : profileUrl ? (
-            <a href={profileUrl}>{avatar}</a>
           ) : (
-            avatar
+            <div className="relative size-8">
+              {profileUrl ? <a href={profileUrl}>{avatar}</a> : avatar}
+              <AvatarFrame url={currentUser?.avatar_frame_url} />
+            </div>
           )}
         </div>
       )}

@@ -319,6 +319,8 @@ async def _seed_demo_community_users(
             "external_user_id": "demo-user-1",
             "display_name": "Blank",
             "avatar_url": "https://api.dicebear.com/8.x/initials/svg?seed=Blank",
+            # Served by the demo site, like the one in make_demo_token's token for Blank
+            "avatar_frame_url": "http://localhost:5173/demo-frame.webp",
         },
         {
             "external_user_id": "demo-user-2",
@@ -349,6 +351,7 @@ async def _seed_demo_community_users(
             external_user_id=user_data["external_user_id"],
             display_name=user_data["display_name"],
             avatar_url=user_data["avatar_url"],
+            avatar_frame_url=user_data.get("avatar_frame_url"),
         )
         session.add(user)
         users.append(user)

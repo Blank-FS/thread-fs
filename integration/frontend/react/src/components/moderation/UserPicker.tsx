@@ -48,7 +48,7 @@ export function UserPicker({
   if (value) {
     return (
       <div className="border-input flex h-8 items-center gap-2 rounded-lg border pr-2.5 pl-1.5 text-sm">
-        <UserAvatar user={value} size="sm" />
+        <UserAvatar user={value} size="sm" frame={false} />
         <span className="min-w-0 flex-1 truncate">{userName(value)}</span>
         <button
           type="button"
@@ -82,7 +82,7 @@ export function UserPicker({
                 }}
                 className="hover:bg-muted flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm hover:cursor-pointer"
               >
-                <UserAvatar user={user} size="sm" />
+                <UserAvatar user={user} size="sm" frame={false} />
                 <span className="min-w-0 flex-1 truncate">
                   {userName(user)}
                 </span>

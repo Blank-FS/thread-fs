@@ -1422,3 +1422,42 @@ async def test_limits_are_validated_logged_and_per_community(client, session):
     )
     await session.commit()
     assert (await client.get(f"{MOD}/admin", headers=admin(other))).json()["max_batch_size"] == 50
+
+
+@pytest.mark.anyio
+async def test_moderators_can_clear_images_the_host_took_down(client, session):
+    setup = await create_community_setup(session)
+    images = {"avatar_url": "https://example.com/a.png", "avatar_frame_url": "https://example.com/f.webp"}
+    def as_alice(**token_args):
+        token = create_test_token(secret=setup["secret"], issuer=setup["issuer"], subject="alice", username="alice", **token_args)
+        return embed_headers(public_key=setup["public_key"], origin=setup["origin"], token=token)
+
+    await client.get(f"{API}/me", headers=as_alice(avatar_url=images["avatar_url"], claims={"avatar_frame_url": images["avatar_frame_url"]}))
+
+    async def stored():
+        # A token without image claims leaves them as they are
+        res = await client.get(f"{API}/me", headers=as_alice(omit_avatar=True))
+        return res.json()["avatar_url"], res.json()["avatar_frame_url"]
+
+    clear = lambda by, **body: client.post(f"{MOD}/users/clear-images", headers=by, json={"external_user_id": "alice", **body})
+
+    assert (await clear(headers(setup, "bob"), frame=True)).status_code == 403
+    assert await stored() == (images["avatar_url"], images["avatar_frame_url"])
+
+    assert (await clear(mod(setup), frame=True, reason="Copied artwork")).status_code == 204
+    assert await stored() == (images["avatar_url"], None)
+    assert (await clear(mod(setup), avatar=True)).status_code == 204
+    assert await stored() == (None, None)
+
+    # Clearing what's already gone, or someone who never came, changes and logs nothing more
+    assert (await clear(mod(setup), avatar=True, frame=True)).status_code == 204
+    res = await client.post(f"{MOD}/users/clear-images", headers=mod(setup), json={"external_user_id": "nobody", "avatar": True})
+    assert res.status_code == 204
+
+    log = (await client.get(f"{MOD}/actions", headers=mod(setup))).json()["items"]
+    assert [(entry["action"], entry["reason"]) for entry in log] == [("clear_avatar", None), ("clear_avatar_frame", "Copied artwork")]
+    assert log[0]["target"]["external_user_id"] == "alice"
+
+    # The host stays the source: its next token sets them again
+    await client.get(f"{API}/me", headers=as_alice(avatar_url=images["avatar_url"], claims={"avatar_frame_url": images["avatar_frame_url"]}))
+    assert await stored() == (images["avatar_url"], images["avatar_frame_url"])

@@ -344,6 +344,15 @@ Reports and removals keep the label they were made with, so changing the list do
 
 Moderators can ban regular users. Admins can also ban moderators, and only admins can lift a moderator's ban. Nobody can ban an admin or themselves. A banned moderator loses moderation access until the ban ends. ThreadFS knows staff by the role in their latest token, so someone who's just been given a role is protected from their next visit.
 
+When your site removes a user's avatar or frame, ThreadFS keeps the old URL until that user's next token. To clear it at once, call this with a `moderator` or `admin` token, after removing the image on your side, since the next token sets both again from its claims:
+
+```
+POST /api/v1/moderation/users/clear-images
+{"external_user_id": "123", "avatar": true, "frame": false}
+```
+
+`external_user_id` is the user's `sub`. Each image cleared is a line in the log.
+
 Bulk actions are limited for moderators, by default to 50 comments at once and 200 a day. Clearing out one regular user's comments isn't limited, and admins have no limit. Each batch is one line in the log, where an admin can undo it, which puts back what it changed, including removal reasons.
 
 An `admin` token also gets an Admin panel: staff activity, the moderator limits, the community's reasons and its allowed origins. Keys and allowed origins are changed from the server, with `setup_community`, never from a browser.

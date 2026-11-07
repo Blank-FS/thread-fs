@@ -96,6 +96,7 @@ export function ThreadFSComments({
         external_user_id: me.external_user_id ?? "",
         display_name: me.display_name,
         avatar_url: me.avatar_url,
+        avatar_frame_url: me.avatar_frame_url,
       }
     : null;
 

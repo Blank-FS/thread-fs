@@ -66,6 +66,7 @@ class EmbedMeRead(BaseModel):
     external_user_id: str | None = None
     display_name: str | None = None
     avatar_url: str | None = None
+    avatar_frame_url: str | None = None
     threadfs_user_id: UUID | None = None
     staff_role: str | None = None
 
@@ -107,6 +108,7 @@ class CommunityUserRead(BaseModel):
     external_user_id: str
     display_name: str | None
     avatar_url: str | None
+    avatar_frame_url: str | None = None
 
     model_config = {"from_attributes": True}
 

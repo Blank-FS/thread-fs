@@ -7,7 +7,7 @@ from jose import jwt
 
 # Users from the demo seed (app/db/init_db.py), one of each kind the widgets treat differently
 DEMO_USERS = [
-    {"id": "demo-user-1", "name": "Blank", "role": None, "avatar": True},
+    {"id": "demo-user-1", "name": "Blank", "role": None, "avatar": True, "frame": "http://localhost:5173/demo-frame.webp"},
     {"id": "demo-user-5", "name": "Nova", "role": None, "avatar": False},
     {"id": "demo-user-2", "name": "Sora", "role": "moderator", "avatar": True},
     {"id": "demo-user-3", "name": "Shiro", "role": "admin", "avatar": True},
@@ -29,6 +29,9 @@ def make_token(user: dict) -> str:
 
     if user["role"]:
         payload["threadfs_role"] = user["role"]
+    # Only users with a frame say anything about one, as a host that doesn't do frames would
+    if user.get("frame"):
+        payload["avatar_frame_url"] = user["frame"]
 
     return jwt.encode(payload, SECRET, algorithm="HS256")
 

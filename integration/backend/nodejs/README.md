@@ -151,6 +151,12 @@ The display name shown in comments.
 
 Optional URL to the user’s avatar.
 
+### `avatar_frame_url`
+
+Optional URL to an image drawn over the avatar, at 1.4 times its size and centred, like a decoration. Use a square image with a transparent middle. Animated WebP, AVIF, PNG or GIF all work.
+
+For both `avatar_url` and `avatar_frame_url`, sending `null` clears what ThreadFS has stored, and leaving the claim out keeps it.
+
 ### `iss`
 
 The issuer configured in ThreadFS Core for the community auth provider.
