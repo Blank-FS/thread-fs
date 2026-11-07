@@ -19,7 +19,7 @@ async def limit_read_comments(
     community_user: CommunityUser | None = Depends(get_optional_current_community_user),
 ) -> Community:
     if community_user:
-        check_user_rate_limit(
+        await check_user_rate_limit(
             community_id=str(community.id),
             community_user_id=str(community_user.id),
             name="read_comments_user",
@@ -27,7 +27,7 @@ async def limit_read_comments(
             window_seconds=60,
         )
     else:
-        check_ip_rate_limit(
+        await check_ip_rate_limit(
             request,
             name="read_comments_ip",
             limit=settings.RATE_LIMIT_READ_PER_MINUTE,
@@ -41,7 +41,7 @@ async def limit_create_comment(
     community: Community = Depends(require_valid_embed_context),
     community_user: CommunityUser = Depends(require_current_community_user),
 ) -> tuple[Community, CommunityUser]:
-    check_user_rate_limit(
+    await check_user_rate_limit(
         community_id=str(community.id),
         community_user_id=str(community_user.id),
         name="create_comment",
@@ -56,7 +56,7 @@ async def limit_report_comment(
     community: Community = Depends(require_valid_embed_context),
     community_user: CommunityUser = Depends(require_current_community_user),
 ) -> tuple[Community, CommunityUser]:
-    check_user_rate_limit(
+    await check_user_rate_limit(
         community_id=str(community.id),
         community_user_id=str(community_user.id),
         name="report_comment",
@@ -71,7 +71,7 @@ async def limit_vote_comment(
     community: Community = Depends(require_valid_embed_context),
     community_user: CommunityUser = Depends(require_current_community_user),
 ) -> tuple[Community, CommunityUser]:
-    check_user_rate_limit(
+    await check_user_rate_limit(
         community_id=str(community.id),
         community_user_id=str(community_user.id),
         name="vote_comment",
@@ -86,7 +86,7 @@ async def limit_edit_comment(
     community: Community = Depends(require_valid_embed_context),
     community_user: CommunityUser = Depends(require_current_community_user),
 ) -> tuple[Community, CommunityUser]:
-    check_user_rate_limit(
+    await check_user_rate_limit(
         community_id=str(community.id),
         community_user_id=str(community_user.id),
         name="edit_comment",
@@ -101,7 +101,7 @@ async def limit_delete_comment(
     community: Community = Depends(require_valid_embed_context),
     community_user: CommunityUser = Depends(require_current_community_user),
 ) -> tuple[Community, CommunityUser]:
-    check_user_rate_limit(
+    await check_user_rate_limit(
         community_id=str(community.id),
         community_user_id=str(community_user.id),
         name="delete_comment",

@@ -5,6 +5,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
     ports:
       - "127.0.0.1:8000:8000"
     command:
@@ -26,3 +30,10 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  # Rate limit counters, shared between workers. Nothing here needs keeping, so it never touches disk
+  redis:
+    image: redis:7-alpine
+    container_name: threadfs-redis
+    restart: unless-stopped
+    command: redis-server --save "" --appendonly no --maxmemory 64mb --maxmemory-policy allkeys-lru

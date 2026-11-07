@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DB_CREATE_DROP: bool = True
 
+    # Shares rate limits between workers. Without it each worker counts for itself, which is fine for development
+    REDIS_URL: str | None = None
     CORS_ALLOW_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
     RATE_LIMIT_ENABLED: bool = True
