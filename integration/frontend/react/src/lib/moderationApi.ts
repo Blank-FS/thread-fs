@@ -1,5 +1,6 @@
 import { buildHeaders, normalizeApiBaseUrl, parseResponseOrThrow } from "./api";
 import type {
+  AdminOverview,
   CommentFilters,
   CommunityBan,
   ModerationAction,
@@ -236,6 +237,18 @@ export const replaceReasons = (
   ctx: ThreadFSRequestContext,
   reasons: ThreadFSReason[],
 ) => send<ThreadFSReason[]>("PUT", ctx, "/reasons", { reasons });
+
+export const getAdminOverview = (ctx: ThreadFSRequestContext) =>
+  get<AdminOverview>(ctx, "/admin", {});
+
+export const updateLimits = (
+  ctx: ThreadFSRequestContext,
+  limits: { maxBatchSize: number; maxDailyBatchChanges: number },
+) =>
+  send<AdminOverview>("PUT", ctx, "/admin/limits", {
+    max_batch_size: limits.maxBatchSize,
+    max_daily_batch_changes: limits.maxDailyBatchChanges,
+  });
 
 export const undoBatch = (ctx: ThreadFSRequestContext, batchId: string) =>
   post<{ changed: number; skipped: number }>(

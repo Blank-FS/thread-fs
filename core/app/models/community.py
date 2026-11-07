@@ -32,3 +32,7 @@ class Community(Base):
 
     allow_anonymous_read = Column(Boolean, nullable=False, default=True)
     allow_anonymous_comment = Column(Boolean, nullable=False, default=False)
+
+    # What a moderator can change in bulk, at once and in a day. Admins have no limit
+    max_batch_size = Column(Integer, nullable=False, default=50, server_default="50")
+    max_daily_batch_changes = Column(Integer, nullable=False, default=200, server_default="200")

@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   Users,
 } from "lucide-react";
 import {
@@ -348,6 +349,8 @@ function ActionText({ action, target, batch }: ModerationAction) {
       return <>removed {comments}</>;
     case "restore_batch":
       return <>restored {comments}</>;
+    case "update_limits":
+      return <>changed the moderator limits</>;
     case "undo_batch":
       return <>undid a batch of {comments}</>;
     case "hide_comment":
@@ -418,6 +421,7 @@ const ACTION_ICONS: Record<string, typeof Ban> = {
   hide_batch: EyeOff,
   restore_batch: Eye,
   undo_batch: RotateCcw,
+  update_limits: SlidersHorizontal,
   ban_user: Ban,
   unban_user: ShieldCheck,
   lock_thread: Lock,

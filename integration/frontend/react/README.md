@@ -344,4 +344,6 @@ Reports and removals keep the label they were made with, so changing the list do
 
 Moderators can ban regular users. Admins can also ban moderators, and only admins can lift a moderator's ban. Nobody can ban an admin or themselves. A banned moderator loses moderation access until the ban ends. ThreadFS knows staff by the role in their latest token, so someone who's just been given a role is protected from their next visit.
 
-Bulk actions are limited for moderators: 50 comments at once and 200 a day. Clearing out one regular user's comments isn't limited, and admins have no limit. Each batch is one line in the log, where an admin can undo it, which puts back what it changed, including removal reasons.
+Bulk actions are limited for moderators, by default to 50 comments at once and 200 a day. Clearing out one regular user's comments isn't limited, and admins have no limit. Each batch is one line in the log, where an admin can undo it, which puts back what it changed, including removal reasons.
+
+An `admin` token also gets an Admin panel: staff activity, the moderator limits, the community's reasons and its allowed origins. Keys and allowed origins are changed from the server, with `setup_community`, never from a browser.

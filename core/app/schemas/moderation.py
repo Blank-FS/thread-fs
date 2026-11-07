@@ -135,6 +135,35 @@ class BatchResult(BaseModel):
     refused: str | None = None
 
 
+class StaffActivityRead(BaseModel):
+    user: StaffAwareUserRead
+    removed: int
+    restored: int
+    bans: int
+    batches: int
+    last_active_at: datetime | None
+    is_suspended: bool
+
+
+class AdminOverviewRead(BaseModel):
+    activity_days: int
+    max_batch_size: int
+    max_daily_batch_changes: int
+    origins: list[str]
+    staff: list[StaffActivityRead]
+
+
+class LimitsRequest(BaseModel):
+    max_batch_size: int = Field(ge=1, le=1000)
+    max_daily_batch_changes: int = Field(ge=1, le=100000)
+
+    @model_validator(mode="after")
+    def a_day_fits_a_batch(self):
+        if self.max_daily_batch_changes < self.max_batch_size:
+            raise ValueError("The daily limit can't be lower than the batch limit")
+        return self
+
+
 class UndoBatchResult(BaseModel):
     changed: int
     # Comments that changed again after the batch, and so were left alone

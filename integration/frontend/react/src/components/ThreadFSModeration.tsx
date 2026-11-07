@@ -21,6 +21,7 @@ import type {
   ThreadFSThread,
 } from "../lib/types";
 import { cn } from "../lib/utils";
+import { AdminPanel } from "./moderation/AdminPanel";
 import {
   BansPanel,
   LogPanel,
@@ -32,7 +33,6 @@ import {
   RemovedPanel,
   ReportsPanel,
 } from "./moderation/QueuePanels";
-import { SettingsPanel } from "./moderation/SettingsPanel";
 import {
   EmptyNote,
   ErrorNote,
@@ -244,8 +244,8 @@ export function ThreadFSModeration({
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  aria-label="Settings"
-                  title="Settings"
+                  aria-label="Admin"
+                  title="Admin"
                   aria-pressed={tab === "settings"}
                   className="hover:cursor-pointer"
                   onClick={() => setTab("settings")}
@@ -316,7 +316,7 @@ export function ThreadFSModeration({
                 <LogPanel target={logTarget} onTarget={setLogTarget} />
               </TabsContent>
               <TabsContent value="settings">
-                <SettingsPanel />
+                <AdminPanel />
               </TabsContent>
             </Tabs>
 

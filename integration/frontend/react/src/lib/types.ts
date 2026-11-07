@@ -194,6 +194,24 @@ export type ModerationUserDetail = ModerationUser & {
   notes: UserNote[];
 };
 
+export type StaffActivity = {
+  user: ModerationUser;
+  removed: number;
+  restored: number;
+  bans: number;
+  batches: number;
+  last_active_at: string | null;
+  is_suspended: boolean;
+};
+
+export type AdminOverview = {
+  activity_days: number;
+  max_batch_size: number;
+  max_daily_batch_changes: number;
+  origins: string[];
+  staff: StaffActivity[];
+};
+
 export type ModerationAction = {
   id: number;
   created_at: string;

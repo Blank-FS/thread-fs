@@ -16,7 +16,9 @@ from app.schemas.moderation import (
     BanRead,
     BanRequest,
     BatchRequest,
+    AdminOverviewRead,
     BatchResult,
+    LimitsRequest,
     UndoBatchResult,
     CommentFilters,
     LockThreadRequest,
@@ -164,6 +166,30 @@ async def batch_comments(
         dry_run=payload.dry_run,
     )
     return BatchResult(matched=matched, changed=changed, refused=refused)
+
+
+@router.get("/admin", response_model=AdminOverviewRead)
+async def admin_overview(
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_admin),
+):
+    return await moderation_service.get_admin_overview(session, community=context[0])
+
+
+@router.put("/admin/limits", response_model=AdminOverviewRead)
+async def update_limits(
+    payload: LimitsRequest,
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_admin),
+):
+    await moderation_service.update_limits(
+        session,
+        community=context[0],
+        moderator=context[1],
+        max_batch_size=payload.max_batch_size,
+        max_daily_batch_changes=payload.max_daily_batch_changes,
+    )
+    return await moderation_service.get_admin_overview(session, community=context[0])
 
 
 @router.post("/batches/{batch_id}/undo", response_model=UndoBatchResult)

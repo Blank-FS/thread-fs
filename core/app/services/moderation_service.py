@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.core.common import utc_now
 from app.models.comment import Comment
 from app.models.community import Community
+from app.models.community_allowed_origin import CommunityAllowedOrigin
 from app.models.community_user import CommunityUser
 from app.models.moderation import CommunityBan, ModerationAction, ModerationBatch, UserNote
 from app.models.report import CommentReport
@@ -23,9 +24,8 @@ from app.services import reason_service
 
 
 # Everything a BanRead shows
-# What a moderator can change in bulk: admins have no limit. A wide filter would otherwise reach every comment at once
-MAX_BATCH_SIZE = 50
-MAX_DAILY_BATCH_CHANGES = 200
+# How far back the admin overview's staff activity goes
+ACTIVITY_DAYS = 7
 
 # Filtering the log by an action also finds the batches of it, which read as one line
 BATCH_SUMMARIES = {
@@ -499,7 +499,7 @@ async def batch_comments(
     comments = list(result.scalars().all())
 
     counted = await _counts_toward_limit(session, community, moderator, filters, action)
-    refused = await _batch_refusal(session, moderator, len(comments), counted)
+    refused = await _batch_refusal(session, community, moderator, len(comments), counted)
     if dry_run or not comments:
         return len(comments), 0, refused
     if refused:
@@ -562,11 +562,17 @@ async def _counts_toward_limit(
     return True
 
 
-async def _batch_refusal(session: AsyncSession, moderator: CommunityUser, count: int, counted: bool) -> str | None:
+async def _batch_refusal(
+    session: AsyncSession,
+    community: Community,
+    moderator: CommunityUser,
+    count: int,
+    counted: bool,
+) -> str | None:
     if not counted or not count:
         return None
-    if count > MAX_BATCH_SIZE:
-        return f"This would change {count} comments. Moderators can change up to {MAX_BATCH_SIZE} at once"
+    if count > community.max_batch_size:
+        return f"This would change {count} comments. Moderators can change up to {community.max_batch_size} at once"
 
     since = utc_now() - timedelta(days=1)
     used = await session.scalar(
@@ -576,11 +582,11 @@ async def _batch_refusal(session: AsyncSession, moderator: CommunityUser, count:
             ModerationBatch.created_at >= since,
         )
     )
-    left = max(MAX_DAILY_BATCH_CHANGES - int(used or 0), 0)
+    left = max(community.max_daily_batch_changes - int(used or 0), 0)
     if count > left:
         return (
-            f"This would change {count} comments, and moderators can change {MAX_DAILY_BATCH_CHANGES} a day in bulk. "
-            f"You have {left} left"
+            f"This would change {count} comments, and moderators can change "
+            f"{community.max_daily_batch_changes} a day in bulk. You have {left} left"
         )
     return None
 
@@ -653,6 +659,98 @@ async def undo_batch(
     _log(session, community, moderator, "undo_batch", batch_id=batch.id)
     await session.commit()
     return changed, len(entries) - changed
+
+
+#=============== Admin ===============
+
+
+async def get_admin_overview(session: AsyncSession, *, community: Community) -> dict:
+    staff = list(
+        (
+            await session.execute(
+                select(CommunityUser)
+                .where(CommunityUser.community_id == community.id, CommunityUser.last_staff_role.is_not(None))
+                .order_by(CommunityUser.last_staff_role, CommunityUser.display_name)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    since = utc_now() - timedelta(days=ACTIVITY_DAYS)
+    activity = await session.execute(
+        select(
+            ModerationAction.moderator_community_user_id,
+            ModerationAction.action,
+            func.count(ModerationAction.id),
+            func.max(ModerationAction.created_at),
+        )
+        .where(ModerationAction.community_id == community.id, ModerationAction.created_at >= since)
+        .group_by(ModerationAction.moderator_community_user_id, ModerationAction.action)
+    )
+    counts: dict[UUID, dict[str, int]] = {}
+    last_active: dict[UUID, datetime] = {}
+    for moderator_id, action, count, latest in activity.all():
+        counts.setdefault(moderator_id, {})[action] = count
+        last_active[moderator_id] = max(latest, last_active.get(moderator_id, latest))
+
+    suspended = set(
+        (
+            await session.execute(
+                select(CommunityBan.community_user_id).where(
+                    CommunityBan.community_id == community.id,
+                    CommunityBan.community_user_id.in_([user.id for user in staff]),
+                    *_active(utc_now()),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    origins = await session.execute(
+        select(CommunityAllowedOrigin.origin)
+        .where(CommunityAllowedOrigin.community_id == community.id)
+        .order_by(CommunityAllowedOrigin.origin)
+    )
+
+    return {
+        "activity_days": ACTIVITY_DAYS,
+        "max_batch_size": community.max_batch_size,
+        "max_daily_batch_changes": community.max_daily_batch_changes,
+        "origins": list(origins.scalars().all()),
+        "staff": [
+            {
+                "user": user,
+                "removed": counts.get(user.id, {}).get("hide_comment", 0),
+                "restored": counts.get(user.id, {}).get("restore_comment", 0),
+                "bans": counts.get(user.id, {}).get("ban_user", 0),
+                "batches": sum(counts.get(user.id, {}).get(action, 0) for action in ("hide_batch", "restore_batch")),
+                "last_active_at": last_active.get(user.id),
+                "is_suspended": user.id in suspended,
+            }
+            for user in staff
+        ],
+    }
+
+
+async def update_limits(
+    session: AsyncSession,
+    *,
+    community: Community,
+    moderator: CommunityUser,
+    max_batch_size: int,
+    max_daily_batch_changes: int,
+) -> None:
+    before = f"{community.max_batch_size} at once, {community.max_daily_batch_changes} a day"
+    after = f"{max_batch_size} at once, {max_daily_batch_changes} a day"
+    if before == after:
+        return
+
+    community.max_batch_size = max_batch_size
+    community.max_daily_batch_changes = max_daily_batch_changes
+    _log(session, community, moderator, "update_limits", reason=f"{before} → {after}")
+    await session.commit()
 
 
 #=============== Reports ===============
