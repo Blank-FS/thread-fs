@@ -321,6 +321,8 @@ Comments get a Report action, and a comment moderators removed shows as `[remove
 
 A viewer whose `getAuthToken` token carries a `threadfs_role` claim gets a Remove action on comments, so moderators can act where they read. Only sign that claim for your own staff, and stop signing it when their role ends.
 
+ThreadFS records the role from each token, so a token without one reads as the user losing it, along with their protection from bans and their place on the staff list. Where you issue tokens without vouching for the user's role, for example in an embed on other sites, sign `"threadfs_role_unknown": true` instead. The token then acts with no role, and the recorded one is kept.
+
 `ThreadFSModeration` is the moderators' screen: the report queue, removed comments, comment search, batch cleanup, users with their history and private notes, bans, and the action log.
 
 ```tsx
