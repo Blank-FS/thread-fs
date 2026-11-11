@@ -33,6 +33,7 @@ class VerifiedIdentity:
         updates_avatar_frame: bool = False,
         threadfs_user_id: UUID | None = None,
         staff_role: str | None = None,
+        updates_staff_role: bool = True,
         signed_threads: bool = False,
         thread_claim: ThreadClaim | None = None,
     ):
@@ -45,6 +46,7 @@ class VerifiedIdentity:
         self.updates_avatar_frame = updates_avatar_frame
         self.threadfs_user_id = threadfs_user_id
         self.staff_role = staff_role
+        self.updates_staff_role = updates_staff_role
         self.signed_threads = signed_threads
         self.thread_claim = thread_claim
 
@@ -53,6 +55,10 @@ class VerifiedIdentity:
 # without the community's auth secret, and no ThreadFS account is needed.
 STAFF_ROLE_CLAIM = "threadfs_role"
 STAFF_ROLES = {"moderator", "admin"}
+# For tokens the host issues where it doesn't vouch for the user's staff role, such as a lower-trust embed. The token
+# acts with no role, and the role recorded from earlier tokens is kept: a missing role would otherwise read as the user
+# losing it, and with it their protection and label as staff.
+ROLE_UNKNOWN_CLAIM = "threadfs_role_unknown"
 
 # A thread's title and link come from whoever posts, unless the host vouches for them. A host that sets
 # SIGNED_THREADS_CLAIM says its server decides: browser-sent details are ignored, and only a thread named in
@@ -166,6 +172,8 @@ async def verify_external_identity_token(
     if display_name is not None and not isinstance(display_name, str):
         display_name = None
 
+    role_unknown = claims.get(ROLE_UNKNOWN_CLAIM) is True
+
     if avatar_url is not None and not isinstance(avatar_url, str):
         avatar_url = None
 
@@ -178,8 +186,9 @@ async def verify_external_identity_token(
         avatar_frame_url=avatar_frame_url if isinstance(avatar_frame_url, str) else None,
         updates_avatar_frame=updates_avatar_frame,
         staff_role=claims.get(STAFF_ROLE_CLAIM)
-        if claims.get(STAFF_ROLE_CLAIM) in STAFF_ROLES
+        if claims.get(STAFF_ROLE_CLAIM) in STAFF_ROLES and not role_unknown
         else None,
+        updates_staff_role=not role_unknown,
         signed_threads=claims.get(SIGNED_THREADS_CLAIM) is True,
         thread_claim=_thread_claim(claims),
     )
@@ -213,7 +222,7 @@ async def get_or_create_community_user_for_identity(
             existing.avatar_frame_url = identity.avatar_frame_url
             changed = True
 
-        if existing.last_staff_role != identity.staff_role:
+        if identity.updates_staff_role and existing.last_staff_role != identity.staff_role:
             existing.last_staff_role = identity.staff_role
             changed = True
 

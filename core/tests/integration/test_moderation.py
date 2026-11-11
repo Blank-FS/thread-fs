@@ -1125,6 +1125,33 @@ async def test_losing_a_role_ends_the_protection(client, session):
 
 
 @pytest.mark.anyio
+async def test_a_token_with_an_unknown_role_keeps_the_recorded_one(client, session):
+    setup = await create_community_setup(session)
+    await user_id(client, setup, "mod", role="moderator")
+    other = await user_id(client, setup, "mod2", role="moderator")
+
+    # mod2 visits through an embed whose tokens don't say their role, even one claiming a role
+    unknown = create_test_token(
+        secret=setup["secret"],
+        issuer=setup["issuer"],
+        subject="mod2",
+        username="mod2",
+        role="admin",
+        claims={"threadfs_role_unknown": True},
+    )
+    by_embed = embed_headers(public_key=setup["public_key"], origin=setup["origin"], token=unknown)
+    me = (await client.get(f"{API}/me", headers=by_embed)).json()
+    assert me["community_user_id"] == other
+    assert me["staff_role"] is None
+
+    # It acts as a regular user there, and is still protected and listed as staff
+    assert (await client.get(f"{MOD}/reports", headers=by_embed)).status_code == 403
+    assert (await ban(client, setup, mod(setup), other)).status_code == 403
+    users = (await client.get(f"{MOD}/users", headers=mod(setup))).json()["items"]
+    assert {user["external_user_id"]: user["last_staff_role"] for user in users}["mod2"] == "moderator"
+
+
+@pytest.mark.anyio
 async def test_moderators_see_who_is_staff(client, session):
     setup = await create_community_setup(session)
     comment = await post_comment(client, setup, subject="mod2")
