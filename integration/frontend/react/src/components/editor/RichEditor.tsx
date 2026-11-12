@@ -228,17 +228,15 @@ const RichEditor = ({
                     ? "Switch to rich text"
                     : "This uses formatting the rich text editor can't show"
               }
-              className="text-muted-foreground hover:bg-primary/20 flex items-center gap-1 rounded-lg px-2 py-1 text-xs disabled:opacity-50 disabled:hover:bg-transparent"
+              className="text-muted-foreground hover:bg-primary/20 flex size-7 items-center justify-center rounded-lg disabled:opacity-50 disabled:hover:bg-transparent"
             >
               {mode === "rich" ? (
                 <>
-                  <Code2 className="size-3.5" />
-                  <span className="hidden @[14rem]:inline">Markdown</span>
+                  <Code2 className="size-4" />
                 </>
               ) : (
                 <>
-                  <Pilcrow className="size-3.5" />
-                  <span className="hidden @[14rem]:inline">Rich text</span>
+                  <Pilcrow className="size-4" />
                 </>
               )}
             </button>
