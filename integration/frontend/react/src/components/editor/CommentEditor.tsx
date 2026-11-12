@@ -1,7 +1,13 @@
 import type { ThreadFSCommentUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ScrollText } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import defaultAvatarUrl from "../assets/default-avatar.png";
 import AvatarFrame from "../card/AvatarFrame";
 import { Button } from "../ui/button";
@@ -27,6 +33,13 @@ type CommentEditorProps = {
   onAuthRequired?: () => void;
   authorProfileUrl?: (user: ThreadFSCommentUser) => string | null;
 };
+
+// ⌘ on Apple devices, Ctrl elsewhere, for the shortcut's hint
+const SUBMIT_KEY =
+  typeof navigator !== "undefined" &&
+  /Mac|iPhone|iPad/.test(navigator.userAgent)
+    ? "⌘"
+    : "Ctrl";
 
 const EMPTY_EDITOR_VALUE: RichEditorValue = {
   markdown: "",
@@ -102,6 +115,16 @@ function CommentEditor({
     }
   }
 
+  // Ctrl+Enter (⌘+Enter on a Mac) posts, as on GitHub and Reddit; Enter alone is a new line, since comments are written
+  // in paragraphs. Caught before the editor sees the key, so it works in both its modes.
+  function handleSubmitShortcut(event: KeyboardEvent) {
+    if (event.key !== "Enter" || !(event.ctrlKey || event.metaKey)) return;
+    if (event.nativeEvent.isComposing) return; // Confirming an IME composition
+    event.preventDefault();
+    event.stopPropagation();
+    void handleSubmit();
+  }
+
   const avatar = (
     <img
       src={currentUserAvatarUrl ?? defaultAvatarUrl}
@@ -135,7 +158,10 @@ function CommentEditor({
         </div>
       )}
 
-      <div className="min-w-0 flex-1 rounded-md border px-2 py-1">
+      <div
+        onKeyDownCapture={handleSubmitShortcut}
+        className="min-w-0 flex-1 rounded-md border px-2 py-1"
+      >
         {isLoading ? (
           <Skeleton className="h-8 w-full rounded" />
         ) : currentUser ? (
@@ -168,6 +194,8 @@ function CommentEditor({
                   size="sm"
                   disabled={!canSubmit}
                   className="hover:cursor-pointer"
+                  title={`${submitLabel} (${SUBMIT_KEY}+Enter)`}
+                  aria-keyshortcuts="Control+Enter Meta+Enter"
                   onClick={handleSubmit}
                 >
                   {isSubmitting ? "Posting..." : submitLabel}

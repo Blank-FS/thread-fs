@@ -12,6 +12,7 @@ ThreadFS is an open-source embeddable discussion system similar to Disqus. This 
 - Supports replies and nested comment loading
 - Supports comment voting
 - Supports edit/delete for own comments
+- Enter starts a new line; Ctrl+Enter (⌘+Enter on a Mac) posts, as on GitHub and Reddit
 - Supports pagination and sorting
 - Supports login redirect callbacks
 - Supports author profile URL callbacks
