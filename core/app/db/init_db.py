@@ -17,6 +17,9 @@ from app.models.community_user import CommunityUser
 from app.models.thread import Thread
 from app.models.comment import Comment
 from app.core.common import utc_now
+from app.core.config import settings
+from app.models.webhook import CommunityWebhook
+from app.services.webhook_service import ALL_EVENTS, DEMO_SECRET
 
 
 async def drop_db() -> None:
@@ -72,6 +75,18 @@ async def seed_demo_data(session: AsyncSession) -> None:
 
     session.add(community)
     await session.flush()
+
+    # A webhook for trying them locally, when DEMO_WEBHOOK_URL is set (app.scripts.webhook_listener)
+    if settings.DEMO_WEBHOOK_URL:
+        session.add(
+            CommunityWebhook(
+                community_id=community.id,
+                url=settings.DEMO_WEBHOOK_URL,
+                secret=DEMO_SECRET,
+                events=",".join(ALL_EVENTS),
+                is_enabled=True,
+            )
+        )
 
     auth_provider = CommunityAuthProvider(
         community_id=community.id,
