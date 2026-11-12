@@ -231,10 +231,11 @@ import { commentHash, commentIdFromHash } from "@threadfs/react";
 />
 ```
 
-Deep threads stop nesting, as Reddit's do: past a certain level a comment shows **Continue this thread**, which opens it
-as the root of its own view, with **Back to the discussion**. That's after four levels when the widget is under 640px
-wide (phones, side panels, narrow columns) and eight otherwise, measured on the widget rather than the screen. A link
-to a comment deeper than that opens in this view too, with two parent comments above it.
+Deep threads stop nesting, as Reddit's do: past a certain level a comment's replies show as **N more replies**, which
+opens the comment as the root of its own view, with **Back to the discussion**. Replies nest only while the deepest one
+still has about 280px for its text, measured on the widget rather than the screen: three levels on most phones, more as
+the widget widens, up to eight. A link to a comment deeper than that opens in this view too, with two parent comments
+above it.
 
 `ThreadFSMyComments` and the moderation views link each comment straight to its place: they add `#c-<id>` to
 the thread's page (`threadUrl`, else the thread's stored `source_url`), so a host only says where a thread lives.

@@ -1,7 +1,6 @@
 import {
   ArrowBigDown,
   ArrowBigUp,
-  CircleArrowRight,
   CircleMinus,
   CirclePlus,
   CornerDownRight,
@@ -41,12 +40,17 @@ import ThreadConnector from "./ThreadConnector";
 // Every level of indent costs a phone reading width, so deeper replies line up and say who they answer
 const MAX_PHONE_INDENT = 4;
 
+// "N more replies": muted, as Reddit's, so it reads as part of the thread rather than an action competing with it
+const MORE_REPLIES_CLASS =
+  "text-muted-foreground hover:text-foreground flex items-center text-xs font-medium hover:cursor-pointer hover:underline disabled:opacity-60";
+
 // What a click on a comment is meant for, rather than hiding it
 const COMMENT_CONTROLS =
   "a, button, input, textarea, label, form, [role=button], [contenteditable=true], [data-no-collapse]";
 
+// Muted, and the text colour on hover, like "N more replies": the thread's own controls look alike
 const COLLAPSE_BUTTON_CLASS =
-  "text-muted-foreground hover:text-tfs-brand-strong dark:hover:text-tfs-brand flex items-center justify-center hover:cursor-pointer";
+  "text-muted-foreground hover:text-foreground flex items-center justify-center hover:cursor-pointer";
 
 type CommentCardProps = {
   comment: ThreadFSComment;
@@ -197,7 +201,7 @@ function CommentCard({
     ? Boolean(comment.replies_is_loading_more)
     : isLoadingReplies;
 
-  // Past a certain depth the replies continue in their own view (Reddit's "Continue this thread")
+  // Past a certain depth the replies continue in their own view (Reddit's "Continue this thread"), from their own button
   const continuesElsewhere =
     continueDepth != null &&
     depth >= continueDepth &&
@@ -272,7 +276,7 @@ function CommentCard({
       className={cn(
         COLLAPSE_BUTTON_CLASS,
         "absolute top-1/2 -left-11 z-30 h-6 w-8 -translate-y-1/2",
-        isRailHovered && "text-tfs-brand-strong dark:text-tfs-brand",
+        isRailHovered && "text-foreground",
       )}
     >
       <CircleMinus
@@ -317,7 +321,7 @@ function CommentCard({
           // thread lines still meet the avatars
           <div
             aria-hidden
-            className="bg-tfs-brand/10 ring-tfs-brand/40 pointer-events-none absolute -inset-y-1 right-0 left-4 rounded-lg ring-1"
+            className="bg-foreground/5 ring-foreground/15 pointer-events-none absolute -inset-y-1 right-0 left-4 rounded-lg ring-1"
           />
         )}
         <div className="relative size-8 shrink-0">
@@ -618,6 +622,7 @@ function CommentCard({
 
         {/* Reddit's "+ N more replies": where the next reply would be, on its own branch of the thread line, for replies
             not loaded yet as well as the rest of a page */}
+        {/* Too deep to nest here: the same "N more replies", but it opens them in their own view */}
         {continuesElsewhere && (
           <div
             className={cn("relative z-10 mt-1", getReplyIndentClass(depth + 1))}
@@ -626,16 +631,16 @@ function CommentCard({
               ref={setRepliesButtonRef}
               type="button"
               onClick={() => onContinueThread?.(comment.id)}
-              className="text-tfs-brand-strong dark:text-tfs-brand flex items-center text-xs font-medium hover:cursor-pointer hover:underline"
+              className={MORE_REPLIES_CLASS}
             >
-              <span className="flex size-8 shrink-0 items-center justify-center">
-                <CircleArrowRight
+              <span className="mr-1.5 flex h-8 w-4 shrink-0 items-center">
+                <CirclePlus
                   data-connector-anchor
                   strokeWidth={1.5}
                   className="bg-background size-4 rounded-full"
                 />
               </span>
-              <span>Continue this thread</span>
+              <span>{moreRepliesLabel(comment.reply_count)}</span>
             </button>
           </div>
         )}
@@ -653,10 +658,10 @@ function CommentCard({
                   : handleViewReplies())
               }
               disabled={isLoadingMoreReplies}
-              className="text-tfs-brand-strong dark:text-tfs-brand flex items-center text-xs font-medium hover:cursor-pointer hover:underline disabled:opacity-60"
+              className={MORE_REPLIES_CLASS}
             >
               {/* As wide as an avatar, so the circle sits where a reply's avatar would; the thread line meets it */}
-              <span className="flex size-8 shrink-0 items-center justify-center">
+              <span className="mr-1.5 flex h-8 w-4 shrink-0 items-center">
                 <CirclePlus
                   data-connector-anchor
                   strokeWidth={1.5}
@@ -808,9 +813,10 @@ function getAvatarUrl(comment: ThreadFSComment): string {
   return comment.community_user?.avatar_url || defaultAvatarUrl;
 }
 
+// The same step at every level and width, so every branch of the thread line has the same short curve: half an avatar
+// to the line, then the curve and a short straight part (ThreadConnector). Narrow widgets nest fewer levels instead
+// (lib/threadDepth.ts), rather than squeezing them.
 function getReplyIndentClass(depth: number): string {
   if (depth <= 0) return "ml-0";
-  if (depth === 1) return "ml-6 sm:ml-11";
-  if (depth === 2) return "ml-4 sm:ml-10";
-  return depth <= MAX_PHONE_INDENT ? "ml-3 sm:ml-8" : "ml-0 sm:ml-8";
+  return depth <= MAX_PHONE_INDENT ? "ml-8" : "ml-0 sm:ml-8";
 }

@@ -232,7 +232,7 @@ export function ThreadFSComments({
         setFocusedId(context ? String(context.focused_comment_id) : null);
         setIsFocusMissing(missing);
         // A comment deeper than threads nest here opens in its own view, two levels above it shown for context,
-        // rather than in a chain that would itself stop at "Continue this thread"
+        // rather than in a chain that would itself stop at a "more replies" that opens its own view
         const depthHere = continueDepthFor(
           sectionRef.current?.getBoundingClientRect().width ??
             window.innerWidth,

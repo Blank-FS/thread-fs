@@ -68,10 +68,12 @@ function ThreadConnector({
 
   const { width, height, railX, startY, buttonPoint, replyPoints } = geometry;
 
-  const branchLength = 32;
-  const radius = 12;
+  // Each branch: a curve off the line, then a short straight part to what it leads to
+  const radius = 10;
   const avatarRadius = 16;
-  const branchEndX = railX + branchLength;
+  // A reply's branch ends at its avatar's edge; the "more replies" circle's at its left tip
+  const branchEnd = (point: ConnectorPoint) =>
+    point === buttonPoint ? point.x : point.x - avatarRadius;
 
   const branchPoints = [
     ...(buttonPoint ? [buttonPoint] : []),
@@ -83,7 +85,7 @@ function ThreadConnector({
   const lastBranch = branchPoints[branchPoints.length - 1];
   const railEndY = Math.max(startY, lastBranch.y - radius);
 
-  const linePath = (branchEnd: (point: ConnectorPoint) => number) =>
+  const linePath = (end: (point: ConnectorPoint) => number) =>
     [
       `M ${railX} ${startY}`,
       `V ${railEndY}`,
@@ -93,19 +95,13 @@ function ThreadConnector({
         .flatMap((point) => [
           `M ${railX} ${point.y - radius}`,
           `Q ${railX} ${point.y} ${railX + radius} ${point.y}`,
-          `H ${branchEnd(point)}`,
+          `H ${end(point)}`,
         ]),
     ].join(" ");
 
-  // Stops short of what a branch leads to, so it doesn't cover a reply's own expand button
+  // Stops where the drawn branch does, so it doesn't cover a reply's own expand button
   const hitBranchEnd = (point: ConnectorPoint) =>
-    Math.max(
-      railX + radius,
-      Math.min(
-        branchEndX,
-        point === buttonPoint ? point.x : point.x - avatarRadius,
-      ),
-    );
+    Math.max(railX + radius, branchEnd(point));
 
   const size = { width, height, viewBox: `0 0 ${width} ${height}` };
 
@@ -115,13 +111,13 @@ function ThreadConnector({
         aria-hidden="true"
         className={cn(
           "pointer-events-none absolute top-0 left-0 z-0 overflow-visible transition-colors",
-          isHighlighted ? "text-muted-foreground" : "text-border",
+          isHighlighted ? "text-foreground" : "text-border",
         )}
         {...size}
         fill="none"
       >
         <path
-          d={linePath(() => branchEndX)}
+          d={linePath(branchEnd)}
           stroke="currentColor"
           strokeWidth={1.5}
           strokeLinecap="round"
@@ -204,13 +200,17 @@ function useMeasuredConnectorGeometry({
 
       const startY = parentAvatarRect.bottom - containerRect.top;
 
-      // The "more replies" row: the line meets its circle (data-connector-anchor), not the row's edge
+      // The "more replies" row: the line meets its circle (data-connector-anchor), not the row's edge. Lucide draws
+      // the circle 2 units in from its 24-unit box, so that's where its left tip is
       const repliesButtonRect = (
         repliesButton?.querySelector("[data-connector-anchor]") ?? repliesButton
       )?.getBoundingClientRect();
       const buttonPoint = repliesButtonRect
         ? {
-            x: repliesButtonRect.left - containerRect.left,
+            x:
+              repliesButtonRect.left -
+              containerRect.left +
+              repliesButtonRect.width / 12,
             y:
               repliesButtonRect.top -
               containerRect.top +
