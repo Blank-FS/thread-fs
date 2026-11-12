@@ -64,6 +64,7 @@ async def get_embed_config(
         allow_anonymous_read=community.allow_anonymous_read,
         allow_anonymous_comment=community.allow_anonymous_comment,
         report_reasons=await reason_service.list_reasons(session, community.id),
+        rules_url=community.rules_url,
     )
 
 

@@ -1488,3 +1488,32 @@ async def test_moderators_can_clear_images_the_host_took_down(client, session):
     # The host stays the source: its next token sets them again
     await client.get(f"{API}/me", headers=as_alice(avatar_url=images["avatar_url"], claims={"avatar_frame_url": images["avatar_frame_url"]}))
     assert await stored() == (images["avatar_url"], images["avatar_frame_url"])
+
+
+@pytest.mark.anyio
+async def test_admins_set_the_rules_link_that_the_widget_gets(client, session):
+    setup = await create_community_setup(session)
+    await user_id(client, setup, "boss", role="admin")
+    await user_id(client, setup, "mod", role="moderator")
+    url = f"{MOD}/admin/rules"
+    config = lambda: client.get(  # noqa: E731
+        "/api/v1/embed/config",
+        headers=embed_headers(public_key=setup["public_key"], origin=setup["origin"]),
+    )
+
+    assert (await config()).json()["rules_url"] is None
+    assert (await client.put(url, headers=mod(setup), json={"rules_url": "https://example.com/rules"})).status_code == 403
+    assert (await client.put(url, headers=admin(setup), json={"rules_url": "javascript:alert(1)"})).status_code == 422
+
+    saved = await client.put(url, headers=admin(setup), json={"rules_url": " https://example.com/rules "})
+    assert saved.status_code == 200
+    assert saved.json()["rules_url"] == "https://example.com/rules"
+    assert (await config()).json()["rules_url"] == "https://example.com/rules"
+
+    (entry,) = (await client.get(f"{MOD}/actions", headers=admin(setup))).json()["items"]
+    assert entry["action"] == "update_rules"
+    assert entry["reason"] == "https://example.com/rules"
+
+    # Empty clears it
+    await client.put(url, headers=admin(setup), json={"rules_url": ""})
+    assert (await config()).json()["rules_url"] is None

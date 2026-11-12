@@ -149,6 +149,7 @@ class AdminOverviewRead(BaseModel):
     activity_days: int
     max_batch_size: int
     max_daily_batch_changes: int
+    rules_url: str | None = None
     origins: list[str]
     staff: list[StaffActivityRead]
 
@@ -161,6 +162,19 @@ class LimitsRequest(BaseModel):
     def a_day_fits_a_batch(self):
         if self.max_daily_batch_changes < self.max_batch_size:
             raise ValueError("The daily limit can't be lower than the batch limit")
+        return self
+
+
+class RulesRequest(BaseModel):
+    # A page on the community's site; empty or null clears it
+    rules_url: str | None = Field(default=None, max_length=2048)
+
+    @model_validator(mode="after")
+    def a_web_page(self):
+        url = (self.rules_url or "").strip()
+        if url and not url.startswith(("https://", "http://")):
+            raise ValueError("The rules link must be a web address (https://...)")
+        self.rules_url = url or None
         return self
 
 

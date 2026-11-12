@@ -20,6 +20,7 @@ from app.schemas.moderation import (
     BatchResult,
     ClearImagesRequest,
     LimitsRequest,
+    RulesRequest,
     UndoBatchResult,
     CommentFilters,
     LockThreadRequest,
@@ -189,6 +190,21 @@ async def update_limits(
         moderator=context[1],
         max_batch_size=payload.max_batch_size,
         max_daily_batch_changes=payload.max_daily_batch_changes,
+    )
+    return await moderation_service.get_admin_overview(session, community=context[0])
+
+
+@router.put("/admin/rules", response_model=AdminOverviewRead)
+async def update_rules(
+    payload: RulesRequest,
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_admin),
+):
+    await moderation_service.update_rules_url(
+        session,
+        community=context[0],
+        moderator=context[1],
+        rules_url=payload.rules_url,
     )
     return await moderation_service.get_admin_overview(session, community=context[0])
 

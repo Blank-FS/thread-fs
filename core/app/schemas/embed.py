@@ -31,6 +31,8 @@ class EmbedCommunityConfigRead(BaseModel):
     allow_anonymous_read: bool = True
     allow_anonymous_comment: bool = False
     report_reasons: list[ReasonRead] = []
+    # Where the community's comment rules are; the widget's Rules button links there
+    rules_url: str | None = None
 
 
 class ResolveThreadRequest(BaseModel):

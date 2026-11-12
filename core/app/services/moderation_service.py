@@ -753,6 +753,7 @@ async def get_admin_overview(session: AsyncSession, *, community: Community) -> 
         "activity_days": ACTIVITY_DAYS,
         "max_batch_size": community.max_batch_size,
         "max_daily_batch_changes": community.max_daily_batch_changes,
+        "rules_url": community.rules_url,
         "origins": list(origins.scalars().all()),
         "staff": [
             {
@@ -785,6 +786,22 @@ async def update_limits(
     community.max_batch_size = max_batch_size
     community.max_daily_batch_changes = max_daily_batch_changes
     _log(session, community, moderator, "update_limits", reason=f"{before} → {after}")
+    await session.commit()
+
+
+async def update_rules_url(
+    session: AsyncSession,
+    *,
+    community: Community,
+    moderator: CommunityUser,
+    rules_url: str | None,
+) -> None:
+    """Where the widget's Rules button links. Logged, like the other admin settings."""
+    if rules_url == community.rules_url:
+        return
+
+    community.rules_url = rules_url
+    _log(session, community, moderator, "update_rules", reason=rules_url or "cleared")
     await session.commit()
 
 
