@@ -172,7 +172,11 @@ const RichEditor = ({
       <div className="editor-container @container">
         {showControls && mode === "rich" && isToolbarVisible && (
           <>
-            <ToolbarPlugin disabled={disabled} end={modeSwitch} />
+            {/* The switch stays put while the buttons beside it scroll */}
+            <div className="mb-1 flex items-center gap-1">
+              <ToolbarPlugin disabled={disabled} />
+              <div className="flex shrink-0 items-center">{modeSwitch}</div>
+            </div>
             <Separator className="h-px" />
           </>
         )}

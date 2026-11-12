@@ -53,24 +53,11 @@ import {
   Strikethrough,
   Underline,
 } from "lucide-react";
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
-const ToolbarPlugin = ({
-  disabled = false,
-  end,
-}: {
-  disabled?: boolean;
-  /** At the far end of the bar, such as the switch to markdown. */
-  end?: ReactNode;
-}) => {
+const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
   const [editor] = useLexicalComposerContext();
-  const toolbarRef = useRef(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [isBold, setIsBold] = useState(false);
@@ -273,10 +260,36 @@ const ToolbarPlugin = ({
     );
   }, [editor, $updateToolbar]);
 
+  // Which edges have more buttons past them, for the fades
+  const [fades, setFades] = useState({ left: false, right: false });
+  const updateFades = useCallback(() => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    const left = el.scrollLeft > 1;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setFades((current) =>
+      current.left === left && current.right === right
+        ? current
+        : { left, right },
+    );
+  }, []);
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    updateFades();
+    const observer = new ResizeObserver(updateFades);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [updateFades]);
+
   return (
+    // One row that scrolls sideways when the box is narrow, as on Reddit's mobile site, rather than wrapping; a fade on
+    // an edge says there's more that way
     <div
-      className="toolbar mb-1 flex flex-wrap items-center gap-1"
+      className="toolbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [&>*]:shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       ref={toolbarRef}
+      onScroll={updateFades}
+      style={fadeMask(fades)}
     >
       {/* Bold Button */}
       <Tooltip>
@@ -527,9 +540,17 @@ const ToolbarPlugin = ({
           <p className="font-semibold">Number List</p>
         </TooltipContent>
       </Tooltip>
-      {end && <div className="ml-auto flex items-center">{end}</div>}
     </div>
   );
 };
 
 export default ToolbarPlugin;
+
+// Fades the buttons out toward an edge that has more past it
+function fadeMask(fades: { left: boolean; right: boolean }) {
+  if (!fades.left && !fades.right) return undefined;
+  const start = fades.left ? "transparent, black 24px" : "black";
+  const end = fades.right ? "black calc(100% - 24px), transparent" : "black";
+  const mask = `linear-gradient(to right, ${start}, ${end})`;
+  return { maskImage: mask, WebkitMaskImage: mask };
+}
