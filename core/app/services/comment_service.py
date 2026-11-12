@@ -8,6 +8,7 @@ from app.models.community import Community
 from app.models.community_user import CommunityUser
 from app.repositories import comment as comment_repo
 from app.repositories import thread as thread_repo
+from app.core.gifs import gif_for_community
 from app.core.sanitize import sanitize_comment_markdown
 from app.core.origin import normalize_origin
 from app.repositories.community import is_origin_allowed_for_community
@@ -112,6 +113,7 @@ async def create_embed_comment(
     source_url: str | None,
     content: str,
     parent_comment_id: int | None,
+    gif=None,
     ip_hash: str | None = None,
     user_agent: str | None = None,
     source: str | None = None,
@@ -180,12 +182,19 @@ async def create_embed_comment(
         )
 
     clean_content = sanitize_comment_markdown(content)
+    stored_gif = gif_for_community(community, gif)
+    if not clean_content and stored_gif is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="A comment needs text or a GIF",
+        )
 
     comment = await comment_repo.create_comment(
         session,
         thread_id=thread.id,
         community_user_id=community_user.id,
         content=clean_content,
+        gif=stored_gif,
         parent_comment_id=parent_comment_id,
         ip_hash=ip_hash,
         user_agent=user_agent,
@@ -244,6 +253,7 @@ def present_comments(comments, viewer) -> list[CommentRead]:
             viewer is None or comment.community_user_id != viewer.id
         ):
             comment.content = ""
+            comment.gif = None
             comment.removal_reason = None
             comment.removal_detail = None
             comment.community_user = None

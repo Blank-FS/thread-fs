@@ -26,6 +26,7 @@ Host website backend
 - Pagination and sorting
 - Voting
 - Edit/delete own comments
+- GIFs from KLIPY, optional per community (see GIFs below)
 - Soft-deleted comments
 - HTML sanitization
 - Basic rate limiting
@@ -97,6 +98,8 @@ WEBHOOK_DELIVERY_ENABLED=true
 WEBHOOK_POLL_SECONDS=2
 # Development only: give the seeded demo community a webhook (see Webhooks › Trying it locally)
 # DEMO_WEBHOOK_URL=http://localhost:8787/webhooks
+# Development only: turn GIFs on in the seeded demo community with a KLIPY test key (see GIFs below)
+# DEMO_KLIPY_APP_KEY=...
 ```
 
 For production:
@@ -301,6 +304,23 @@ Content-Type: application/json
 }
 ```
 
+Where the community has GIFs on, a comment can also carry one, and then needs no text (see GIFs below):
+
+```json
+{
+  "thread_id": "demo-thread",
+  "content": "",
+  "gif": {
+    "provider": "klipy",
+    "slug": "hello-hi-662",
+    "url": "https://static.klipy.com/ii/.../hello.webp",
+    "width": 220,
+    "height": 220,
+    "title": "Hello"
+  }
+}
+```
+
 Thread rows are created lazily only when an authenticated user posts the first comment.
 
 ### Vote
@@ -336,6 +356,8 @@ PATCH /api/v1/embed/comments/{comment_id}
   "content": "<p>Updated comment</p>"
 }
 ```
+
+`gif` works as when creating: left out, the comment keeps its GIF; `null` removes it.
 
 ### Delete own comment
 
@@ -399,6 +421,27 @@ Threads are created by their first comment, so a browser-sent title and link can
 With `threadfs_signed_threads`, browser-sent details are ignored, and a token can only create the thread named in `threadfs_thread`. It can still comment on any existing thread. A matching claim also updates an existing thread's details.
 
 Without it, a thread keeps the details of its first comment, and a link is dropped unless it's on one of the community's allowed origins. The title isn't checked, so a host that shows titles should sign them.
+
+## GIFs
+
+The comment box can offer GIFs from [KLIPY](https://docs.klipy.com). It's off until a community has a KLIPY app key,
+which its admins set in the moderation panel (Admin › GIFs; logged, without the key), or from the server:
+
+```bash
+uv run python -m app.scripts.set_gifs --community my-site --klipy-key <app key>
+uv run python -m app.scripts.set_gifs --community my-site --off
+```
+
+- **The key** comes from the API Keys page of KLIPY's Partner Panel (partner.klipy.com). It isn't a secret: KLIPY's
+  terms have the reader's browser search with it, rather than a server in between, so the community's config hands it
+  to the widget. Test keys allow 100 searches an hour; ask KLIPY for production access before launch.
+- **Content rating** is set on the Partner Panel, where it applies to every search with the key.
+- **What's stored:** the GIF's slug, its URL exactly as KLIPY gave it, its size and title. Their terms don't allow
+  copying or rewriting their files, so they're shown from KLIPY's servers. The API accepts a GIF only from KLIPY's media
+  hosts (`static.klipy.com`, `static1.`, `static2.`), so a comment can't use one to load an image from anywhere else.
+- **Moderation:** a GIF is part of its comment. Removing the comment hides it, and moderators still see it.
+- **Webhooks:** a comment that's only a GIF has `[GIF]` as its excerpt.
+- Turning GIFs off hides the button. GIFs already posted stay.
 
 ## Webhooks
 

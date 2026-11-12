@@ -71,6 +71,8 @@ async def seed_demo_data(session: AsyncSession) -> None:
         user_id=demo_user.id,
         allow_anonymous_read=True,
         allow_anonymous_comment=False,
+        # GIFs in the comment box, when DEMO_KLIPY_APP_KEY is set (a KLIPY test key)
+        klipy_app_key=settings.DEMO_KLIPY_APP_KEY,
     )
 
     session.add(community)

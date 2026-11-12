@@ -2,8 +2,10 @@
 
 from datetime import datetime
 from uuid import UUID
-from typing import Generic, TypeVar
-from pydantic import BaseModel, Field
+from typing import Generic, Literal, TypeVar
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from app.core.gifs import PROVIDER_KLIPY, is_klipy_media_url
 
 T = TypeVar("T")
 
@@ -33,6 +35,44 @@ class EmbedCommunityConfigRead(BaseModel):
     report_reasons: list[ReasonRead] = []
     # Where the community's comment rules are; the widget's Rules button links there
     rules_url: str | None = None
+    gifs: "GifConfigRead | None" = None
+
+
+class GifConfigRead(BaseModel):
+    """GIF search for the comment box. The key is KLIPY's app key, which their terms have the browser use directly."""
+
+    provider: Literal["klipy"] = PROVIDER_KLIPY
+    app_key: str
+
+
+class GifRead(BaseModel):
+    """A GIF under a comment's text: one of the provider's files, its URL exactly as the provider gave it."""
+
+    provider: str
+    slug: str
+    url: str
+    width: int
+    height: int
+    title: str | None = None
+
+
+class GifAttachment(GifRead):
+    """A GIF a comment is saved with, checked to be the provider's."""
+
+    provider: Literal["klipy"]
+    slug: str = Field(min_length=1, max_length=255)
+    url: str = Field(min_length=1, max_length=2048)
+    width: int = Field(ge=1, le=4096)
+    height: int = Field(ge=1, le=4096)
+    title: str | None = Field(default=None, max_length=255)
+
+    @field_validator("url")
+    @classmethod
+    def from_the_provider(cls, url: str) -> str:
+        # Only the provider's own files: anything else would let a comment load an image from anywhere
+        if not is_klipy_media_url(url):
+            raise ValueError("The GIF must be one of KLIPY's")
+        return url
 
 
 class ResolveThreadRequest(BaseModel):
@@ -87,12 +127,20 @@ class CommentCreateRequest(BaseModel):
     title: str | None = Field(default=None, max_length=512)
     source_url: str | None = Field(default=None, max_length=2048)
 
-    content: str = Field(min_length=1, max_length=10_000)
+    # May be empty when there's a GIF
+    content: str = Field(default="", max_length=10_000)
+    gif: GifAttachment | None = None
     parent_comment_id: int | None = None
 
     # Where it's posted from, for moderation: a site or app slug, and the kind of client
     source: str | None = Field(default=None, max_length=255)
     client: str | None = Field(default=None, max_length=32)
+
+    @model_validator(mode="after")
+    def not_empty(self):
+        if not self.content.strip() and self.gif is None:
+            raise ValueError("A comment needs text or a GIF")
+        return self
 
 
 class VoteRequest(BaseModel):
@@ -101,7 +149,15 @@ class VoteRequest(BaseModel):
 
 
 class CommentUpdateRequest(BaseModel):
-    content: str = Field(min_length=1, max_length=10_000)
+    content: str = Field(default="", max_length=10_000)
+    # Left out, the GIF stays as it is; null removes it
+    gif: GifAttachment | None = None
+
+    @model_validator(mode="after")
+    def not_empty(self):
+        if not self.content.strip() and "gif" in self.model_fields_set and self.gif is None:
+            raise ValueError("A comment needs text or a GIF")
+        return self
 
 
 class CommunityUserRead(BaseModel):
@@ -125,6 +181,7 @@ class CommentRead(BaseModel):
     community_user: CommunityUserRead | None = None
 
     content: str
+    gif: GifRead | None = None
     status: str
     # Why moderators removed it: only its author gets this
     removal_reason: str | None = None
@@ -171,3 +228,6 @@ class ReportRequest(BaseModel):
 
 class CommentWithThreadRead(CommentRead):
     thread: ThreadRead | None = None
+
+
+EmbedCommunityConfigRead.model_rebuild()

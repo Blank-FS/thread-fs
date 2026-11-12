@@ -27,6 +27,7 @@ from app.schemas.embed import (
     CommentWithThreadRead,
     EmbedCommunityConfigRead,
     EmbedMeRead,
+    GifConfigRead,
     ReportRequest,
     ResolveThreadRequest,
     ResolveThreadResponse,
@@ -65,6 +66,7 @@ async def get_embed_config(
         allow_anonymous_comment=community.allow_anonymous_comment,
         report_reasons=await reason_service.list_reasons(session, community.id),
         rules_url=community.rules_url,
+        gifs=GifConfigRead(app_key=community.klipy_app_key) if community.klipy_app_key else None,
     )
 
 
@@ -408,6 +410,7 @@ async def create_embed_comment(
         title=payload.title,
         source_url=payload.source_url,
         content=payload.content,
+        gif=payload.gif,
         parent_comment_id=payload.parent_comment_id,
         user_agent=user_agent,
         source=payload.source,
@@ -467,6 +470,8 @@ async def update_embed_comment(
         community_user=community_user,
         comment_id=comment_id,
         content=payload.content,
+        gif=payload.gif,
+        replace_gif="gif" in payload.model_fields_set,
     )
 
     return updated

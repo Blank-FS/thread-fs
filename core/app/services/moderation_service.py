@@ -754,6 +754,7 @@ async def get_admin_overview(session: AsyncSession, *, community: Community) -> 
         "max_batch_size": community.max_batch_size,
         "max_daily_batch_changes": community.max_daily_batch_changes,
         "rules_url": community.rules_url,
+        "klipy_app_key": community.klipy_app_key,
         "origins": list(origins.scalars().all()),
         "staff": [
             {
@@ -802,6 +803,24 @@ async def update_rules_url(
 
     community.rules_url = rules_url
     _log(session, community, moderator, "update_rules", reason=rules_url or "cleared")
+    await session.commit()
+
+
+async def update_klipy_app_key(
+    session: AsyncSession,
+    *,
+    community: Community,
+    moderator: CommunityUser,
+    klipy_app_key: str | None,
+) -> None:
+    """GIFs in the comment box (app.core.gifs): on with a key, off without. Logged without the key itself."""
+    before = community.klipy_app_key
+    if klipy_app_key == before:
+        return
+
+    community.klipy_app_key = klipy_app_key
+    change = "turned on" if before is None else "turned off" if klipy_app_key is None else "key changed"
+    _log(session, community, moderator, "update_gifs", reason=change)
     await session.commit()
 
 

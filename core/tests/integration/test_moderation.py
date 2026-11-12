@@ -1517,3 +1517,37 @@ async def test_admins_set_the_rules_link_that_the_widget_gets(client, session):
     # Empty clears it
     await client.put(url, headers=admin(setup), json={"rules_url": ""})
     assert (await config()).json()["rules_url"] is None
+
+
+@pytest.mark.anyio
+async def test_admins_turn_gifs_on_and_off_with_a_klipy_key(client, session):
+    setup = await create_community_setup(session)
+    await user_id(client, setup, "boss", role="admin")
+    await user_id(client, setup, "mod", role="moderator")
+    url = f"{MOD}/admin/gifs"
+    config = lambda: client.get(  # noqa: E731
+        "/api/v1/embed/config",
+        headers=embed_headers(public_key=setup["public_key"], origin=setup["origin"]),
+    )
+
+    assert (await config()).json()["gifs"] is None
+    assert (await client.put(url, headers=mod(setup), json={"klipy_app_key": "abc123"})).status_code == 403
+    # It goes in KLIPY's URL path, so nothing that could change the path
+    assert (await client.put(url, headers=admin(setup), json={"klipy_app_key": "../x"})).status_code == 422
+
+    saved = await client.put(url, headers=admin(setup), json={"klipy_app_key": " abc_123-XYZ "})
+    assert saved.status_code == 200
+    assert saved.json()["klipy_app_key"] == "abc_123-XYZ"
+    assert (await config()).json()["gifs"] == {"provider": "klipy", "app_key": "abc_123-XYZ"}
+
+    await client.put(url, headers=admin(setup), json={"klipy_app_key": "other"})
+    await client.put(url, headers=admin(setup), json={"klipy_app_key": ""})
+    assert (await config()).json()["gifs"] is None
+
+    # Logged without the key
+    entries = (await client.get(f"{MOD}/actions", headers=admin(setup))).json()["items"]
+    assert [(e["action"], e["reason"]) for e in entries] == [
+        ("update_gifs", "turned off"),
+        ("update_gifs", "key changed"),
+        ("update_gifs", "turned on"),
+    ]

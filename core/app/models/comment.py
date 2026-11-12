@@ -9,7 +9,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -81,6 +81,8 @@ class Comment(Base):
     reply_count = Column(Integer, nullable=False, default=0)
 
     content = Column(Text, nullable=False)
+    # A GIF attached under the text, as app.schemas.embed.GifAttachment: {provider, slug, url, width, height, title}
+    gif = Column(JSONB, nullable=True)
 
     # visible | deleted | hidden
     status = Column(String(32), nullable=False, default="visible")

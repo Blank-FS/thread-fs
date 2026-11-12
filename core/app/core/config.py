@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     # Development only: give the seeded demo community a webhook to this URL, e.g. the dev listener's
     # (python -m app.scripts.webhook_listener prints it)
     DEMO_WEBHOOK_URL: str | None = None
+    # Development only: turn GIFs on in the seeded demo community with this KLIPY app key (app.core.gifs)
+    DEMO_KLIPY_APP_KEY: str | None = None
 
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_READ_PER_MINUTE: int = 120

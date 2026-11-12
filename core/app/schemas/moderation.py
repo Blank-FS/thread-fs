@@ -1,12 +1,13 @@
 # app/schemas/moderation.py
 
+import re
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
-from app.schemas.embed import CommentRead, CommunityUserRead, ReasonRead, ThreadRead
+from app.schemas.embed import CommentRead, CommunityUserRead, GifRead, ReasonRead, ThreadRead
 
 
 class ParentCommentRead(BaseModel):
@@ -14,6 +15,7 @@ class ParentCommentRead(BaseModel):
 
     id: int
     content: str
+    gif: GifRead | None = None
     status: str
     community_user: CommunityUserRead | None = None
 
@@ -150,6 +152,8 @@ class AdminOverviewRead(BaseModel):
     max_batch_size: int
     max_daily_batch_changes: int
     rules_url: str | None = None
+    # Public by design (the widget searches with it), so admins may see it
+    klipy_app_key: str | None = None
     origins: list[str]
     staff: list[StaffActivityRead]
 
@@ -175,6 +179,20 @@ class RulesRequest(BaseModel):
         if url and not url.startswith(("https://", "http://")):
             raise ValueError("The rules link must be a web address (https://...)")
         self.rules_url = url or None
+        return self
+
+
+class GifsRequest(BaseModel):
+    # A KLIPY app key turns GIFs on; empty or null turns them off
+    klipy_app_key: str | None = Field(default=None, max_length=255)
+
+    @model_validator(mode="after")
+    def a_key(self):
+        key = (self.klipy_app_key or "").strip()
+        # It goes in the path of KLIPY's URLs, so nothing that could change the path
+        if key and not re.fullmatch(r"[A-Za-z0-9_-]+", key):
+            raise ValueError("That doesn't look like a KLIPY app key")
+        self.klipy_app_key = key or None
         return self
 
 
@@ -272,6 +290,7 @@ class ActionCommentRead(BaseModel):
 
     id: int
     content: str
+    gif: GifRead | None = None
     status: str
 
     model_config = {"from_attributes": True}
