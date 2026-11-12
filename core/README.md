@@ -91,6 +91,12 @@ RATE_LIMIT_COMMENT_CREATE_PER_MINUTE=5
 RATE_LIMIT_COMMENT_EDIT_PER_HOUR=20
 RATE_LIMIT_COMMENT_DELETE_PER_HOUR=20
 RATE_LIMIT_VOTE_PER_MINUTE=60
+
+# Webhooks (see Webhooks below): the loop that sends queued events, and how often it looks
+WEBHOOK_DELIVERY_ENABLED=true
+WEBHOOK_POLL_SECONDS=2
+# Development only: give the seeded demo community a webhook (see Webhooks › Trying it locally)
+# DEMO_WEBHOOK_URL=http://localhost:8787/webhooks
 ```
 
 For production:
@@ -394,6 +400,82 @@ With `threadfs_signed_threads`, browser-sent details are ignored, and a token ca
 
 Without it, a thread keeps the details of its first comment, and a link is dropped unless it's on one of the community's allowed origins. The title isn't checked, so a host that shows titles should sign them.
 
+## Webhooks
+
+ThreadFS tells your site when something happens, so it can notify its users, following the
+[Standard Webhooks](https://www.standardwebhooks.com) spec.
+
+### Setting one up
+
+```bash
+python -m app.scripts.set_webhook --community my-site --url https://example.com/hooks/threadfs
+```
+
+It prints a secret (`whsec_...`) once: keep it on your server. A new endpoint gets every event; `--events` picks some
+(comma-separated). `--rotate-secret` makes a new one, `--disable` stops
+sending (queued events wait), and `--url` changes the address. URLs must be `https` (`http` only for localhost).
+
+### Events
+
+**`comment.reply`**: someone replied to a comment. Not sent for replying to yourself, or to a comment that's deleted or
+removed.
+
+```json
+{
+  "type": "comment.reply",
+  "timestamp": "2026-11-11T21:30:00+00:00",
+  "data": {
+    "thread": { "id": "anime:1:ep:5", "title": "Frieren Episode 5", "url": "https://example.com/anime/1/episode/5" },
+    "comment": {
+      "id": 812,
+      "excerpt": "Agreed, the ending of this one was...",
+      "created_at": "2026-11-11T21:30:00+00:00",
+      "author": { "identity_provider": "external", "external_user_id": "42", "display_name": "Sora" }
+    },
+    "parent_comment": {
+      "id": 790,
+      "author": { "identity_provider": "external", "external_user_id": "7", "display_name": "Mira" }
+    }
+  }
+}
+```
+
+**`comment.created`**: any new comment, top-level or a reply. ThreadFS has no idea who a thread belongs to, so this is
+how a site tells, say, the owner of a profile or a post about comments on it. The same `thread` and `comment` as
+above, and `parent_comment_id` (`null` for a top-level comment) instead of `parent_comment`. A reply sends both events.
+
+`external_user_id` is the `sub` your site put in the user's token. Link to the reply with the thread's page plus
+`#c-<id in hexadecimal>` (the React widget's `commentHash`).
+
+### Verifying a delivery
+
+Each POST carries `webhook-id`, `webhook-timestamp` (Unix seconds) and `webhook-signature` (`v1,<base64>`): the
+HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<raw body>`, keyed with the secret's base64-decoded part after
+`whsec_`. Compare in constant time, reject timestamps more than a few minutes off, and remember the `webhook-id`s you've
+handled: a delivery can arrive more than once. Any Standard Webhooks library does all of this.
+
+Answer with any 2xx. Anything else, or no answer in 10 seconds, is retried after 5 seconds, 5 minutes, 30 minutes, 2,
+5, 10 and 10 hours, then dropped.
+
+### Trying it locally
+
+```bash
+python -m app.scripts.webhook_listener          # prints each delivery and checks its signature
+python -m app.scripts.webhook_listener --fail   # answers 500, to watch the retries
+```
+
+Set `DEMO_WEBHOOK_URL=http://localhost:8787/webhooks` in `core/.env` and the dev seed gives the demo community a webhook
+there, with a development secret the listener already knows. Then reply to a comment on the demo page and the event
+appears in the listener. The seed reads it at startup, and `--reload` only restarts for code changes, so after changing
+it stop and start the server. (For another community, run `set_webhook` with that URL and pass the secret it prints as
+`--secret`.)
+
+### How it works
+
+Events are written to `webhook_deliveries` in the same transaction as the comment (an outbox), so one is never lost or
+sent for a comment that wasn't saved. Every worker runs the delivery loop and claims rows with `SKIP LOCKED`, so several
+workers don't send the same event at once.
+
 ## Deployment on EC2
 
 The examples below use Aniworks as a sample host website. Replace the domain, issuer, and thread IDs with your own application values.
@@ -594,4 +676,3 @@ Later:
 - Moderation queue
 - Signed embed context
 - RS256 host-site auth provider support
-- Webhooks
