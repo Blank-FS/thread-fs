@@ -8,12 +8,7 @@ import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { $getRoot, EditorState, LexicalEditor } from "lexical";
-import {
-  Code2,
-  PanelBottomClose,
-  PanelBottomOpen,
-  Pilcrow,
-} from "lucide-react";
+import { Code2, Pilcrow } from "lucide-react";
 import React, { useMemo, useRef, useState, type ReactNode } from "react";
 import "./style.css";
 
@@ -56,6 +51,10 @@ type RichEditorProps = {
   showControls?: boolean;
   /** Goes at the end of the row of buttons, such as a submit button. */
   actions?: ReactNode;
+  /** More buttons after the mode switch, such as GIFs. */
+  tools?: ReactNode;
+  /** Between the text and the buttons, such as an attached GIF. */
+  attachments?: ReactNode;
   onChange?: (value: RichEditorValue) => void;
 };
 
@@ -66,6 +65,8 @@ const RichEditor = ({
   initialMarkdown = null,
   showControls = true,
   actions,
+  tools,
+  attachments,
   onChange,
 }: RichEditorProps) => {
   const editorRef = useRef<LexicalEditor | null>(null);
@@ -135,12 +136,56 @@ const RichEditor = ({
     });
   }
 
+  const modeSwitch = (
+    <button
+      type="button"
+      disabled={disabled || !canSwitchToRich}
+      onClick={mode === "rich" ? switchToMarkdownMode : switchToRichMode}
+      aria-label={
+        mode === "rich" ? "Switch to markdown" : "Switch to rich text"
+      }
+      title={
+        mode === "rich"
+          ? "Switch to markdown"
+          : canSwitchToRich
+            ? "Switch to rich text"
+            : "This uses formatting the rich text editor can't show"
+      }
+      className="text-muted-foreground hover:bg-primary/20 hover:text-foreground flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-medium hover:cursor-pointer disabled:opacity-50 disabled:hover:bg-transparent"
+    >
+      {mode === "rich" ? (
+        <>
+          <Code2 className="size-4" />
+          <span className="hidden @[26rem]:inline">Switch to Markdown</span>
+        </>
+      ) : (
+        <>
+          <Pilcrow className="size-4" />
+          <span className="hidden @[20rem]:inline">Switch to rich text</span>
+        </>
+      )}
+    </button>
+  );
+
   return (
     <LexicalComposer initialConfig={editorConfig}>
-      <div className="editor-container">
+      <div className="editor-container @container">
         {showControls && mode === "rich" && isToolbarVisible && (
           <>
-            <ToolbarPlugin disabled={disabled} />
+            <ToolbarPlugin disabled={disabled} end={modeSwitch} />
+            <Separator className="h-px" />
+          </>
+        )}
+
+        {/* Markdown has no formatting buttons, so its bar is only the way back */}
+        {showControls && mode === "markdown" && (
+          <>
+            <div className="mb-1 flex min-h-8 items-center gap-2">
+              <span className="text-muted-foreground px-1 text-xs font-medium">
+                Markdown
+              </span>
+              <div className="ml-auto flex items-center">{modeSwitch}</div>
+            </div>
             <Separator className="h-px" />
           </>
         )}
@@ -187,59 +232,31 @@ const RichEditor = ({
           {autoFocus && mode === "rich" && <AutoFocusPlugin />}
         </div>
 
+        {attachments}
+
         {showControls && (
           <div className="@container mt-1 flex flex-wrap items-center gap-1">
+            {tools}
+
+            {/* Formatting, as on Reddit: the buttons open on top, where the switch to markdown is */}
             {mode === "rich" && (
               <button
                 type="button"
                 disabled={disabled}
                 onClick={() => setIsToolbarVisible((value) => !value)}
                 aria-label={
-                  isToolbarVisible
-                    ? "Hide formatting toolbar"
-                    : "Show formatting toolbar"
+                  isToolbarVisible ? "Hide formatting" : "Show formatting"
                 }
+                aria-pressed={isToolbarVisible}
                 title={isToolbarVisible ? "Hide formatting" : "Show formatting"}
-                className="text-muted-foreground hover:bg-primary/20 flex size-7 items-center justify-center rounded-lg"
-              >
-                {isToolbarVisible ? (
-                  <PanelBottomClose className="size-4" />
-                ) : (
-                  <PanelBottomOpen className="size-4" />
+                className={cn(
+                  "text-muted-foreground hover:bg-primary/20 flex size-7 items-center justify-center rounded-full text-[13px] font-semibold hover:cursor-pointer",
+                  isToolbarVisible && "bg-primary/20 text-foreground",
                 )}
+              >
+                Aa
               </button>
             )}
-
-            <button
-              type="button"
-              disabled={disabled || !canSwitchToRich}
-              onClick={
-                mode === "rich" ? switchToMarkdownMode : switchToRichMode
-              }
-              aria-label={
-                mode === "rich"
-                  ? "Switch to markdown mode"
-                  : "Switch to rich text mode"
-              }
-              title={
-                mode === "rich"
-                  ? "Switch to markdown"
-                  : canSwitchToRich
-                    ? "Switch to rich text"
-                    : "This uses formatting the rich text editor can't show"
-              }
-              className="text-muted-foreground hover:bg-primary/20 flex size-7 items-center justify-center rounded-lg disabled:opacity-50 disabled:hover:bg-transparent"
-            >
-              {mode === "rich" ? (
-                <>
-                  <Code2 className="size-4" />
-                </>
-              ) : (
-                <>
-                  <Pilcrow className="size-4" />
-                </>
-              )}
-            </button>
 
             <div className="ml-auto flex items-center gap-1">{actions}</div>
           </div>

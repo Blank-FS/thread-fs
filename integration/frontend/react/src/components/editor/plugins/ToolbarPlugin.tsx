@@ -53,9 +53,22 @@ import {
   Strikethrough,
   Underline,
 } from "lucide-react";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
-const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
+const ToolbarPlugin = ({
+  disabled = false,
+  end,
+}: {
+  disabled?: boolean;
+  /** At the far end of the bar, such as the switch to markdown. */
+  end?: ReactNode;
+}) => {
   const [editor] = useLexicalComposerContext();
   const toolbarRef = useRef(null);
   const [canUndo, setCanUndo] = useState(false);
@@ -261,7 +274,10 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
   }, [editor, $updateToolbar]);
 
   return (
-    <div className="toolbar mb-1 flex items-center gap-1" ref={toolbarRef}>
+    <div
+      className="toolbar mb-1 flex flex-wrap items-center gap-1"
+      ref={toolbarRef}
+    >
       {/* Bold Button */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -511,6 +527,7 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
           <p className="font-semibold">Number List</p>
         </TooltipContent>
       </Tooltip>
+      {end && <div className="ml-auto flex items-center">{end}</div>}
     </div>
   );
 };
