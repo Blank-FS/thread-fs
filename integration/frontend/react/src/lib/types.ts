@@ -22,6 +22,8 @@ export type ThreadFSEmbedConfig = {
   allow_anonymous_read: boolean;
   allow_anonymous_comment: boolean;
   report_reasons?: ThreadFSReason[];
+  /** The community's comment rules page, which the Rules button links to. */
+  rules_url?: string | null;
 };
 
 /** One of a community's reasons, used for reporting and removing comments. */
@@ -220,6 +222,7 @@ export type AdminOverview = {
   activity_days: number;
   max_batch_size: number;
   max_daily_batch_changes: number;
+  rules_url?: string | null;
   origins: string[];
   staff: StaffActivity[];
 };

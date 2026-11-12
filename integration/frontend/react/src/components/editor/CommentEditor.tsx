@@ -8,6 +8,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
+import { useRulesUrl } from "../../lib/rulesContext";
 import defaultAvatarUrl from "../assets/default-avatar.png";
 import AvatarFrame from "../card/AvatarFrame";
 import { Button } from "../ui/button";
@@ -41,6 +42,9 @@ const SUBMIT_KEY =
     ? "⌘"
     : "Ctrl";
 
+const RULES_BUTTON_CLASS =
+  "text-muted-foreground hover:bg-primary/20 flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-medium hover:cursor-pointer";
+
 const EMPTY_EDITOR_VALUE: RichEditorValue = {
   markdown: "",
   text: "",
@@ -67,6 +71,7 @@ function CommentEditor({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const rulesUrl = useRulesUrl();
   const isOpen = startOpen || isActive || value.text.trim().length > 0;
 
   // Only a click or focus elsewhere closes it. Losing focus isn't enough: its menus open outside it, in a portal
@@ -175,20 +180,36 @@ function CommentEditor({
             showControls={isOpen}
             actions={
               <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    aria-label="Commenting rules"
-                    title="Commenting rules"
-                    className="text-muted-foreground hover:bg-primary/20 flex size-7 items-center justify-center rounded-lg hover:cursor-pointer"
+                {/* The community's rules page, in a new tab so a half-written comment stays put; without one, a
+                    short default */}
+                {rulesUrl ? (
+                  <a
+                    href={rulesUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Rules"
+                    title="Comment rules"
+                    className={RULES_BUTTON_CLASS}
                   >
                     <ScrollText className="size-4" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 p-2.5">
-                    <p className="text-sm">
-                      Be respectful and keep the discussion on topic
-                    </p>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    <span className="hidden @[12rem]:inline">Rules</span>
+                  </a>
+                ) : (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      aria-label="Rules"
+                      className={RULES_BUTTON_CLASS}
+                    >
+                      <ScrollText className="size-4" />
+                      <span className="hidden @[12rem]:inline">Rules</span>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56 p-2.5">
+                      <p className="text-sm">
+                        Be respectful and keep the discussion on topic
+                      </p>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
                 <Button
                   type="button"
                   size="sm"

@@ -1,5 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { getAdminOverview, updateLimits } from "../../lib/moderationApi";
+import {
+  getAdminOverview,
+  updateLimits,
+  updateRulesUrl,
+} from "../../lib/moderationApi";
 import type { AdminOverview, StaffActivity } from "../../lib/types";
 import CommentTimestamp from "../card/CommentTimestamp";
 import { Badge } from "../ui/badge";
@@ -162,6 +166,78 @@ function LimitsForm({
   );
 }
 
+// Where the comment widget's Rules button links: the community's rules, on its own site
+function RulesForm({
+  overview,
+  onSaved,
+}: {
+  overview: AdminOverview;
+  onSaved: (overview: AdminOverview) => void;
+}) {
+  const { request, refresh } = useModeration();
+  const [url, setUrl] = useState(overview.rules_url ?? "");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const trimmed = url.trim();
+  const isValid = trimmed === "" || /^https?:\/\/\S+$/.test(trimmed);
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+
+    try {
+      setIsSaving(true);
+      setError(null);
+      onSaved(await request((ctx) => updateRulesUrl(ctx, trimmed)));
+      setIsSaved(true);
+      refresh();
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Failed to save"));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={(event) => void save(event)} className="space-y-3">
+      {error && <ErrorNote>{error}</ErrorNote>}
+      <Card className="p-3">
+        <label className="space-y-1 text-sm">
+          <span>Rules page</span>
+          <Input
+            type="url"
+            inputMode="url"
+            placeholder="https://example.com/comment-rules"
+            value={url}
+            onChange={(event) => {
+              setUrl(event.target.value);
+              setIsSaved(false);
+            }}
+          />
+        </label>
+      </Card>
+      <div className="flex items-center gap-2">
+        {!isValid && (
+          <span className="text-muted-foreground text-sm">
+            Use a full web address, starting with https://
+          </span>
+        )}
+        {isSaved && (
+          <span className="text-muted-foreground text-sm">Saved</span>
+        )}
+        <Button
+          type="submit"
+          disabled={!isValid || isSaving}
+          className={`ml-auto ${brandButtonClass}`}
+        >
+          {isSaving ? "Saving..." : "Save"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 /** Admins only: how the staff are doing, and the community's moderation settings. */
 export function AdminPanel() {
   const { request, version } = useModeration();
@@ -213,6 +289,14 @@ export function AdminPanel() {
           out one regular user isn't limited, and neither are admins.
         </Heading>
         <LimitsForm overview={overview} onSaved={setOverview} />
+      </section>
+
+      <section className="space-y-3">
+        <Heading title="Comment rules">
+          The page with your community&apos;s rules. The comment box&apos;s
+          Rules button links to it. Leave it empty for a short default instead.
+        </Heading>
+        <RulesForm overview={overview} onSaved={setOverview} />
       </section>
 
       <section>

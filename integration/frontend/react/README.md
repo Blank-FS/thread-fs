@@ -111,6 +111,7 @@ type ThreadFSCommentsProps = {
   authorProfileUrl?: (user: ThreadFSCommentUser) => string | null;
 
   focusCommentId?: string | null;
+  rulesUrl?: string | null;
   commentUrl?: (commentId: string) => string | null;
 };
 ```
@@ -183,6 +184,12 @@ onAuthRequired={() => {
   )}`;
 }}
 ```
+
+### `rulesUrl`
+
+The page with your comment rules. Every comment box gets a **Rules** button that opens it in a new tab. It defaults
+to the community's own link, which admins set in the moderation panel (Admin › Comment rules), so you usually don't
+pass it; this overrides it for one page. With neither, the button shows a short default line instead.
 
 ### `authorProfileUrl`
 

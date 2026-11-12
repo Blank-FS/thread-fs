@@ -250,6 +250,10 @@ export const updateLimits = (
     max_daily_batch_changes: limits.maxDailyBatchChanges,
   });
 
+/** Where the comment widget's Rules button links; empty clears it. */
+export const updateRulesUrl = (ctx: ThreadFSRequestContext, rulesUrl: string) =>
+  send<AdminOverview>("PUT", ctx, "/admin/rules", { rules_url: rulesUrl });
+
 export const undoBatch = (ctx: ThreadFSRequestContext, batchId: string) =>
   post<{ changed: number; skipped: number }>(
     ctx,

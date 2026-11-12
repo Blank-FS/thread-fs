@@ -22,6 +22,7 @@ import {
   voteComment,
 } from "../lib/api";
 import { hideComment, type CommentRemoval } from "../lib/moderationApi";
+import { RulesUrlContext } from "../lib/rulesContext";
 import { continueDepthFor } from "../lib/threadDepth";
 import {
   CommentSort,
@@ -63,6 +64,8 @@ export type ThreadFSCommentsProps = {
   focusCommentId?: string | null;
   /** A link to one comment, which turns on its Share button. Usually the page's address plus commentHash(id). */
   commentUrl?: (commentId: string) => string | null;
+  /** The comment rules page the Rules button links to. Defaults to the community's own (set in its admin panel). */
+  rulesUrl?: string | null;
 
   title?: string;
   className?: string;
@@ -80,6 +83,7 @@ export function ThreadFSComments({
   client,
   focusCommentId = null,
   commentUrl,
+  rulesUrl,
   title = "Discussion",
   className,
   pageSize = 10,
@@ -97,6 +101,9 @@ export function ThreadFSComments({
   const [error, setError] = useState<string | null>(null);
   const [me, setMe] = useState<EmbedMe | null>(null);
   const [reportReasons, setReportReasons] = useState<ThreadFSReason[]>([]);
+  const [communityRulesUrl, setCommunityRulesUrl] = useState<string | null>(
+    null,
+  );
   const [resolvedAuthToken, setResolvedAuthToken] = useState<string | null>(
     null,
   );
@@ -215,6 +222,7 @@ export function ThreadFSComments({
 
         setMe(resolvedMe);
         setReportReasons(config.report_reasons ?? []);
+        setCommunityRulesUrl(config.rules_url ?? null);
         setThread(resolved.thread);
         setFocusedId(context ? String(context.focused_comment_id) : null);
         setIsFocusMissing(missing);
@@ -638,7 +646,7 @@ export function ThreadFSComments({
     />
   );
 
-  return (
+  const view = (
     <TooltipProvider>
       <section
         ref={sectionRef}
@@ -775,6 +783,13 @@ export function ThreadFSComments({
         </div>
       </section>
     </TooltipProvider>
+  );
+
+  // Every comment box inside (the top one, and replies and edits) links to the same rules
+  return (
+    <RulesUrlContext.Provider value={rulesUrl ?? communityRulesUrl}>
+      {view}
+    </RulesUrlContext.Provider>
   );
 }
 

@@ -353,6 +353,8 @@ function ActionText({ action, target, batch }: ModerationAction) {
       return <>restored {comments}</>;
     case "update_limits":
       return <>changed the moderator limits</>;
+    case "update_rules":
+      return <>changed the comment rules link</>;
     case "undo_batch":
       return <>undid a batch of {comments}</>;
     case "hide_comment":
