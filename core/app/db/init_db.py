@@ -136,7 +136,7 @@ async def seed_demo_comments(session: AsyncSession) -> None:
         community_id=community.id,
         unique_id="demo-thread",
         title="Demo Thread",
-        source_url="http://localhost:3000/demo",
+        source_url="http://localhost:5173",
         comment_count=0,
         created_at=now - timedelta(days=2),
         modified_at=now - timedelta(days=2),
@@ -435,6 +435,9 @@ async def _seed_nested_replies(
     session.add(parent)
     await session.flush()
 
+    # reply_count counts every reply below a comment, as creating one through the API does, so each new level adds one
+    # to every comment above it
+    chain = [parent]
     for index, content in enumerate(NESTED_REPLIES):
         reply = Comment(
             thread_id=thread.id,
@@ -450,7 +453,9 @@ async def _seed_nested_replies(
         )
         session.add(reply)
         await session.flush()
-        parent.reply_count = 1
+        for ancestor in chain:
+            ancestor.reply_count += 1
+        chain.append(reply)
         parent = reply
 
 
