@@ -1,6 +1,7 @@
-import type { ThreadFSCommentUser } from "@/lib/types";
+import { useGifConfig } from "@/lib/gifs";
+import type { ThreadFSCommentUser, ThreadFSGif } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ScrollText } from "lucide-react";
+import { ScrollText, X } from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -11,13 +12,16 @@ import {
 import { useRulesUrl } from "../../lib/rulesContext";
 import defaultAvatarUrl from "../assets/default-avatar.png";
 import AvatarFrame from "../card/AvatarFrame";
+import { CommentGif } from "../card/CommentGif";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Skeleton } from "../ui/skeleton";
+import GifPicker from "./GifPicker";
 import RichEditor, { RichEditorValue } from "./RichEditor";
 
 type CommentEditorProps = {
@@ -27,10 +31,13 @@ type CommentEditorProps = {
   submitLabel?: string;
   disabled?: boolean;
   initialMarkdown?: string | null;
+  /** The GIF an edited comment has. */
+  initialGif?: ThreadFSGif | null;
   /** For a reply or an edit, which the viewer just asked for: starts focused, never shrinks, and has no avatar. */
   startOpen?: boolean;
   className?: string;
-  onSubmit: (body: string) => Promise<void> | void;
+  /** The text, and the GIF under it (null for none). */
+  onSubmit: (body: string, gif: ThreadFSGif | null) => Promise<void> | void;
   onAuthRequired?: () => void;
   authorProfileUrl?: (user: ThreadFSCommentUser) => string | null;
 };
@@ -57,6 +64,7 @@ function CommentEditor({
   submitLabel = "Post",
   disabled = false,
   initialMarkdown = null,
+  initialGif = null,
   startOpen = false,
   className,
   onSubmit,
@@ -71,8 +79,13 @@ function CommentEditor({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [gif, setGif] = useState<ThreadFSGif | null>(initialGif);
+  const [isPickingGif, setIsPickingGif] = useState(false);
   const rulesUrl = useRulesUrl();
-  const isOpen = startOpen || isActive || value.text.trim().length > 0;
+  const gifConfig = useGifConfig();
+  const hasText = value.text.trim().length > 0;
+  const isOpen =
+    startOpen || isActive || hasText || gif !== null || isPickingGif;
 
   // Only a click or focus elsewhere closes it. Losing focus isn't enough: its menus open outside it, in a portal
   useEffect(() => {
@@ -103,16 +116,19 @@ function CommentEditor({
     return authorProfileUrl(currentUser);
   }, [currentUser, authorProfileUrl]);
 
-  const canSubmit = value.text.trim().length > 0 && !disabled && !isSubmitting;
+  // A GIF alone is a comment
+  const canSubmit = (hasText || gif !== null) && !disabled && !isSubmitting;
 
   async function handleSubmit() {
     if (!canSubmit) return;
 
     try {
       setIsSubmitting(true);
-      await onSubmit(value.markdown);
+      await onSubmit(hasText ? value.markdown : "", gif);
 
       setValue(EMPTY_EDITOR_VALUE);
+      setGif(null);
+      setIsPickingGif(false);
       setEditorKey((key) => key + 1);
       setIsActive(false);
     } finally {
@@ -178,6 +194,58 @@ function CommentEditor({
             placeholder={placeholder}
             onChange={setValue}
             showControls={isOpen}
+            attachments={
+              <>
+                {gif && (
+                  <div className="relative mt-1 w-fit">
+                    <CommentGif gif={gif} className="my-0 max-h-32 w-auto" />
+                    <button
+                      type="button"
+                      onClick={() => setGif(null)}
+                      disabled={isSubmitting}
+                      aria-label="Remove GIF"
+                      title="Remove GIF"
+                      className="bg-background/80 hover:bg-background absolute top-1 right-1 flex size-6 items-center justify-center rounded-full border hover:cursor-pointer"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                )}
+              </>
+            }
+            tools={
+              // The search opens outside the box, over the page, as Reddit's does
+              gifConfig && (
+                <Popover open={isPickingGif} onOpenChange={setIsPickingGif}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={disabled || isSubmitting}
+                      aria-label={gif ? "Change GIF" : "Add a GIF"}
+                      title={gif ? "Change GIF" : "Add a GIF"}
+                      className={cn(
+                        "text-muted-foreground hover:bg-primary/20 flex size-7 items-center justify-center rounded-lg hover:cursor-pointer disabled:opacity-50",
+                        isPickingGif && "bg-primary/20 text-foreground",
+                      )}
+                    >
+                      <span className="rounded-[3px] border border-current px-0.5 text-[9px] leading-[11px] font-bold">
+                        GIF
+                      </span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[min(22rem,calc(100vw-1rem))] p-0">
+                    <GifPicker
+                      config={gifConfig}
+                      onPick={(picked) => {
+                        setGif(picked);
+                        setIsPickingGif(false);
+                      }}
+                      onClose={() => setIsPickingGif(false)}
+                    />
+                  </PopoverContent>
+                </Popover>
+              )
+            }
             actions={
               <>
                 {/* The community's rules page, in a new tab so a half-written comment stays put; without one, a

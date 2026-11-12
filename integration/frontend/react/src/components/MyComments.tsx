@@ -17,10 +17,12 @@ import {
   type ThreadFSComment,
   type ThreadFSCommentUser,
   type ThreadFSRequestContext,
+  type ThreadFSGif,
 } from "../lib/types";
 import { linkToComment } from "../lib/commentLinks";
 import { cn } from "../lib/utils";
 import CommentTimestamp from "./card/CommentTimestamp";
+import { CommentGif } from "./card/CommentGif";
 import { CollapsibleContent } from "./common/CollapsibleContent";
 import { MarkdownContent } from "./common/MarkdownContent";
 import CommentEditor from "./editor/CommentEditor";
@@ -258,12 +260,16 @@ export function ThreadFSMyComments({
     }
   }
 
-  async function handleEdit(commentId: string, body: string) {
+  async function handleEdit(
+    commentId: string,
+    body: string,
+    gif: ThreadFSGif | null,
+  ) {
     try {
       setError(null);
 
       const updated = await withAuthRetry((ctx) =>
-        updateComment(ctx, commentId, body),
+        updateComment(ctx, commentId, body, gif),
       );
 
       setComments((current) =>
@@ -434,7 +440,10 @@ export function ThreadFSMyComments({
                         placeholder="Edit your comment..."
                         startOpen
                         initialMarkdown={comment.content}
-                        onSubmit={(body) => handleEdit(comment.id, body)}
+                        initialGif={comment.gif ?? null}
+                        onSubmit={(body, gif) =>
+                          handleEdit(comment.id, body, gif)
+                        }
                         onAuthRequired={onAuthRequired}
                       />
 
@@ -452,6 +461,7 @@ export function ThreadFSMyComments({
                       className="mt-2 text-sm leading-6"
                     >
                       <MarkdownContent markdown={comment.content} />
+                      {comment.gif && <CommentGif gif={comment.gif} />}
                     </CollapsibleContent>
                   )}
 

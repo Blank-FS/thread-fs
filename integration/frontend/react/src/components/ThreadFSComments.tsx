@@ -22,6 +22,7 @@ import {
   voteComment,
 } from "../lib/api";
 import { hideComment, type CommentRemoval } from "../lib/moderationApi";
+import { GifConfigContext } from "../lib/gifs";
 import { RulesUrlContext } from "../lib/rulesContext";
 import { continueDepthFor } from "../lib/threadDepth";
 import {
@@ -33,6 +34,8 @@ import {
   ThreadFSThread,
   type EmbedMe,
   type ThreadFSComment,
+  ThreadFSGif,
+  ThreadFSGifConfig,
 } from "../lib/types";
 import { cn } from "../lib/utils";
 import CommentCard from "./card/CommentCard";
@@ -104,6 +107,7 @@ export function ThreadFSComments({
   const [communityRulesUrl, setCommunityRulesUrl] = useState<string | null>(
     null,
   );
+  const [gifConfig, setGifConfig] = useState<ThreadFSGifConfig | null>(null);
   const [resolvedAuthToken, setResolvedAuthToken] = useState<string | null>(
     null,
   );
@@ -223,6 +227,7 @@ export function ThreadFSComments({
         setMe(resolvedMe);
         setReportReasons(config.report_reasons ?? []);
         setCommunityRulesUrl(config.rules_url ?? null);
+        setGifConfig(config.gifs ?? null);
         setThread(resolved.thread);
         setFocusedId(context ? String(context.focused_comment_id) : null);
         setIsFocusMissing(missing);
@@ -412,7 +417,11 @@ export function ThreadFSComments({
     }
   }
 
-  async function handleCreateComment(body: string, parentId?: string | null) {
+  async function handleCreateComment(
+    body: string,
+    gif: ThreadFSGif | null,
+    parentId?: string | null,
+  ) {
     if (!isAuthenticated) {
       onAuthRequired?.();
       return;
@@ -428,6 +437,7 @@ export function ThreadFSComments({
           sourceUrl:
             typeof window !== "undefined" ? window.location.href : null,
           body,
+          gif,
           parentId,
           source,
           client,
@@ -467,7 +477,11 @@ export function ThreadFSComments({
     }
   }
 
-  async function handleEditComment(commentId: string, body: string) {
+  async function handleEditComment(
+    commentId: string,
+    body: string,
+    gif: ThreadFSGif | null,
+  ) {
     if (!isAuthenticated) {
       onAuthRequired?.();
       return;
@@ -477,7 +491,7 @@ export function ThreadFSComments({
       setError(null);
 
       const updatedComment = await withAuthRetry((ctx) =>
-        updateComment(ctx, commentId, body),
+        updateComment(ctx, commentId, body, gif),
       );
 
       setComments((current) => replaceCommentInTree(current, updatedComment));
@@ -628,7 +642,9 @@ export function ThreadFSComments({
       currentUser={currentUserForEditor}
       canReply={isAuthenticated}
       isLocked={isLocked}
-      onReply={(parentId, body) => handleCreateComment(body, parentId)}
+      onReply={(parentId, body, gif) =>
+        handleCreateComment(body, gif, parentId)
+      }
       onVote={handleVote}
       onEdit={handleEditComment}
       onDelete={handleDeleteComment}
@@ -706,7 +722,7 @@ export function ThreadFSComments({
             currentUser={currentUserForEditor}
             authorProfileUrl={authorProfileUrl}
             disabled={!isAuthenticated || isLoading}
-            onSubmit={(body) => handleCreateComment(body)}
+            onSubmit={(body, gif) => handleCreateComment(body, gif)}
             onAuthRequired={onAuthRequired}
           />
         )}
@@ -788,7 +804,7 @@ export function ThreadFSComments({
   // Every comment box inside (the top one, and replies and edits) links to the same rules
   return (
     <RulesUrlContext.Provider value={rulesUrl ?? communityRulesUrl}>
-      {view}
+      <GifConfigContext.Provider value={gifConfig}>{view}</GifConfigContext.Provider>
     </RulesUrlContext.Provider>
   );
 }

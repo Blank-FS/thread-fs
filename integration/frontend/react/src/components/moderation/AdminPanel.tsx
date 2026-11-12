@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import {
   getAdminOverview,
   updateLimits,
+  updateKlipyAppKey,
   updateRulesUrl,
 } from "../../lib/moderationApi";
 import type { AdminOverview, StaffActivity } from "../../lib/types";
@@ -238,6 +239,79 @@ function RulesForm({
   );
 }
 
+// GIFs in the comment box, from KLIPY: on with an app key, off without
+function GifsForm({
+  overview,
+  onSaved,
+}: {
+  overview: AdminOverview;
+  onSaved: (overview: AdminOverview) => void;
+}) {
+  const { request, refresh } = useModeration();
+  const [key, setKey] = useState(overview.klipy_app_key ?? "");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const trimmed = key.trim();
+  const isValid = trimmed === "" || /^[A-Za-z0-9_-]+$/.test(trimmed);
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+
+    try {
+      setIsSaving(true);
+      setError(null);
+      onSaved(await request((ctx) => updateKlipyAppKey(ctx, trimmed)));
+      setIsSaved(true);
+      refresh();
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Failed to save"));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={(event) => void save(event)} className="space-y-3">
+      {error && <ErrorNote>{error}</ErrorNote>}
+      <Card className="p-3">
+        <label className="space-y-1 text-sm">
+          <span>KLIPY app key</span>
+          <Input
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Empty turns GIFs off"
+            value={key}
+            onChange={(event) => {
+              setKey(event.target.value);
+              setIsSaved(false);
+            }}
+            className="font-mono"
+          />
+        </label>
+      </Card>
+      <div className="flex items-center gap-2">
+        {!isValid && (
+          <span className="text-muted-foreground text-sm">
+            That doesn&apos;t look like a KLIPY app key
+          </span>
+        )}
+        {isSaved && (
+          <span className="text-muted-foreground text-sm">Saved</span>
+        )}
+        <Button
+          type="submit"
+          disabled={!isValid || isSaving}
+          className={`ml-auto ${brandButtonClass}`}
+        >
+          {isSaving ? "Saving..." : "Save"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 /** Admins only: how the staff are doing, and the community's moderation settings. */
 export function AdminPanel() {
   const { request, version } = useModeration();
@@ -297,6 +371,16 @@ export function AdminPanel() {
           Rules button links to it. Leave it empty for a short default instead.
         </Heading>
         <RulesForm overview={overview} onSaved={setOverview} />
+      </section>
+
+      <section className="space-y-3">
+        <Heading title="GIFs">
+          A KLIPY app key adds a GIF button to the comment box. Get one from
+          the API Keys page at partner.klipy.com, and set the content rating
+          there. The key isn&apos;t secret: readers&apos; browsers search with
+          it. Test keys allow 100 searches an hour.
+        </Heading>
+        <GifsForm overview={overview} onSaved={setOverview} />
       </section>
 
       <section>

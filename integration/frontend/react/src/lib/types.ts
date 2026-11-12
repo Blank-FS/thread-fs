@@ -24,6 +24,24 @@ export type ThreadFSEmbedConfig = {
   report_reasons?: ThreadFSReason[];
   /** The community's comment rules page, which the Rules button links to. */
   rules_url?: string | null;
+  /** GIF search for the comment box, when the community has it on. */
+  gifs?: ThreadFSGifConfig | null;
+};
+
+/** KLIPY's app key, which the reader's browser searches with (KLIPY's terms don't allow a server in between). */
+export type ThreadFSGifConfig = {
+  provider: "klipy";
+  app_key: string;
+};
+
+/** A GIF under a comment's text: one of the provider's files, its URL exactly as the provider gave it. */
+export type ThreadFSGif = {
+  provider: "klipy";
+  slug: string;
+  url: string;
+  width: number;
+  height: number;
+  title?: string | null;
 };
 
 /** One of a community's reasons, used for reporting and removing comments. */
@@ -70,6 +88,7 @@ export type ThreadFSComment = {
   community_user?: ThreadFSCommentUser | null;
 
   content: string;
+  gif?: ThreadFSGif | null;
   status: string;
   /** Why moderators removed it. Only its author gets this. */
   removal_reason?: string | null;
@@ -138,6 +157,7 @@ export type ModerationComment = ThreadFSComment & {
   parent?: {
     id: number;
     content: string;
+    gif?: ThreadFSGif | null;
     status: string;
     community_user?: ThreadFSCommentUser | null;
   } | null;
@@ -223,6 +243,8 @@ export type AdminOverview = {
   max_batch_size: number;
   max_daily_batch_changes: number;
   rules_url?: string | null;
+  /** KLIPY's app key, which turns GIFs on. Public: the widget searches with it. */
+  klipy_app_key?: string | null;
   origins: string[];
   staff: StaffActivity[];
 };
@@ -236,7 +258,12 @@ export type ModerationAction = {
   thread_id: number | null;
   moderator?: ThreadFSCommentUser | null;
   target?: ThreadFSCommentUser | null;
-  comment?: { id: number; content: string; status: string } | null;
+  comment?: {
+    id: number;
+    content: string;
+    gif?: ThreadFSGif | null;
+    status: string;
+  } | null;
   thread?: ThreadFSThread | null;
   /** On a batch's summary entry. */
   batch?: {

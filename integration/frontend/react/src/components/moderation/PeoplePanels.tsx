@@ -47,6 +47,7 @@ import type {
 } from "../../lib/types";
 import CommentTimestamp from "../card/CommentTimestamp";
 import { MarkdownContent } from "../common/MarkdownContent";
+import { GifLabel } from "../card/CommentGif";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -355,6 +356,8 @@ function ActionText({ action, target, batch }: ModerationAction) {
       return <>changed the moderator limits</>;
     case "update_rules":
       return <>changed the comment rules link</>;
+    case "update_gifs":
+      return <>changed the GIF settings</>;
     case "undo_batch":
       return <>undid a batch of {comments}</>;
     case "hide_comment":
@@ -407,6 +410,7 @@ function ActionSubject({ entry }: { entry: ModerationAction }) {
           </p>
         ) : (
           <div className="line-clamp-2 [&_*]:mb-0 [&_*]:text-xs [&_*]:leading-5">
+            {comment.gif && <GifLabel />}
             <MarkdownContent markdown={comment.content} />
           </div>
         ))}
@@ -966,6 +970,7 @@ function UserDetails({ user }: { user: ThreadFSCommentUser }) {
                   </div>
                   {comment.status !== "deleted" && (
                     <div className="mt-1 line-clamp-3 [&_*]:mb-0">
+                      {comment.gif && <GifLabel />}
                       <MarkdownContent markdown={comment.content} />
                     </div>
                   )}

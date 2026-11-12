@@ -20,9 +20,11 @@ import type {
   ThreadFSComment,
   ThreadFSCommentUser,
   ThreadFSReason,
+  ThreadFSGif,
 } from "../../lib/types";
 import { cn } from "../../lib/utils";
 import defaultAvatarUrl from "../assets/default-avatar.png";
+import { CommentGif } from "./CommentGif";
 import { CollapsibleContent } from "../common/CollapsibleContent";
 import { MarkdownContent } from "../common/MarkdownContent";
 import CommentEditor from "../editor/CommentEditor";
@@ -55,9 +57,17 @@ type CommentCardProps = {
   parentName?: string;
   canReply: boolean;
   isLocked?: boolean;
-  onReply: (parentId: string, body: string) => Promise<void> | void;
+  onReply: (
+    parentId: string,
+    body: string,
+    gif: ThreadFSGif | null,
+  ) => Promise<void> | void;
   onVote?: (commentId: string, value: 1 | -1) => Promise<void> | void;
-  onEdit?: (commentId: string, body: string) => Promise<void> | void;
+  onEdit?: (
+    commentId: string,
+    body: string,
+    gif: ThreadFSGif | null,
+  ) => Promise<void> | void;
   onDelete?: (commentId: string) => Promise<void> | void;
   /** Resolves to whether the report went through. */
   onReport?: (
@@ -406,8 +416,9 @@ function CommentCard({
                   startOpen
                   disabled={!canReply}
                   initialMarkdown={comment.content}
-                  onSubmit={async (body) => {
-                    await onEdit?.(comment.id, body);
+                  initialGif={comment.gif ?? null}
+                  onSubmit={async (body, gif) => {
+                    await onEdit?.(comment.id, body, gif);
                     setIsEditing(false);
                   }}
                   onAuthRequired={onAuthRequired}
@@ -427,6 +438,7 @@ function CommentCard({
                 className="threadfs-comment-content overflow-wrap-anywhere overflow-hidden text-sm leading-6 wrap-break-word"
               >
                 <MarkdownContent markdown={comment.content} />
+                {comment.gif && <CommentGif gif={comment.gif} />}
               </CollapsibleContent>
             )}
 
@@ -548,11 +560,11 @@ function CommentCard({
                   placeholder={`Reply to ${displayName}...`}
                   startOpen
                   disabled={!canReply}
-                  onSubmit={async (body) => {
+                  onSubmit={async (body, gif) => {
                     // Adding this reply makes the rest look loaded, with no View more left to fetch them
                     const hadUnloadedReplies = hasReplies && !hasLoadedReplies;
 
-                    await onReply(comment.id, body);
+                    await onReply(comment.id, body, gif);
                     setIsReplying(false);
                     if (hadUnloadedReplies) await onLoadReplies?.(comment.id);
                     setAreRepliesExpanded(true);

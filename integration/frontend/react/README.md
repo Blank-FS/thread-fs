@@ -12,6 +12,10 @@ ThreadFS is an open-source embeddable discussion system similar to Disqus. This 
 - Supports replies and nested comment loading
 - Supports comment voting
 - Supports edit/delete for own comments
+- A comment box laid out like Reddit's: GIF and **Aa** under the text, where **Aa** opens the formatting bar on top,
+  which ends with the switch to markdown
+- GIFs from KLIPY, where the community has them on (core README › GIFs): the GIF button opens a search in a popover,
+  and a comment can be just a GIF
 - Enter starts a new line; Ctrl+Enter (⌘+Enter on a Mac) posts, as on GitHub and Reddit
 - Supports pagination and sorting
 - Supports login redirect callbacks

@@ -250,6 +250,15 @@ export const updateLimits = (
     max_daily_batch_changes: limits.maxDailyBatchChanges,
   });
 
+/** Turns GIFs on with a KLIPY app key; empty turns them off. */
+export const updateKlipyAppKey = (
+  ctx: ThreadFSRequestContext,
+  klipyAppKey: string,
+) =>
+  send<AdminOverview>("PUT", ctx, "/admin/gifs", {
+    klipy_app_key: klipyAppKey,
+  });
+
 /** Where the comment widget's Rules button links; empty clears it. */
 export const updateRulesUrl = (ctx: ThreadFSRequestContext, rulesUrl: string) =>
   send<AdminOverview>("PUT", ctx, "/admin/rules", { rules_url: rulesUrl });
