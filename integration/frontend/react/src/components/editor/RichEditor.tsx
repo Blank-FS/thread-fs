@@ -55,6 +55,8 @@ type RichEditorProps = {
   tools?: ReactNode;
   /** Between the text and the buttons, such as an attached GIF. */
   attachments?: ReactNode;
+  /** Only the actions in the row of buttons, such as while a question there needs the room. */
+  actionsOnly?: boolean;
   onChange?: (value: RichEditorValue) => void;
 };
 
@@ -67,6 +69,7 @@ const RichEditor = ({
   actions,
   tools,
   attachments,
+  actionsOnly = false,
   onChange,
 }: RichEditorProps) => {
   const editorRef = useRef<LexicalEditor | null>(null);
@@ -240,10 +243,10 @@ const RichEditor = ({
 
         {showControls && (
           <div className="@container mt-1 flex flex-wrap items-center gap-1">
-            {tools}
+            {!actionsOnly && tools}
 
             {/* Formatting, as on Reddit: the buttons open on top, where the switch to markdown is */}
-            {mode === "rich" && (
+            {mode === "rich" && !actionsOnly && (
               <button
                 type="button"
                 disabled={disabled}

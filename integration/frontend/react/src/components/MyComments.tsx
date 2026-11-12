@@ -444,16 +444,9 @@ export function ThreadFSMyComments({
                         onSubmit={(body, gif) =>
                           handleEdit(comment.id, body, gif)
                         }
+                        onCancel={() => setEditingCommentId(null)}
                         onAuthRequired={onAuthRequired}
                       />
-
-                      <button
-                        type="button"
-                        onClick={() => setEditingCommentId(null)}
-                        className="text-muted-foreground mt-2 text-sm hover:underline"
-                      >
-                        Cancel
-                      </button>
                     </div>
                   ) : (
                     <CollapsibleContent

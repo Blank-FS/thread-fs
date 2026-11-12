@@ -425,16 +425,9 @@ function CommentCard({
                     await onEdit?.(comment.id, body, gif);
                     setIsEditing(false);
                   }}
+                  onCancel={() => setIsEditing(false)}
                   onAuthRequired={onAuthRequired}
                 />
-
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="text-muted-foreground mt-2 text-sm hover:underline"
-                >
-                  Cancel
-                </button>
               </div>
             ) : (
               <CollapsibleContent
@@ -573,6 +566,7 @@ function CommentCard({
                     if (hadUnloadedReplies) await onLoadReplies?.(comment.id);
                     setAreRepliesExpanded(true);
                   }}
+                  onCancel={() => setIsReplying(false)}
                   onAuthRequired={onAuthRequired}
                 />
               </div>

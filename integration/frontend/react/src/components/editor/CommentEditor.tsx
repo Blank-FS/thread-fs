@@ -2,13 +2,7 @@ import { useGifConfig } from "@/lib/gifs";
 import type { ThreadFSCommentUser, ThreadFSGif } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ScrollText, X } from "lucide-react";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 import { useRulesUrl } from "../../lib/rulesContext";
 import defaultAvatarUrl from "../assets/default-avatar.png";
 import AvatarFrame from "../card/AvatarFrame";
@@ -38,6 +32,8 @@ type CommentEditorProps = {
   className?: string;
   /** The text, and the GIF under it (null for none). */
   onSubmit: (body: string, gif: ThreadFSGif | null) => Promise<void> | void;
+  /** Cancel closes a reply or edit box; without it, Cancel just closes this one back down. */
+  onCancel?: () => void;
   onAuthRequired?: () => void;
   authorProfileUrl?: (user: ThreadFSCommentUser) => string | null;
 };
@@ -50,7 +46,7 @@ const SUBMIT_KEY =
     : "Ctrl";
 
 const RULES_BUTTON_CLASS =
-  "text-muted-foreground hover:bg-primary/20 flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-medium hover:cursor-pointer";
+  "text-muted-foreground hover:bg-primary/20 flex h-7 min-w-7 items-center justify-center gap-1 rounded-lg px-1.5 text-xs font-medium hover:cursor-pointer @[17rem]:px-2";
 
 const EMPTY_EDITOR_VALUE: RichEditorValue = {
   markdown: "",
@@ -68,6 +64,7 @@ function CommentEditor({
   startOpen = false,
   className,
   onSubmit,
+  onCancel,
   onAuthRequired,
   authorProfileUrl,
 }: CommentEditorProps) {
@@ -77,36 +74,39 @@ function CommentEditor({
   });
   const [editorKey, setEditorKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isActive, setIsActive] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  // Opened by focusing it; closed only by Cancel or posting
+  const [isOpened, setIsOpened] = useState(false);
   const [gif, setGif] = useState<ThreadFSGif | null>(initialGif);
   const [isPickingGif, setIsPickingGif] = useState(false);
   const rulesUrl = useRulesUrl();
   const gifConfig = useGifConfig();
   const hasText = value.text.trim().length > 0;
-  const isOpen =
-    startOpen || isActive || hasText || gif !== null || isPickingGif;
+  const isOpen = startOpen || isOpened;
 
-  // Only a click or focus elsewhere closes it. Losing focus isn't enough: its menus open outside it, in a portal
-  useEffect(() => {
-    if (!isActive) return;
+  // Once opened it stays open until Cancel or posting: clicking elsewhere on the page (or into the GIF search, or a
+  // menu) never closes it, as on Reddit. Cancel asks first when something would be lost.
+  const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
+  const hasChanges =
+    value.markdown.trim() !== (initialMarkdown ?? "").trim() ||
+    gif?.url !== initialGif?.url;
 
-    function closeIfOutside(event: Event) {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      if (containerRef.current?.contains(target)) return;
-      if (target.closest("[data-radix-popper-content-wrapper]")) return;
-      setIsActive(false);
+  function close() {
+    setIsConfirmingDiscard(false);
+    if (onCancel) {
+      onCancel();
+      return;
     }
+    setValue(EMPTY_EDITOR_VALUE);
+    setGif(null);
+    setIsPickingGif(false);
+    setEditorKey((key) => key + 1);
+    setIsOpened(false);
+  }
 
-    document.addEventListener("pointerdown", closeIfOutside);
-    document.addEventListener("focusin", closeIfOutside);
-
-    return () => {
-      document.removeEventListener("pointerdown", closeIfOutside);
-      document.removeEventListener("focusin", closeIfOutside);
-    };
-  }, [isActive]);
+  function handleCancel() {
+    if (hasChanges) setIsConfirmingDiscard(true);
+    else close();
+  }
 
   const currentUsername = currentUser?.display_name ?? null;
   const currentUserAvatarUrl = currentUser?.avatar_url ?? null;
@@ -130,7 +130,7 @@ function CommentEditor({
       setGif(null);
       setIsPickingGif(false);
       setEditorKey((key) => key + 1);
-      setIsActive(false);
+      setIsOpened(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -160,8 +160,7 @@ function CommentEditor({
 
   return (
     <div
-      ref={containerRef}
-      onFocusCapture={() => setIsActive(true)}
+      onFocusCapture={() => setIsOpened(true)}
       className={cn("flex gap-3", className)}
     >
       {/* The reply or comment being edited already sits beside an avatar, and a reply deep in a thread needs the width.
@@ -194,6 +193,8 @@ function CommentEditor({
             placeholder={placeholder}
             onChange={setValue}
             showControls={isOpen}
+            // "Discard?" and its buttons take the whole row, so they fit the narrowest reply box
+            actionsOnly={isConfirmingDiscard}
             attachments={
               <>
                 {gif && (
@@ -250,7 +251,7 @@ function CommentEditor({
               <>
                 {/* The community's rules page, in a new tab so a half-written comment stays put; without one, a
                     short default */}
-                {rulesUrl ? (
+                {isConfirmingDiscard ? null : rulesUrl ? (
                   <a
                     href={rulesUrl}
                     target="_blank"
@@ -260,7 +261,7 @@ function CommentEditor({
                     className={RULES_BUTTON_CLASS}
                   >
                     <ScrollText className="size-4" />
-                    <span className="hidden @[12rem]:inline">Rules</span>
+                    <span className="hidden @[17rem]:inline">Rules</span>
                   </a>
                 ) : (
                   <DropdownMenu>
@@ -269,7 +270,7 @@ function CommentEditor({
                       className={RULES_BUTTON_CLASS}
                     >
                       <ScrollText className="size-4" />
-                      <span className="hidden @[12rem]:inline">Rules</span>
+                      <span className="hidden @[17rem]:inline">Rules</span>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56 p-2.5">
                       <p className="text-sm">
@@ -278,17 +279,56 @@ function CommentEditor({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={!canSubmit}
-                  className="hover:cursor-pointer"
-                  title={`${submitLabel} (${SUBMIT_KEY}+Enter)`}
-                  aria-keyshortcuts="Control+Enter Meta+Enter"
-                  onClick={handleSubmit}
-                >
-                  {isSubmitting ? "Posting..." : submitLabel}
-                </Button>
+                {isConfirmingDiscard ? (
+                  <>
+                    <span className="text-muted-foreground px-1 text-xs">
+                      Discard?
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="px-2 hover:cursor-pointer"
+                      onClick={() => setIsConfirmingDiscard(false)}
+                    >
+                      Keep
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      className="px-2 hover:cursor-pointer"
+                      onClick={close}
+                    >
+                      Discard
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {/* Outlined, so it stands apart from the icons beside it */}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isSubmitting}
+                      className="px-2 hover:cursor-pointer"
+                      onClick={handleCancel}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!canSubmit}
+                      className="px-2 hover:cursor-pointer"
+                      title={`${submitLabel} (${SUBMIT_KEY}+Enter)`}
+                      aria-keyshortcuts="Control+Enter Meta+Enter"
+                      onClick={handleSubmit}
+                    >
+                      {isSubmitting ? "Posting..." : submitLabel}
+                    </Button>
+                  </>
+                )}
               </>
             }
           />
