@@ -142,6 +142,25 @@ class CommentRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CommentTreeRead(CommentRead):
+    """A comment with some of its replies loaded, as the context endpoint returns them."""
+
+    replies: list["CommentTreeRead"] = []
+    replies_next_offset: int | None = None
+    replies_has_more: bool = False
+    # How many direct replies it has, so "N more replies" can be shown (reply_count counts every level below)
+    replies_total: int | None = None
+
+
+class CommentContextRead(BaseModel):
+    """One comment in context, for a link to it: its top-level comment, then each reply down to it, one per level, with
+    the comment's own first page of replies. Siblings along the way are left out; an ancestor that has them says so
+    (replies_has_more, from offset 0), so they can be loaded, skipping the reply already shown."""
+
+    focused_comment_id: int
+    root: CommentTreeRead
+
+
 class ReportRequest(BaseModel):
     # A key from the community's reasons
     reason: str = Field(min_length=1, max_length=64)

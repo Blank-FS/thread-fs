@@ -20,6 +20,8 @@ from app.api.rate_limits import (
     limit_vote_comment,
 )
 from app.schemas.embed import (
+    CommentContextRead,
+    CommentTreeRead,
     CommentCreateRequest,
     CommentRead,
     CommentWithThreadRead,
@@ -207,6 +209,100 @@ async def list_embed_comments(
         has_more=has_more,
         total=total,
     )
+
+
+@router.get("/comments/{comment_id}/context", response_model=CommentContextRead)
+async def get_embed_comment_context(
+    comment_id: int,
+    thread_id: str = Query(min_length=1, max_length=512),
+    limit: int = Query(default=20, ge=1, le=100),
+    session: AsyncSession = Depends(get_async_session),
+    community: Community = Depends(limit_read_comments),
+    community_user: CommunityUser | None = Depends(get_optional_current_community_user),
+):
+    """A link to one comment: the chain from its top-level comment down to it, and its first page of replies (oldest
+    first, as replies are listed). Lets a widget show a comment that's deep in a thread or far down the list."""
+    if not community.allow_anonymous_read and not community_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required to read comments",
+        )
+
+    thread = await thread_repo.get_thread_by_unique_id(
+        session,
+        community_id=community.id,
+        unique_id=thread_id,
+    )
+    comment = await comment_repo.get_comment_by_id(session, comment_id)
+
+    # The same answer whether the thread or the comment is missing, or the comment is in another thread
+    if (
+        not thread
+        or thread.is_deleted
+        or not comment
+        or comment.thread_id != thread.id
+        or comment.status not in comment_repo.THREAD_STATUSES
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Comment not found",
+        )
+
+    # Nearest first from the repository; the top-level comment first here
+    chain = list(reversed(await comment_repo.get_comment_ancestor_chain(session, comment=comment))) + [comment]
+
+    total_replies = await comment_repo.count_comments(
+        session,
+        thread_id=thread.id,
+        parent_comment_id=comment.id,
+    )
+    replies = await comment_repo.list_comments(
+        session,
+        thread_id=thread.id,
+        parent_comment_id=comment.id,
+        limit=limit,
+        offset=0,
+        sort="oldest",
+    )
+
+    if community_user:
+        vote_map = await vote_repo.list_votes_for_comments(
+            session,
+            comment_ids=[c.id for c in chain + replies],
+            community_user_id=community_user.id,
+        )
+        for c in chain + replies:
+            c.viewer_vote = vote_map.get(c.id)
+
+    presented_chain = comment_service.present_comments(chain, community_user)
+    presented_replies = comment_service.present_comments(replies, community_user)
+
+    # Built from the comment up: each ancestor holds only the next comment in the chain, and says it has more when it
+    # does, from the start of its replies (the widget skips the one it already shows)
+    node = CommentTreeRead(
+        **presented_chain[-1].model_dump(),
+        replies=[CommentTreeRead(**reply.model_dump()) for reply in presented_replies],
+        replies_next_offset=len(replies) if len(replies) < total_replies else None,
+        replies_has_more=len(replies) < total_replies,
+        replies_total=total_replies,
+    )
+    for ancestor in reversed(presented_chain[:-1]):
+        # Direct replies only: reply_count counts every reply below a comment, at any depth
+        direct_replies = await comment_repo.count_comments(
+            session,
+            thread_id=thread.id,
+            parent_comment_id=ancestor.id,
+        )
+        has_more = direct_replies > 1
+        node = CommentTreeRead(
+            **ancestor.model_dump(),
+            replies=[node],
+            replies_next_offset=0 if has_more else None,
+            replies_has_more=has_more,
+            replies_total=direct_replies,
+        )
+
+    return CommentContextRead(focused_comment_id=comment.id, root=node)
 
 
 @router.get("/comments/mine", response_model=PageResponse[CommentWithThreadRead])

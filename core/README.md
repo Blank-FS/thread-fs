@@ -263,6 +263,18 @@ GET /api/v1/embed/comments?thread_id=demo-thread&parent_comment_id=123&limit=20&
 
 Replies should generally use oldest sorting.
 
+One comment in context, for a link to it:
+
+```http
+GET /api/v1/embed/comments/123/context?thread_id=demo-thread&limit=20
+```
+
+Returns `{ "focused_comment_id": 123, "root": … }`: the comment's top-level comment, holding each reply down to it, one
+per level (siblings left out), with the comment's own first page of replies (oldest first, `replies_has_more` and
+`replies_next_offset` for the rest). An ancestor with other replies says so (`replies_has_more`, `replies_next_offset`
+0), so they can be loaded with the usual replies listing, skipping the one already shown. 404 when the comment isn't
+in that thread, so a widget can fall back to the list.
+
 ### Create comment
 
 ```http
