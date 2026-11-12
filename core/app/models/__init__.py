@@ -11,9 +11,12 @@ from app.models.moderation import CommunityBan, ModerationAction, ModerationBatc
 from app.models.report import CommentReport
 from app.models.thread import Thread
 from app.models.user import User
+from app.models.webhook import CommunityWebhook, WebhookDelivery
 
 __all__ = [
     "User",
+    "CommunityWebhook",
+    "WebhookDelivery",
     "Community",
     "CommunityApiKey",
     "CommunityAllowedOrigin",

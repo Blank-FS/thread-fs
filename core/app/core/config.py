@@ -12,6 +12,13 @@ class Settings(BaseSettings):
     REDIS_URL: str | None = None
     CORS_ALLOW_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
+    # Webhooks (app.services.webhook_service): the loop that sends queued events to communities' endpoints
+    WEBHOOK_DELIVERY_ENABLED: bool = True
+    WEBHOOK_POLL_SECONDS: float = 2.0
+    # Development only: give the seeded demo community a webhook to this URL, e.g. the dev listener's
+    # (python -m app.scripts.webhook_listener prints it)
+    DEMO_WEBHOOK_URL: str | None = None
+
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_READ_PER_MINUTE: int = 120
     RATE_LIMIT_COMMENT_CREATE_PER_MINUTE: int = 5

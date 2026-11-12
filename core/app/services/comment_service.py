@@ -12,7 +12,7 @@ from app.core.sanitize import sanitize_comment_markdown
 from app.core.origin import normalize_origin
 from app.repositories.community import is_origin_allowed_for_community
 from app.schemas.embed import CommentRead
-from app.services import moderation_service
+from app.services import moderation_service, webhook_service
 
 
 async def get_or_create_thread_for_comment(
@@ -200,6 +200,26 @@ async def create_embed_comment(
 
         for ancestor in ancestors:
             ancestor.reply_count += 1
+
+        # Tells the site, so it can notify the parent's author; queued in this transaction (an outbox), so it's sent
+        # exactly when the reply exists
+        await webhook_service.enqueue_reply(
+            session,
+            thread=thread,
+            reply=comment,
+            replier=community_user,
+            parent=parent_comment,
+            parent_author=parent_comment.community_user,
+        )
+
+    # Tells the site about every new comment (comment.created), and the parent's author about a reply above
+    # (comment.reply). Queued in this transaction (an outbox), so they're sent exactly when the comment exists.
+    await webhook_service.enqueue_created(
+        session,
+        thread=thread,
+        comment=comment,
+        author=community_user,
+    )
 
     await session.commit()
 

@@ -1,12 +1,15 @@
 # app/main.py
 
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import embed, moderation
 
 from app.core.config import settings
 from app.db.init_db import reset_db, seed_db
+from app.db.session import async_session_maker
+from app.services.webhook_service import run_delivery_loop
 
 
 @asynccontextmanager
@@ -17,7 +20,17 @@ async def lifespan(app: FastAPI):
         await reset_db()
         await seed_db()
 
+    # Sends queued webhook events (app.services.webhook_service) for as long as the app runs
+    delivery = (
+        asyncio.create_task(run_delivery_loop(async_session_maker, settings.WEBHOOK_POLL_SECONDS))
+        if settings.WEBHOOK_DELIVERY_ENABLED
+        else None
+    )
     yield
+    if delivery:
+        delivery.cancel()
+        with suppress(asyncio.CancelledError):
+            await delivery
 
 
 app = FastAPI(
