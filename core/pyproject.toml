@@ -13,6 +13,7 @@ dependencies = [
     "fastapi>=0.136.1",
     "fastapi-users[sqlalchemy]>=15.0.5",
     "gunicorn>=26.0.0",
+    "httpx>=0.28.1",
     "psycopg[binary]>=3.3.4",
     "pydantic-settings>=2.14.0",
     "python-dotenv>=1.2.2",
@@ -24,7 +25,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "faker>=40.21.0",
-    "httpx>=0.28.1",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
