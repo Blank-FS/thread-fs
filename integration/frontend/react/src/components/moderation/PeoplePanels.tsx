@@ -20,6 +20,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { linkToComment } from "../../lib/commentLinks";
 import {
   addNote,
   banUser,
@@ -388,7 +389,11 @@ function ActionSubject({ entry }: { entry: ModerationAction }) {
 
   if (!comment && !thread) return null;
 
-  const href = threadUrl ? threadUrl({ thread }) : (thread?.source_url ?? null);
+  const threadHref = threadUrl
+    ? threadUrl({ thread })
+    : (thread?.source_url ?? null);
+  // Straight to the comment when the entry has one, else the thread
+  const href = comment ? linkToComment(threadHref, comment.id) : threadHref;
   const title = thread?.title || thread?.unique_id;
 
   return (

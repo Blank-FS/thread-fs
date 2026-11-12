@@ -89,10 +89,19 @@ export type ThreadFSComment = {
 
   replies_next_offset?: number | null;
   replies_has_more?: boolean;
+  /** How many direct replies it has, when known: for "N more replies". */
+  replies_total?: number | null;
   replies_is_loading_more?: boolean;
 
   /** Only populated by endpoints that list comments across threads, e.g. listMyComments. */
   thread?: ThreadFSThread | null;
+};
+
+/** One comment in context, for a link to it (getCommentContext). */
+export type ThreadFSCommentContext = {
+  focused_comment_id: string;
+  /** The top-level comment, holding each reply down to the focused one, which holds its first page of replies. */
+  root: ThreadFSComment;
 };
 
 export type ThreadFSRequestContext = {

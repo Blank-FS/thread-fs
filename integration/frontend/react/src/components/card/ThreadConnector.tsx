@@ -204,8 +204,10 @@ function useMeasuredConnectorGeometry({
 
       const startY = parentAvatarRect.bottom - containerRect.top;
 
-      // Gone once the replies are open
-      const repliesButtonRect = repliesButton?.getBoundingClientRect();
+      // The "more replies" row: the line meets its circle (data-connector-anchor), not the row's edge
+      const repliesButtonRect = (
+        repliesButton?.querySelector("[data-connector-anchor]") ?? repliesButton
+      )?.getBoundingClientRect();
       const buttonPoint = repliesButtonRect
         ? {
             x: repliesButtonRect.left - containerRect.left,

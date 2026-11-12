@@ -1,7 +1,6 @@
 import {
   ArrowBigDown,
   ArrowBigUp,
-  ExternalLink,
   MessageSquare,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,6 +18,7 @@ import {
   type ThreadFSCommentUser,
   type ThreadFSRequestContext,
 } from "../lib/types";
+import { linkToComment } from "../lib/commentLinks";
 import { cn } from "../lib/utils";
 import CommentTimestamp from "./card/CommentTimestamp";
 import { CollapsibleContent } from "./common/CollapsibleContent";
@@ -44,7 +44,7 @@ export type ThreadFSMyCommentsProps = {
   getAuthToken?: () => Promise<string | null>;
 
   onAuthRequired?: () => void;
-  /** Build the link back to the source thread for a comment. Defaults to comment.thread.source_url. */
+  /** The page showing a comment's thread; #c-<id> is added to it. Defaults to comment.thread.source_url. */
   threadUrl?: (comment: ThreadFSComment) => string | null;
 
   title?: string;
@@ -337,8 +337,10 @@ export function ThreadFSMyComments({
   }
 
   function getThreadHref(comment: ThreadFSComment): string | null {
-    if (threadUrl) return threadUrl(comment);
-    return comment.thread?.source_url ?? null;
+    return linkToComment(
+      threadUrl ? threadUrl(comment) : comment.thread?.source_url,
+      comment.id,
+    );
   }
 
   return (
@@ -399,15 +401,14 @@ export function ThreadFSMyComments({
                 >
                   <div className="flex items-center justify-between gap-2">
                     {threadHref ? (
+                      // In the same tab, like a profile's comments on Reddit: Back returns to the list. (Moderation
+                      // links open a new tab instead, so the queue stays as it was.)
                       <a
                         href={threadHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         className="text-tfs-brand-strong dark:text-tfs-brand inline-flex min-w-0 flex-1 items-center gap-1 text-sm hover:underline"
                       >
                         <MessageSquare className="size-3.5 shrink-0" />
                         <span className="truncate">{threadLabel}</span>
-                        <ExternalLink className="size-3.5 shrink-0" />
                       </a>
                     ) : (
                       <span className="text-muted-foreground inline-flex min-w-0 flex-1 items-center gap-1 text-sm">

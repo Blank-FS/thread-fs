@@ -1,6 +1,6 @@
 {
   "name": "@threadfs/react",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "React components for ThreadFS",
   "type": "module",
   "main": "./dist/threadfs-react.umd.cjs",

@@ -5,6 +5,7 @@ import type {
   PageResponse,
   ResolveThreadResponse,
   ThreadFSComment,
+  ThreadFSCommentContext,
   ThreadFSEmbedConfig,
   ThreadFSRequestContext,
   ThreadFSThread,
@@ -131,6 +132,25 @@ export async function listThreadComments(
 
   return parseResponseOrThrow<PageResponse<ThreadFSComment>>(res);
 }
+/** A comment with the chain above it and its first replies, for showing a link to one comment. */
+export async function getCommentContext(
+  ctx: ThreadFSRequestContext,
+  params: { threadId: string; commentId: string | number; pageSize?: number },
+): Promise<ThreadFSCommentContext> {
+  const apiBaseUrl = normalizeApiBaseUrl(ctx.apiBaseUrl);
+  const searchParams = new URLSearchParams({
+    thread_id: params.threadId,
+    limit: String(params.pageSize ?? 20),
+  });
+
+  const res = await fetch(
+    `${apiBaseUrl}/api/v1/embed/comments/${encodeURIComponent(String(params.commentId))}/context?${searchParams.toString()}`,
+    { method: "GET", headers: buildHeaders(ctx) },
+  );
+
+  return parseResponseOrThrow<ThreadFSCommentContext>(res);
+}
+
 export async function listMyComments(
   ctx: ThreadFSRequestContext,
   params: {

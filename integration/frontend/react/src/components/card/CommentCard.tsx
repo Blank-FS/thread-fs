@@ -1,7 +1,7 @@
 import {
   ArrowBigDown,
   ArrowBigUp,
-  ChevronDown,
+  CircleArrowRight,
   CircleMinus,
   CirclePlus,
   CornerDownRight,
@@ -28,9 +28,9 @@ import { MarkdownContent } from "../common/MarkdownContent";
 import CommentEditor from "../editor/CommentEditor";
 import { OTHER_REASON } from "../moderation/shared";
 import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
 import AvatarFrame from "./AvatarFrame";
 import CommentActionsMenu from "./CommentActionsMenu";
+import CommentShareMenu from "./CommentShareMenu";
 import CommentTimestamp from "./CommentTimestamp";
 import RemoveCommentForm from "./RemoveCommentForm";
 import ReportDetailsForm from "./ReportDetailsForm";
@@ -72,6 +72,14 @@ type CommentCardProps = {
   onLoadMoreReplies?: (parentId: string) => Promise<void> | void;
   onAuthRequired?: () => void;
   authorProfileUrl?: (user: ThreadFSCommentUser) => string | null;
+  /** The comment a link points at: highlighted, and scrolled to when it appears. */
+  highlightedCommentId?: string | null;
+  /** A link to a comment, for its Share button. */
+  commentUrl?: (commentId: string) => string | null;
+  /** Opens a comment as the root of its own view, where a thread deeper than `continueDepth` continues. */
+  onContinueThread?: (commentId: string) => void;
+  /** The depth at which replies continue in their own view instead of nesting (lib/threadDepth.ts). */
+  continueDepth?: number;
 
   /**
    * Internal: parent comment uses this to measure child reply avatars.
@@ -99,11 +107,18 @@ function CommentCard({
   onLoadMoreReplies,
   onAuthRequired,
   authorProfileUrl,
+  highlightedCommentId = null,
+  commentUrl,
+  onContinueThread,
+  continueDepth,
   avatarRef,
 }: CommentCardProps) {
   const viewerVote = comment.viewer_vote ?? null;
   const [isReplying, setIsReplying] = useState(false);
-  const [areRepliesExpanded, setAreRepliesExpanded] = useState(false);
+  // Replies that came with the comment (a link's context) start open; otherwise they load on View more
+  const [areRepliesExpanded, setAreRepliesExpanded] = useState(
+    () => (comment.replies?.length ?? 0) > 0,
+  );
   const [isLoadingReplies, setIsLoadingReplies] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -132,6 +147,19 @@ function CommentCard({
     getReplyAvatarRef,
   } = useConnectorRefs(avatarRef);
 
+  const isHighlighted =
+    highlightedCommentId != null &&
+    String(comment.id) === String(highlightedCommentId);
+
+  // Brought into view once, when the linked comment appears
+  useEffect(() => {
+    if (isHighlighted)
+      containerRef.current?.scrollIntoView({ block: "center" });
+    // Only on becoming highlighted, not on every re-render
+  }, [isHighlighted]);
+
+  const link = commentUrl?.(String(comment.id)) ?? null;
+
   const isOwnComment =
     currentCommunityUserId != null &&
     comment.community_user_id === currentCommunityUserId;
@@ -146,6 +174,25 @@ function CommentCard({
   const hasReplies = comment.reply_count > 0;
   const loadedReplies = comment.replies ?? [];
   const hasLoadedReplies = loadedReplies.length > 0;
+
+  // Before any are open, every reply below counts (reply_count), like Reddit's; after, the direct replies still to load
+  const showMoreReplies =
+    hasReplies && (!areRepliesExpanded || Boolean(comment.replies_has_more));
+  const moreRepliesCount = !areRepliesExpanded
+    ? comment.reply_count
+    : comment.replies_total != null
+      ? comment.replies_total - loadedReplies.length
+      : null;
+  const isLoadingMoreReplies = areRepliesExpanded
+    ? Boolean(comment.replies_is_loading_more)
+    : isLoadingReplies;
+
+  // Past a certain depth the replies continue in their own view (Reddit's "Continue this thread")
+  const continuesElsewhere =
+    continueDepth != null &&
+    depth >= continueDepth &&
+    hasReplies &&
+    Boolean(onContinueThread);
 
   async function handleViewReplies() {
     if (!hasReplies) return;
@@ -244,9 +291,9 @@ function CommentCard({
         parentAvatarRef={parentAvatarRef}
         repliesButtonRef={repliesButtonRef}
         replyAvatarRefs={replyAvatarRefs}
-        replies={loadedReplies}
+        replies={continuesElsewhere ? [] : loadedReplies}
         hasReplies={hasReplies && !isCollapsed}
-        areRepliesExpanded={areRepliesExpanded}
+        areRepliesExpanded={areRepliesExpanded && !continuesElsewhere}
         measureVersion={measureVersion}
         onRailClick={collapse}
         isHighlighted={isRailHovered}
@@ -255,6 +302,14 @@ function CommentCard({
 
       {/* No z-index of its own, so the collapse button on the thread line can sit above the line's click area */}
       <div className="relative flex gap-3">
+        {isHighlighted && (
+          // From the avatar's middle to the column's edge, like Reddit's; behind the comment rather than padding it, so the
+          // thread lines still meet the avatars
+          <div
+            aria-hidden
+            className="bg-tfs-brand/10 ring-tfs-brand/40 pointer-events-none absolute -inset-y-1 right-0 left-4 rounded-lg ring-1"
+          />
+        )}
         <div className="relative size-8 shrink-0">
           <img
             ref={setParentAvatarRef}
@@ -432,6 +487,9 @@ function CommentCard({
                     Reply
                   </button>
                 )}
+                {link && (
+                  <CommentShareMenu link={link} authorName={displayName} />
+                )}
                 <CommentActionsMenu
                   isOwnComment={isOwnComment}
                   canReport={canReply}
@@ -508,28 +566,7 @@ function CommentCard({
       </div>
 
       <div className={cn(isCollapsed && "hidden")}>
-        {hasReplies && !areRepliesExpanded && (
-          <div className="relative z-10 flex gap-3">
-            <div className="w-8 shrink-0" />
-
-            <div className="min-w-0 flex-1">
-              <button
-                ref={setRepliesButtonRef}
-                type="button"
-                onClick={() => void handleViewReplies()}
-                disabled={isLoadingReplies}
-                className="text-primary hover:bg-primary/10 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium hover:cursor-pointer hover:underline disabled:opacity-60"
-              >
-                <ChevronDown className="size-4" />
-                <span>
-                  {isLoadingReplies ? "Loading replies..." : "View more"}
-                </span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {areRepliesExpanded && hasLoadedReplies && (
+        {areRepliesExpanded && hasLoadedReplies && !continuesElsewhere && (
           <div className="relative mt-2">
             {/* No z-index on this one, so a reply's collapse buttons can sit above this comment's line */}
             {loadedReplies.map((reply) => (
@@ -557,25 +594,69 @@ function CommentCard({
                   onLoadMoreReplies={onLoadMoreReplies}
                   onAuthRequired={onAuthRequired}
                   authorProfileUrl={authorProfileUrl}
+                  highlightedCommentId={highlightedCommentId}
+                  commentUrl={commentUrl}
+                  onContinueThread={onContinueThread}
+                  continueDepth={continueDepth}
                 />
               </div>
             ))}
+          </div>
+        )}
 
-            {comment.replies_has_more && (
-              <div className={cn("mt-2", getReplyIndentClass(depth + 1))}>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={comment.replies_is_loading_more}
-                  onClick={() => void onLoadMoreReplies?.(comment.id)}
-                  className="hover:cursor-pointer hover:underline"
-                >
-                  {comment.replies_is_loading_more
-                    ? "Loading replies..."
-                    : "Load more replies"}
-                </Button>
-              </div>
-            )}
+        {/* Reddit's "+ N more replies": where the next reply would be, on its own branch of the thread line, for replies
+            not loaded yet as well as the rest of a page */}
+        {continuesElsewhere && (
+          <div
+            className={cn("relative z-10 mt-1", getReplyIndentClass(depth + 1))}
+          >
+            <button
+              ref={setRepliesButtonRef}
+              type="button"
+              onClick={() => onContinueThread?.(comment.id)}
+              className="text-tfs-brand-strong dark:text-tfs-brand flex items-center text-xs font-medium hover:cursor-pointer hover:underline"
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center">
+                <CircleArrowRight
+                  data-connector-anchor
+                  strokeWidth={1.5}
+                  className="bg-background size-4 rounded-full"
+                />
+              </span>
+              <span>Continue this thread</span>
+            </button>
+          </div>
+        )}
+
+        {showMoreReplies && !continuesElsewhere && (
+          <div
+            className={cn("relative z-10 mt-1", getReplyIndentClass(depth + 1))}
+          >
+            <button
+              ref={setRepliesButtonRef}
+              type="button"
+              onClick={() =>
+                void (areRepliesExpanded
+                  ? onLoadMoreReplies?.(comment.id)
+                  : handleViewReplies())
+              }
+              disabled={isLoadingMoreReplies}
+              className="text-tfs-brand-strong dark:text-tfs-brand flex items-center text-xs font-medium hover:cursor-pointer hover:underline disabled:opacity-60"
+            >
+              {/* As wide as an avatar, so the circle sits where a reply's avatar would; the thread line meets it */}
+              <span className="flex size-8 shrink-0 items-center justify-center">
+                <CirclePlus
+                  data-connector-anchor
+                  strokeWidth={1.5}
+                  className="bg-background size-4 rounded-full"
+                />
+              </span>
+              <span>
+                {isLoadingMoreReplies
+                  ? "Loading replies..."
+                  : moreRepliesLabel(moreRepliesCount)}
+              </span>
+            </button>
           </div>
         )}
       </div>
@@ -695,6 +776,12 @@ function useConnectorRefs(
     setRepliesButtonRef,
     getReplyAvatarRef,
   };
+}
+
+// "6 more replies", or "More replies" when the count isn't known
+function moreRepliesLabel(count: number | null): string {
+  if (count == null || count < 1) return "More replies";
+  return `${count} more ${count === 1 ? "reply" : "replies"}`;
 }
 
 function getDisplayName(comment: ThreadFSComment): string {

@@ -54,7 +54,7 @@ export type ThreadFSModerationProps = {
   getAuthToken?: () => Promise<string | null>;
 
   authorProfileUrl?: (user: ThreadFSCommentUser) => string | null;
-  /** Build the link to a comment's thread. Defaults to comment.thread.source_url. */
+  /** The page showing a comment's thread; links to one comment get #c-<id> added. Defaults to its source_url. */
   threadUrl?: (comment: Pick<ModerationComment, "thread">) => string | null;
 
   title?: string;

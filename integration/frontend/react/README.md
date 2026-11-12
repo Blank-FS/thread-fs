@@ -108,6 +108,9 @@ type ThreadFSCommentsProps = {
 
   onAuthRequired?: () => void;
   authorProfileUrl?: (user: ThreadFSCommentUser) => string | null;
+
+  focusCommentId?: string | null;
+  commentUrl?: (commentId: string) => string | null;
 };
 ```
 
@@ -191,6 +194,45 @@ authorProfileUrl={(user) =>
 ```
 
 Return `null` if the author should not be linked.
+
+### Links to a comment: `focusCommentId`, `commentUrl`
+
+A link to one comment is the page's address with a `#c-<id>` hash, the id in hexadecimal to keep it short (`#c-34` for
+comment 52; not a secret, since ids are in every API response). Use a hash rather than a query string: it
+never reaches your server, so caching, canonical URLs and crawler rules all see the same page. `commentHash(id)` and
+`commentIdFromHash(location.hash)` build and read it.
+
+- `focusCommentId` shows that comment in context, like Reddit: the chain from its top-level comment down to it is pinned
+  above the rest of the list, the comment highlighted and scrolled into view with its first replies. Siblings along
+  the chain aren't loaded, but their parents offer them ("N more replies"). A comment that's gone leaves the list
+  as usual, with a short notice.
+- `commentUrl` turns on a **Share** button on every comment: **Copy link**, plus **Share via...** (the device's share
+  sheet) on touch devices. Return `null` for no link.
+
+```tsx
+import { commentHash, commentIdFromHash } from "@threadfs/react";
+
+<ThreadFSComments
+  {...props}
+  focusCommentId={commentIdFromHash(location.hash)}
+  commentUrl={(id) => `${location.origin}${location.pathname}${commentHash(id)}`}
+/>
+```
+
+Deep threads stop nesting, as Reddit's do: past a certain level a comment shows **Continue this thread**, which opens it
+as the root of its own view, with **Back to the discussion**. That's after four levels when the widget is under 640px
+wide (phones, side panels, narrow columns) and eight otherwise, measured on the widget rather than the screen. A link
+to a comment deeper than that opens in this view too, with two parent comments above it.
+
+`ThreadFSMyComments` and the moderation views link each comment straight to its place: they add `#c-<id>` to
+the thread's page (`threadUrl`, else the thread's stored `source_url`), so a host only says where a thread lives.
+My Comments opens them in the same tab, like a profile's comments on Reddit, so Back returns to the list; the
+moderation views open a new tab, so the queue stays as it was. `linkToComment(url, id)` does the same for links of
+your own.
+
+Keep `focusCommentId` in step with the hash (listen for `hashchange`) if links can be followed without a page load.
+If the widget runs in an iframe on another origin, give it `allow="clipboard-write"`, or Copy link can't write to the
+clipboard (it says so instead).
 
 ## Authentication Flow
 

@@ -8,6 +8,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { linkToComment } from "../../lib/commentLinks";
 import {
   hideComment,
   restoreComment,
@@ -88,9 +89,11 @@ export function CommentRow({
   const canBan = user !== null && !banBlockedReason(me, user);
   const thread = comment.thread ?? null;
   const parent = comment.parent ?? null;
-  const threadHref = threadUrl
-    ? threadUrl(comment)
-    : (thread?.source_url ?? null);
+  // Straight to the comment on its thread's page
+  const threadHref = linkToComment(
+    threadUrl ? threadUrl(comment) : thread?.source_url,
+    comment.id,
+  );
 
   async function act(work: () => Promise<unknown>) {
     setIsBusy(true);

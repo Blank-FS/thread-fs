@@ -7,11 +7,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ThreadFSApiError } from "@/lib/errors";
-import { MessageSquareOff, MessagesSquare } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, MessageSquareOff, MessagesSquare } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createComment,
   deleteComment,
+  getCommentContext,
   getEmbedConfig,
   getEmbedMe,
   listThreadComments,
@@ -21,6 +22,7 @@ import {
   voteComment,
 } from "../lib/api";
 import { hideComment, type CommentRemoval } from "../lib/moderationApi";
+import { continueDepthFor } from "../lib/threadDepth";
 import {
   CommentSort,
   PageResponse,
@@ -54,6 +56,14 @@ export type ThreadFSCommentsProps = {
   /** The kind of client posting them, e.g. "web" or "extension". */
   client?: string | null;
 
+  /**
+   * A comment to show in context: its chain from the top-level comment down is pinned above the rest of the list, and
+   * it's highlighted and scrolled to. Usually read from the page's #c-<id> hash (commentIdFromHash).
+   */
+  focusCommentId?: string | null;
+  /** A link to one comment, which turns on its Share button. Usually the page's address plus commentHash(id). */
+  commentUrl?: (commentId: string) => string | null;
+
   title?: string;
   className?: string;
   pageSize?: number;
@@ -68,6 +78,8 @@ export function ThreadFSComments({
   authorProfileUrl,
   source,
   client,
+  focusCommentId = null,
+  commentUrl,
   title = "Discussion",
   className,
   pageSize = 10,
@@ -88,6 +100,28 @@ export function ThreadFSComments({
   const [resolvedAuthToken, setResolvedAuthToken] = useState<string | null>(
     null,
   );
+  // The linked comment (focusCommentId once found), highlighted; and whether a linked comment wasn't there
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [isFocusMissing, setIsFocusMissing] = useState(false);
+  // A comment shown as the root of its own view: on phones, where a deep thread continues (Reddit's "Continue this
+  // thread"). Looked up in `comments`, so votes, edits and replies there land in the one tree.
+  const [threadRootId, setThreadRootId] = useState<string | null>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  // How deep threads nest here, from the widget's width (lib/threadDepth.ts), kept up to date as it resizes
+  const [continueDepth, setContinueDepth] = useState(() =>
+    continueDepthFor(typeof window === "undefined" ? 1024 : window.innerWidth),
+  );
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+    const observer = new ResizeObserver(([entry]) =>
+      setContinueDepth(continueDepthFor(entry.contentRect.width)),
+    );
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+  // Where the page was before continuing a thread, to go back to
+  const scrollBeforeThread = useRef<number | null>(null);
 
   const currentUserForEditor: ThreadFSCommentUser | null = me?.authenticated
     ? {
@@ -125,6 +159,7 @@ export function ThreadFSComments({
       setIsLoading(true);
       setError(null);
       setComments([]);
+      setThreadRootId(null);
       setThread(null);
       setMe(null);
 
@@ -153,6 +188,23 @@ export function ThreadFSComments({
           title: document.title,
         });
 
+        // A linked comment that's gone (deleted for good, another thread) falls back to the whole list
+        let context = null;
+        let missing = false;
+        if (focusCommentId) {
+          try {
+            context = await getCommentContext(authedRequestContext, {
+              threadId,
+              commentId: focusCommentId,
+              pageSize,
+            });
+          } catch (err) {
+            if (!(err instanceof ThreadFSApiError) || err.status !== 404)
+              throw err;
+            missing = true;
+          }
+        }
+
         const page = await listThreadComments(authedRequestContext, {
           threadId,
           pageSize,
@@ -164,7 +216,35 @@ export function ThreadFSComments({
         setMe(resolvedMe);
         setReportReasons(config.report_reasons ?? []);
         setThread(resolved.thread);
-        setComments(page.items);
+        setFocusedId(context ? String(context.focused_comment_id) : null);
+        setIsFocusMissing(missing);
+        // A comment deeper than threads nest here opens in its own view, two levels above it shown for context,
+        // rather than in a chain that would itself stop at "Continue this thread"
+        const depthHere = continueDepthFor(
+          sectionRef.current?.getBoundingClientRect().width ??
+            window.innerWidth,
+        );
+        if (context) {
+          const chain: string[] = [];
+          for (
+            let node: ThreadFSComment | undefined = context.root;
+            node;
+            node = node.replies?.[0]
+          ) {
+            chain.push(String(node.id));
+            if (String(node.id) === String(context.focused_comment_id)) break;
+          }
+          if (chain.length - 1 > depthHere) {
+            scrollBeforeThread.current = null;
+            setThreadRootId(chain[chain.length - 3]);
+          }
+        }
+        // The linked comment's chain first, then the list as usual, without its top-level comment a second time
+        setComments(
+          context
+            ? [context.root, ...withoutIds(page.items, [context.root])]
+            : page.items,
+        );
         setTopLevelNextOffset(page.next_offset);
         setHasMoreTopLevelComments(page.has_more);
       } catch (err: unknown) {
@@ -187,7 +267,14 @@ export function ThreadFSComments({
     return () => {
       isMounted = false;
     };
-  }, [apiBaseUrl, communityKey, threadId, pageSize, resolveAuthToken]);
+  }, [
+    apiBaseUrl,
+    communityKey,
+    threadId,
+    pageSize,
+    resolveAuthToken,
+    focusCommentId,
+  ]);
 
   async function withAuthRetry<T>(
     action: (ctx: ThreadFSRequestContext) => Promise<T>,
@@ -238,6 +325,7 @@ export function ThreadFSComments({
       setIsChangingSort(true);
       setError(null);
       setTopLevelSort(nextSort);
+      setThreadRootId(null);
 
       const page = await withAuthRetry((ctx) =>
         listThreadComments(ctx, {
@@ -273,7 +361,11 @@ export function ThreadFSComments({
         sort: topLevelSort,
       });
 
-      setComments((current) => [...current, ...page.items]);
+      // Skipping any already shown (a linked comment's chain is pinned at the top)
+      setComments((current) => [
+        ...current,
+        ...withoutIds(page.items, current),
+      ]);
       setTopLevelNextOffset(page.next_offset);
       setHasMoreTopLevelComments(page.has_more);
     } catch (err: unknown) {
@@ -461,6 +553,7 @@ export function ThreadFSComments({
           replies: page.items,
           replies_next_offset: page.next_offset,
           replies_has_more: page.has_more,
+          replies_total: page.total,
         };
       }
 
@@ -492,9 +585,63 @@ export function ThreadFSComments({
     }
   }
 
+  // Opens a comment as the root of its own view, its replies loaded and open
+  async function handleContinueThread(commentId: string) {
+    const comment = findCommentInTree(comments, commentId);
+    if (!comment) return;
+    if (comment.reply_count > 0 && !comment.replies?.length)
+      await handleLoadReplies(commentId);
+    scrollBeforeThread.current = window.scrollY;
+    setThreadRootId(commentId);
+    requestAnimationFrame(() =>
+      sectionRef.current?.scrollIntoView({ block: "start" }),
+    );
+  }
+
+  function handleBackToDiscussion() {
+    const scrollY = scrollBeforeThread.current;
+    setThreadRootId(null);
+    requestAnimationFrame(() =>
+      scrollY != null
+        ? window.scrollTo({ top: scrollY })
+        : sectionRef.current?.scrollIntoView({ block: "start" }),
+    );
+  }
+
+  const threadRoot = threadRootId
+    ? findCommentInTree(comments, threadRootId)
+    : null;
+
+  const renderCard = (comment: ThreadFSComment, key: string) => (
+    <CommentCard
+      key={key}
+      comment={comment}
+      currentCommunityUserId={me?.community_user_id}
+      currentUser={currentUserForEditor}
+      canReply={isAuthenticated}
+      isLocked={isLocked}
+      onReply={(parentId, body) => handleCreateComment(body, parentId)}
+      onVote={handleVote}
+      onEdit={handleEditComment}
+      onDelete={handleDeleteComment}
+      onReport={handleReport}
+      reportReasons={reportReasons}
+      onRemove={me?.staff_role ? handleRemove : undefined}
+      onLoadReplies={handleLoadReplies}
+      onLoadMoreReplies={handleLoadMoreReplies}
+      onAuthRequired={onAuthRequired}
+      authorProfileUrl={authorProfileUrl}
+      highlightedCommentId={focusedId}
+      commentUrl={commentUrl}
+      onContinueThread={(id) => void handleContinueThread(id)}
+      continueDepth={continueDepth}
+    />
+  );
+
   return (
     <TooltipProvider>
       <section
+        ref={sectionRef}
         className={cn("threadfs-root mx-auto w-full space-y-2", className)}
         data-threadfs-thread-id={threadId}
         data-threadfs-community-key={communityKey}
@@ -556,6 +703,13 @@ export function ThreadFSComments({
           />
         )}
 
+        {isFocusMissing && !isLoading && (
+          <p className="text-muted-foreground rounded-md border border-dashed px-4 py-3 text-sm">
+            The linked comment isn&apos;t here any more. It may have been
+            deleted.
+          </p>
+        )}
+
         {error && (
           <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -565,32 +719,30 @@ export function ThreadFSComments({
         <div className="mt-2">
           {isLoading ? (
             <CommentSkeleton />
+          ) : threadRoot ? (
+            <>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+                <span className="text-muted-foreground">
+                  Continuing a thread
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleBackToDiscussion}
+                  className="hover:cursor-pointer"
+                >
+                  <ArrowLeft className="size-4" /> Back to the discussion
+                </Button>
+              </div>
+              {/* Remounted per root, so its replies open as it appears */}
+              {renderCard(threadRoot, `thread-${threadRoot.id}`)}
+            </>
           ) : (
             <>
               {comments.length > 0 ? (
-                comments.map((comment, index) => (
-                  <CommentCard
-                    key={comment.id}
-                    comment={comment}
-                    currentCommunityUserId={me?.community_user_id}
-                    currentUser={currentUserForEditor}
-                    canReply={isAuthenticated}
-                    isLocked={isLocked}
-                    onReply={(parentId, body) =>
-                      handleCreateComment(body, parentId)
-                    }
-                    onVote={handleVote}
-                    onEdit={handleEditComment}
-                    onDelete={handleDeleteComment}
-                    onReport={handleReport}
-                    reportReasons={reportReasons}
-                    onRemove={me?.staff_role ? handleRemove : undefined}
-                    onLoadReplies={handleLoadReplies}
-                    onLoadMoreReplies={handleLoadMoreReplies}
-                    onAuthRequired={onAuthRequired}
-                    authorProfileUrl={authorProfileUrl}
-                  />
-                ))
+                comments.map((comment) =>
+                  renderCard(comment, String(comment.id)),
+                )
               ) : (
                 <div className="px-6 py-16 text-center">
                   <MessageSquareOff
@@ -738,6 +890,15 @@ function updateCommentInTree(
   });
 }
 
+// `items` without the ones already in `existing`, by id
+function withoutIds(
+  items: ThreadFSComment[],
+  existing: ThreadFSComment[],
+): ThreadFSComment[] {
+  const ids = new Set(existing.map((comment) => String(comment.id)));
+  return items.filter((comment) => !ids.has(String(comment.id)));
+}
+
 function appendRepliesToComment(
   comments: ThreadFSComment[],
   parentId: string,
@@ -745,9 +906,14 @@ function appendRepliesToComment(
 ): ThreadFSComment[] {
   return updateCommentInTree(comments, parentId, (comment) => ({
     ...comment,
-    replies: [...(comment.replies ?? []), ...page.items],
+    // A linked comment's ancestors load the rest of their replies from the start, so skip the one already shown
+    replies: [
+      ...(comment.replies ?? []),
+      ...withoutIds(page.items, comment.replies ?? []),
+    ],
     replies_next_offset: page.next_offset,
     replies_has_more: page.has_more,
+    replies_total: page.total,
     replies_is_loading_more: false,
   }));
 }
@@ -768,7 +934,8 @@ function findCommentInTree(
   commentId: string,
 ): ThreadFSComment | null {
   for (const comment of comments) {
-    if (comment.id === commentId) {
+    // As strings: ids arrive as numbers, though typed as strings, and a link's id is a string
+    if (String(comment.id) === String(commentId)) {
       return comment;
     }
 

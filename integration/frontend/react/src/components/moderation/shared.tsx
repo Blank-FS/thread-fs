@@ -45,6 +45,7 @@ type ModerationContextValue = {
   reasons: ThreadFSReason[];
   pageSize: number;
   authorProfileUrl?: (user: ThreadFSCommentUser) => string | null;
+  /** The page showing a thread; links to one comment get #c-<id> added. */
   threadUrl?: (comment: Pick<ModerationComment, "thread">) => string | null;
   /** Goes up whenever something changed that open lists should show. */
   version: number;

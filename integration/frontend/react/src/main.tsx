@@ -6,13 +6,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { ThreadFSMyComments } from "./components/MyComments";
 import { ThreadFSComments } from "./components/ThreadFSComments";
 import { ThreadFSModeration } from "./components/ThreadFSModeration";
 import { ModeToggle } from "./components/other/mode-toggle";
 import { ThemeProvider } from "./components/other/theme-provider";
+import { commentHash, commentIdFromHash } from "./lib/commentLinks";
 import "./styles.css";
 
 type DemoUser = {
@@ -37,8 +38,25 @@ function storedUserId() {
   return demoUsers.some((user) => user.id === id) ? id! : SIGNED_OUT;
 }
 
+// The comment a #c-<id> link points at, kept in step with the address bar
+function useLinkedComment() {
+  const [id, setId] = useState(() => commentIdFromHash(location.hash));
+  useEffect(() => {
+    const update = () => setId(commentIdFromHash(location.hash));
+    window.addEventListener("hashchange", update);
+    return () => window.removeEventListener("hashchange", update);
+  }, []);
+  return id;
+}
+
 function App() {
   const [userId, setUserId] = useState(storedUserId);
+  const linkedComment = useLinkedComment();
+  // Following a comment link (from the Comments tab, say) shows the discussion it points into
+  const [tab, setTab] = useState("ThreadFSComments");
+  useEffect(() => {
+    if (linkedComment) setTab("ThreadFSComments");
+  }, [linkedComment]);
   const user = demoUsers.find(({ id }) => id === userId) ?? null;
   const token = user?.token ?? null;
   const getDemoToken = useCallback(async () => token, [token]);
@@ -68,7 +86,7 @@ function App() {
             </SelectContent>
           </Select>
         </div>
-        <Tabs defaultValue="ThreadFSComments" className="w-full">
+        <Tabs value={tab} onValueChange={setTab} className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="ThreadFSComments" className="flex-1">
               Discussion
@@ -88,6 +106,10 @@ function App() {
               communityKey={communityKey}
               threadId={threadId}
               getAuthToken={getDemoToken}
+              focusCommentId={linkedComment}
+              commentUrl={(id) =>
+                `${location.origin}${location.pathname}${commentHash(id)}`
+              }
               authorProfileUrl={(author) =>
                 author.external_user_id
                   ? `/users/${author.external_user_id}`
