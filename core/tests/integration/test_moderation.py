@@ -87,6 +87,8 @@ async def test_me_reports_the_role(client, session):
 async def test_hidden_comment_shows_only_to_its_author(client, session):
     setup = await create_community_setup(session)
     comment = await post_comment(client, setup, content="Secret text")
+    # A reply keeps the removed comment in the thread for everyone
+    await post_comment(client, setup, subject="carol", content="Reply", parent_comment_id=int(comment["id"]))
     await hide(client, setup, comment["id"])
 
     for viewer in (None, "bob"):
@@ -240,9 +242,9 @@ async def test_batch_previews_hides_and_undoes(client, session):
 
     done = await client.post(f"{MOD}/comments/batch", headers=mod(setup), json=batch)
     assert done.json() == {"matched": 3, "changed": 3}
-    assert (await thread_items(client, setup, "bob", "anime:0"))[0]["status"] == "hidden"
-    statuses = [c["status"] for c in await thread_items(client, setup, "bob", "anime:1")]
-    assert statuses == ["hidden", "visible"] or statuses == ["visible", "hidden"]
+    # Removed, with nothing below them: gone from others' view of the thread
+    assert await thread_items(client, setup, "bob", "anime:0") == []
+    assert [c["status"] for c in await thread_items(client, setup, "bob", "anime:1")] == ["visible"]
 
     log = (await client.get(f"{MOD}/actions", headers=mod(setup))).json()
     assert log["total"] == 1
@@ -485,6 +487,8 @@ async def test_past_reports_keep_their_label_when_a_reason_goes_away(client, ses
 async def test_the_removal_reason_reaches_only_the_author(client, session):
     setup = await create_community_setup(session)
     comment = await post_comment(client, setup, content="Secret text")
+    # A reply keeps the removed comment in the thread for everyone
+    await post_comment(client, setup, subject="carol", content="Reply", parent_comment_id=int(comment["id"]))
     url = f"{MOD}/comments/{comment['id']}/hide"
 
     assert (await client.post(url, headers=mod(setup), json={"reason_key": "nope"})).status_code == 422
@@ -991,6 +995,8 @@ async def test_a_report_description_is_kept_short(client, session):
 async def test_removing_for_other_tells_the_author_why(client, session):
     setup = await create_community_setup(session)
     comment = await post_comment(client, setup)
+    # A reply keeps the removed comment in the thread for everyone
+    await post_comment(client, setup, subject="carol", content="Reply", parent_comment_id=int(comment["id"]))
     url = f"{MOD}/comments/{comment['id']}/hide"
 
     assert (await client.post(url, headers=mod(setup), json={"reason_key": "other"})).status_code == 422
@@ -1346,7 +1352,8 @@ async def test_undo_leaves_comments_that_changed_after_the_batch(client, session
 
     items = {c["id"]: c for c in await thread_items(client, setup, "alice")}
     assert (items[first["id"]]["status"], items[first["id"]]["removal_reason"]) == ("hidden", "Hate speech")
-    assert items[second["id"]]["status"] == "deleted"
+    # Deleted, with nothing below it: gone from the thread
+    assert second["id"] not in items
     assert items[third["id"]]["status"] == "visible"
 
 

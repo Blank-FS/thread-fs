@@ -279,6 +279,13 @@ GET /api/v1/embed/comments?thread_id=demo-thread&parent_comment_id=123&limit=20&
 
 Replies should generally use oldest sorting.
 
+A deleted or removed comment is only listed while something visible is below it, as an empty placeholder that keeps
+its replies attached; with nothing visible left under it, it leaves the thread, and a link to it is 404. Its author
+still sees their own removed comment, with the reason, and staff (a token with `threadfs_role`) see every removed
+comment in full, its author and reason included, to moderate the thread in place. A deleted comment's author is withheld from everyone, its
+author included (`community_user` and `community_user_id` are null), so it reads as `[deleted]`. `reply_count` (every level below) and a thread's
+`comment_count` count visible comments only.
+
 One comment in context, for a link to it:
 
 ```http

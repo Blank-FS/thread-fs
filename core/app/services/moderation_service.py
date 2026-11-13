@@ -17,6 +17,7 @@ from app.models.moderation import CommunityBan, ModerationAction, ModerationBatc
 from app.models.report import CommentReport
 from app.models.thread import Thread
 from app.schemas.moderation import CommentFilters
+from app.repositories import comment as comment_repo
 from app.services import reason_service
 
 
@@ -470,6 +471,7 @@ async def hide_comment(
     comment.removal_reason = label
     comment.removal_detail = detail
     comment.modified_at = utc_now()
+    await comment_repo.shift_visible_counts(session, [comment], -1)
     _log(
         session,
         community,
@@ -501,6 +503,7 @@ async def restore_comment(
     comment.removal_reason = None
     comment.removal_detail = None
     comment.modified_at = utc_now()
+    await comment_repo.shift_visible_counts(session, [comment], 1)
     _log(
         session,
         community,
@@ -575,6 +578,7 @@ async def batch_comments(
             previous_removal_detail=previous_detail,
         )
     _log(session, community, moderator, f"{action}_batch", batch_id=batch.id, reason=reason)
+    await comment_repo.shift_visible_counts(session, comments, -1 if action == "hide" else 1)
     if action == "hide":
         await _resolve_open_reports(session, moderator, [comment.id for comment in comments], "resolved")
     await session.commit()
@@ -666,6 +670,7 @@ async def undo_batch(
 
     was_hide = batch.action == "hide"
     changed = 0
+    undone: list[Comment] = []
     now = utc_now()
     for entry in entries:
         comment = entry.comment
@@ -688,7 +693,9 @@ async def undo_batch(
             batch_id=batch.id,
         )
         changed += 1
+        undone.append(comment)
 
+    await comment_repo.shift_visible_counts(session, undone, 1 if was_hide else -1)
     batch.undone_at = now
     batch.undone_by_community_user_id = moderator.id
     _log(session, community, moderator, "undo_batch", batch_id=batch.id)

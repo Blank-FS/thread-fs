@@ -249,12 +249,19 @@ async def create_embed_comment(
 
 def present_comments(comments, viewer) -> list[CommentRead]:
     """Comments as a viewer may see them: one moderators removed keeps its place as an empty "[removed]", with its text
-    and author withheld, unless the viewer wrote it. Works on copies, so nothing here can be saved back."""
+    and author withheld, unless the viewer wrote it or is staff (who see it in full, with the reason, to moderate in
+    place). One its author deleted is "[deleted]" to everyone, its author
+    included, as on Reddit: deleting takes their name off it too. Works on copies, so nothing here can be saved back."""
     presented = [CommentRead.model_validate(comment) for comment in comments]
 
     for comment in presented:
+        if comment.status == "deleted":
+            comment.community_user = None
+            comment.community_user_id = None
+            continue
+
         if comment.status == "hidden" and (
-            viewer is None or comment.community_user_id != viewer.id
+            viewer is None or (comment.community_user_id != viewer.id and not viewer.staff_role)
         ):
             comment.content = ""
             comment.gif = None

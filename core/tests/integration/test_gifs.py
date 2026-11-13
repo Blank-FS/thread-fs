@@ -115,6 +115,8 @@ async def test_removed_and_deleted_comments_lose_the_gif(client, session):
     setup = await gif_setup(session)
     hidden = await post_comment(client, setup, content="", gif=GIF)
     deleted = await post_comment(client, setup, subject="bob", content="", gif=GIF)
+    # A reply keeps the removed comment in the thread for everyone
+    await post_comment(client, setup, subject="dave", content="Reply", parent_comment_id=int(hidden["id"]))
 
     await hide(client, setup, hidden["id"])
     gifs = {item["id"]: item["gif"] for item in await thread_items(client, setup, "carol")}

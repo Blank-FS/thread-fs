@@ -100,6 +100,8 @@ async def test_removed_and_deleted_comments_lose_the_image(client, session):
     setup = await image_setup(session)
     hidden = await post_comment(client, setup, content="", image=IMAGE)
     deleted = await post_comment(client, setup, subject="bob", content="", image=IMAGE)
+    # A reply keeps the removed comment in the thread for everyone
+    await post_comment(client, setup, subject="dave", content="Reply", parent_comment_id=int(hidden["id"]))
 
     await hide(client, setup, hidden["id"])
     images = {item["id"]: item["image"] for item in await thread_items(client, setup, "carol")}

@@ -1,18 +1,86 @@
 # app/models/comment.py
 
+from collections import Counter
 from typing import Literal
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
 from app.models.comment import Comment
+from app.models.community_user import CommunityUser
 from app.models.thread import Thread
 
 CommentSort = Literal["latest", "oldest", "top"]
 
-# What a thread lists: deleted and hidden comments keep their place so replies stay attached (their text is withheld
-# by comment_service.present_comments)
+# What a thread can list: deleted and hidden comments keep their place while replies hang off them (their text is
+# withheld by comment_service.present_comments); shown_in_thread decides which do
 THREAD_STATUSES = ["visible", "deleted", "hidden"]
+
+
+def shown_in_thread(viewer: CommunityUser | None):
+    """Which comments a thread lists for this viewer: visible ones, and a deleted or removed one only while something
+    visible is below it (reply_count counts visible comments only), as Reddit does. Its author still sees their own
+    removed comment, with the reason, so a removal is never silent, and staff see every removed comment, to moderate
+    the thread in place."""
+    shown = or_(
+        Comment.status == "visible",
+        and_(Comment.status.in_(THREAD_STATUSES), Comment.reply_count > 0),
+    )
+    if viewer is not None and viewer.staff_role:
+        return or_(shown, Comment.status == "hidden")
+    if viewer is not None:
+        shown = or_(shown, and_(Comment.status == "hidden", Comment.community_user_id == viewer.id))
+    return shown
+
+
+def is_shown_in_thread(comment: Comment, viewer: CommunityUser | None) -> bool:
+    """shown_in_thread for one loaded comment."""
+    if comment.status == "visible":
+        return True
+    if comment.status not in THREAD_STATUSES:
+        return False
+    if comment.reply_count > 0:
+        return True
+    if comment.status != "hidden" or viewer is None:
+        return False
+    return bool(viewer.staff_role) or comment.community_user_id == viewer.id
+
+
+async def shift_visible_counts(session: AsyncSession, comments: list[Comment], delta: int) -> None:
+    """Comments that just became visible (+1) or stopped being (-1): every comment above each one, and its thread,
+    count it in or out (reply_count and comment_count count visible comments only). One statement for the comments,
+    whatever the batch, done in SQL so concurrent changes add up; loaded ancestors keep their old counts in memory."""
+    if not comments:
+        return
+
+    up = (
+        select(Comment.parent_comment_id.label("ancestor_id"))
+        .where(Comment.id.in_([comment.id for comment in comments]), Comment.parent_comment_id.is_not(None))
+        .cte("up", recursive=True)
+    )
+    parent = aliased(Comment)
+    up = up.union_all(
+        select(parent.parent_comment_id)
+        .join(up, parent.id == up.c.ancestor_id)
+        .where(parent.parent_comment_id.is_not(None))
+    )
+    counts = select(up.c.ancestor_id, func.count().label("n")).group_by(up.c.ancestor_id).subquery()
+    await session.execute(
+        update(Comment)
+        .where(Comment.id == counts.c.ancestor_id)
+        .values(reply_count=Comment.reply_count + counts.c.n * delta)
+        .execution_options(synchronize_session=False)
+    )
+
+    for thread_id, n in Counter(comment.thread_id for comment in comments).items():
+        await session.execute(
+            update(Thread)
+            .where(Thread.id == thread_id)
+            .values(comment_count=Thread.comment_count + n * delta)
+            .execution_options(synchronize_session=False)
+        )
+
+
 # A person's own list of comments: they still see ones moderators removed (others' view of it is visible ones only)
 OWN_STATUSES = ["visible", "hidden"]
 
@@ -37,6 +105,7 @@ async def count_comments(
     *,
     thread_id: int,
     parent_comment_id: int | None,
+    viewer: CommunityUser | None,
 ) -> int:
     result = await session.execute(
         select(func.count(Comment.id)).where(
@@ -44,7 +113,7 @@ async def count_comments(
             Comment.parent_comment_id.is_(None)
             if parent_comment_id is None
             else Comment.parent_comment_id == parent_comment_id,
-            Comment.status.in_(THREAD_STATUSES),
+            shown_in_thread(viewer),
         )
     )
 
@@ -59,6 +128,7 @@ async def list_comments(
     limit: int,
     offset: int,
     sort: CommentSort,
+    viewer: CommunityUser | None,
 ) -> list[Comment]:
     result = await session.execute(
         select(Comment)
@@ -68,7 +138,7 @@ async def list_comments(
             Comment.parent_comment_id.is_(None)
             if parent_comment_id is None
             else Comment.parent_comment_id == parent_comment_id,
-            Comment.status.in_(THREAD_STATUSES),
+            shown_in_thread(viewer),
         )
         .order_by(*_comment_order_by(sort))
         .limit(limit)
@@ -121,6 +191,7 @@ async def count_direct_replies(
     session: AsyncSession,
     *,
     parent_comment_ids: list[int],
+    viewer: CommunityUser | None,
 ) -> dict[int, int]:
     """How many direct replies each comment has, as count_comments counts them, in one query."""
     if not parent_comment_ids:
@@ -130,7 +201,7 @@ async def count_direct_replies(
         select(Comment.parent_comment_id, func.count(Comment.id))
         .where(
             Comment.parent_comment_id.in_(parent_comment_ids),
-            Comment.status.in_(THREAD_STATUSES),
+            shown_in_thread(viewer),
         )
         .group_by(Comment.parent_comment_id)
     )

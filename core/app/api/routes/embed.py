@@ -187,6 +187,7 @@ async def list_embed_comments(
         session,
         thread_id=thread.id,
         parent_comment_id=parent_comment_id,
+        viewer=community_user,
     )
 
     comments = await comment_repo.list_comments(
@@ -196,6 +197,7 @@ async def list_embed_comments(
         limit=limit,
         offset=offset,
         sort=effective_sort,
+        viewer=community_user,
     )
 
     # Replies to preview, for the comments that have any
@@ -205,7 +207,11 @@ async def list_embed_comments(
         reply_preview = community.reply_preview
     if parent_comment_id is None and reply_preview > 0:
         with_replies = [comment.id for comment in comments if comment.reply_count > 0]
-        reply_totals = await comment_repo.count_direct_replies(session, parent_comment_ids=with_replies)
+        reply_totals = await comment_repo.count_direct_replies(
+            session,
+            parent_comment_ids=with_replies,
+            viewer=community_user,
+        )
         for reply in await comment_repo.list_reply_previews(
             session,
             parent_comment_ids=with_replies,
@@ -288,7 +294,7 @@ async def get_embed_comment_context(
         or thread.is_deleted
         or not comment
         or comment.thread_id != thread.id
-        or comment.status not in comment_repo.THREAD_STATUSES
+        or not comment_repo.is_shown_in_thread(comment, community_user)
     ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -302,6 +308,7 @@ async def get_embed_comment_context(
         session,
         thread_id=thread.id,
         parent_comment_id=comment.id,
+        viewer=community_user,
     )
     replies = await comment_repo.list_comments(
         session,
@@ -310,6 +317,7 @@ async def get_embed_comment_context(
         limit=limit,
         offset=0,
         sort="oldest",
+        viewer=community_user,
     )
 
     if community_user:
@@ -339,6 +347,7 @@ async def get_embed_comment_context(
             session,
             thread_id=thread.id,
             parent_comment_id=ancestor.id,
+            viewer=community_user,
         )
         has_more = direct_replies > 1
         node = CommentTreeRead(
@@ -562,4 +571,5 @@ async def delete_embed_comment(
         comment_id=comment_id,
     )
 
-    return deleted
+    (presented,) = comment_service.present_comments([deleted], community_user)
+    return presented

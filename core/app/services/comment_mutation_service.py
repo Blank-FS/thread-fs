@@ -140,6 +140,7 @@ async def delete_own_comment(
     comment.upvote_count = 0
     comment.downvote_count = 0
 
+    await comment_repo.shift_visible_counts(session, [comment], -1)
     await session.commit()
 
     deleted = await comment_repo.get_comment_by_id(session, comment.id)

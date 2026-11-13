@@ -80,7 +80,7 @@ async def test_preview_of_every_reply_has_no_more(client, session):
 
 
 @pytest.mark.anyio
-async def test_preview_skips_removed_replies_but_counts_them(client, session):
+async def test_preview_skips_removed_replies(client, session):
     setup = await create_community_setup(session)
     root = await post_comment(client, setup, content="Root")
     removed = await post_comment(client, setup, subject="spammer", content="Spam", parent_comment_id=int(root["id"]))
@@ -90,9 +90,9 @@ async def test_preview_skips_removed_replies_but_counts_them(client, session):
     item = (await top_level(client, setup, reply_preview=2))[root["id"]]
 
     assert [reply["id"] for reply in item["replies"]] == [kept["id"]]
-    # The removed one still holds its place in the full listing
-    assert item["replies_total"] == 2
-    assert item["replies_has_more"] is True
+    # With nothing below it, the removed one has left the thread
+    assert item["replies_total"] == 1
+    assert item["replies_has_more"] is False
 
 
 @pytest.mark.anyio
