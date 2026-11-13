@@ -251,8 +251,19 @@ class ReportRequest(BaseModel):
     details: str | None = Field(default=None, max_length=100)
 
 
+class ReplyingToRead(BaseModel):
+    """Who a reply answers, for "replied to ..." in a list of someone's comments. The name is withheld (None) when the
+    parent was removed or deleted, as it is in the thread itself; status says which."""
+
+    status: str
+    display_name: str | None = None
+    external_user_id: str | None = None
+
+
 class CommentWithThreadRead(CommentRead):
     thread: ThreadRead | None = None
+    # Set on replies: who they answer
+    replying_to: ReplyingToRead | None = None
 
 
 EmbedCommunityConfigRead.model_rebuild()

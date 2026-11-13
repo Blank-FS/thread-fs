@@ -127,6 +127,17 @@ async def list_comments_by_community_user(
     return list(result.scalars().all())
 
 
+async def get_comments_by_ids(session: AsyncSession, comment_ids) -> list[Comment]:
+    """Several comments with their authors, in one query."""
+    ids = list(set(comment_ids))
+    if not ids:
+        return []
+    result = await session.execute(
+        select(Comment).where(Comment.id.in_(ids)).options(selectinload(Comment.community_user))
+    )
+    return list(result.scalars().all())
+
+
 async def get_comment_by_id(
     session: AsyncSession,
     comment_id: int,

@@ -34,6 +34,7 @@ from app.schemas.embed import (
     VoteRequest,
     CommentUpdateRequest,
     PageResponse,
+    ReplyingToRead,
 )
 from app.services import (
     thread_service,
@@ -370,6 +371,29 @@ async def list_my_embed_comments(
         offset=offset,
         include_hidden=own_comments,
     )
+
+    # Who each reply answers ("replied to Mira"), from its parent, in one query
+    parents = {
+        parent.id: parent
+        for parent in await comment_repo.get_comments_by_ids(
+            session, [comment.parent_comment_id for comment in comments if comment.parent_comment_id]
+        )
+    }
+    for comment in comments:
+        parent = parents.get(comment.parent_comment_id) if comment.parent_comment_id else None
+        if parent is None:
+            comment.replying_to = None
+            continue
+        # A removed parent's author is withheld from everyone but that author, as in the thread
+        shows_author = parent.status == "visible" or (
+            parent.status == "hidden" and viewer is not None and parent.community_user_id == viewer.id
+        )
+        author = parent.community_user if shows_author else None
+        comment.replying_to = ReplyingToRead(
+            status=parent.status,
+            display_name=author.display_name if author else None,
+            external_user_id=author.external_user_id if author else None,
+        )
 
     if viewer and comments:
         vote_map = await vote_repo.list_votes_for_comments(
