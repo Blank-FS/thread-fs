@@ -132,6 +132,13 @@ export type ThreadFSComment = {
 
   /** Only populated by endpoints that list comments across threads, e.g. listMyComments. */
   thread?: ThreadFSThread | null;
+  /** Likewise: who a reply answers. The name is withheld when the parent was removed or deleted, as in the thread;
+   *  status says which. */
+  replying_to?: {
+    status: string;
+    display_name?: string | null;
+    external_user_id?: string | null;
+  } | null;
 };
 
 /** One comment in context, for a link to it (getCommentContext). */

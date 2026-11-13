@@ -2,11 +2,13 @@ import {
   ArrowBigDown,
   ArrowBigUp,
   MessageSquare,
+  Reply,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   deleteComment,
   getEmbedConfig,
+  reportComment,
   getEmbedMe,
   listMyComments,
   updateComment,
@@ -18,13 +20,18 @@ import {
   type ThreadFSComment,
   type ThreadFSCommentUser,
   type ThreadFSRequestContext,
+  type ThreadFSReason,
   type CommentMedia,
 } from "../lib/types";
 import { linkToComment } from "../lib/commentLinks";
 import { useLatest } from "../lib/useLatest";
 import { ImageHostsContext } from "../lib/imageHosts";
 import { cn } from "../lib/utils";
+import CommentActionsMenu from "./card/CommentActionsMenu";
+import CommentShareMenu from "./card/CommentShareMenu";
 import CommentTimestamp from "./card/CommentTimestamp";
+import ReportDetailsForm from "./card/ReportDetailsForm";
+import { OTHER_REASON } from "./moderation/shared";
 import { CommentMediaView, mediaOf } from "./card/CommentMedia";
 import { CollapsibleContent } from "./common/CollapsibleContent";
 import { MarkdownContent } from "./common/MarkdownContent";
@@ -51,6 +58,11 @@ export type ThreadFSMyCommentsProps = {
   onAuthRequired?: () => void;
   /** The page showing a comment's thread; #c-<id> is added to it. Defaults to comment.thread.source_url. */
   threadUrl?: (comment: ThreadFSComment) => string | null;
+  /** Where a name links: the author, and who they replied to. Without it, names are plain text. */
+  authorProfileUrl?: (user: {
+    display_name?: string | null;
+    external_user_id?: string | null;
+  }) => string | null;
 
   title?: string;
   className?: string;
@@ -65,6 +77,7 @@ export function ThreadFSMyComments({
   getAuthToken,
   onAuthRequired,
   threadUrl,
+  authorProfileUrl,
   title,
   className,
   pageSize = 10,
@@ -122,13 +135,21 @@ export function ThreadFSMyComments({
     [apiBaseUrl, communityKey, resolvedAuthToken],
   );
 
-  // The community's image hosts, from its config (lib/imageHosts.ts); none until it loads
+  // The community's image hosts (lib/imageHosts.ts) and report reasons, from its config; none until it loads
   const [imageHosts, setImageHosts] = useState<string[]>([]);
+  const [reportReasons, setReportReasons] = useState<ThreadFSReason[]>([]);
+  // Reported here, so the menu says so; and the comment whose "Other" report is being described
+  const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
+  const [describingReportId, setDescribingReportId] = useState<string | null>(
+    null,
+  );
   useEffect(() => {
     let isCurrent = true;
     getEmbedConfig({ apiBaseUrl, communityKey, authToken: null })
       .then((config) => {
-        if (isCurrent) setImageHosts(config.image_hosts ?? []);
+        if (!isCurrent) return;
+        setImageHosts(config.image_hosts ?? []);
+        setReportReasons(config.report_reasons ?? []);
       })
       .catch(() => {});
     return () => {
@@ -335,6 +356,23 @@ export function ThreadFSMyComments({
     }
   }
 
+  async function handleReport(
+    commentId: string,
+    reason: string,
+    details?: string,
+  ) {
+    try {
+      setError(null);
+      await withAuthRetry((ctx) =>
+        reportComment(ctx, commentId, reason, details),
+      );
+      setReportedIds((current) => new Set(current).add(commentId));
+      setDescribingReportId(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to report comment");
+    }
+  }
+
   async function handleVote(commentId: string, value: 1 | -1) {
     if (!isAuthenticated) {
       onAuthRequired?.();
@@ -413,6 +451,10 @@ export function ThreadFSMyComments({
               const isDeleted = comment.status === "deleted";
               const isHidden = comment.status === "hidden";
               const threadHref = getThreadHref(comment);
+              // What Share copies: an absolute link, as a relative one means nothing pasted elsewhere
+              const shareLink = threadHref
+                ? new URL(threadHref, window.location.href).href
+                : null;
               const threadLabel = comment.thread?.title ?? "View thread";
               const viewerVote = comment.viewer_vote ?? null;
               const isOwnComment =
@@ -444,10 +486,36 @@ export function ThreadFSMyComments({
                       </span>
                     )}
 
-                    <span className="shrink-0">
-                      <CommentTimestamp value={comment.created_at} />
-                    </span>
                   </div>
+
+                  {/* As on Reddit: who said it, and to whom */}
+                  <p className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1 text-xs">
+                    <UserName
+                      user={comment.community_user}
+                      profileUrl={authorProfileUrl}
+                    />
+                    {comment.replying_to ? (
+                      <>
+                        <span>replied to</span>
+                        {comment.replying_to.display_name ? (
+                          <UserName
+                            user={comment.replying_to}
+                            profileUrl={authorProfileUrl}
+                          />
+                        ) : (
+                          <span>
+                            {comment.replying_to.status === "deleted"
+                              ? "a deleted comment"
+                              : "a removed comment"}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span>commented</span>
+                    )}
+                    <span aria-hidden>·</span>
+                    <CommentTimestamp value={comment.created_at} />
+                  </p>
 
                   {isDeleted ? (
                     <p className="text-muted-foreground mt-2 text-sm italic">
@@ -490,7 +558,9 @@ export function ThreadFSMyComments({
                   )}
 
                   {comment.status === "visible" && (
-                    <div className="text-muted-foreground mt-2 flex items-center gap-4 text-sm font-medium">
+                    // As in the comment section, and on Reddit: votes, Reply (the comment in its thread), Share and
+                    // the rest in a menu
+                    <div className="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium">
                       <button
                         type="button"
                         onClick={() => void handleVote(comment.id, 1)}
@@ -529,34 +599,50 @@ export function ThreadFSMyComments({
                         {comment.downvote_count}
                       </button>
 
-                      <span>
-                        {comment.reply_count}{" "}
-                        {comment.reply_count === 1 ? "reply" : "replies"}
-                      </span>
-
-                      {isOwnComment && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => setEditingCommentId(comment.id)}
-                            className="hover:text-tfs-brand-strong dark:hover:text-tfs-brand hover:cursor-pointer hover:underline"
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={deletingCommentId === comment.id}
-                            onClick={() => void handleDelete(comment.id)}
-                            className="hover:cursor-pointer hover:text-rose-500 hover:underline disabled:opacity-60"
-                          >
-                            {deletingCommentId === comment.id
-                              ? "Deleting..."
-                              : "Delete"}
-                          </button>
-                        </>
+                      {threadHref && (
+                        <a
+                          href={threadHref}
+                          className="hover:text-tfs-brand-strong dark:hover:text-tfs-brand flex items-center gap-1"
+                        >
+                          <Reply className="size-4" />
+                          Reply
+                        </a>
                       )}
+
+                      {shareLink && (
+                        <CommentShareMenu
+                          link={shareLink}
+                          authorName={
+                            comment.community_user?.display_name ?? "a user"
+                          }
+                        />
+                      )}
+
+                      <CommentActionsMenu
+                        isOwnComment={isOwnComment}
+                        canReport={isAuthenticated}
+                        isReported={reportedIds.has(comment.id)}
+                        reportReasons={reportReasons}
+                        isDeleting={deletingCommentId === comment.id}
+                        onEdit={() => setEditingCommentId(comment.id)}
+                        onDelete={() => void handleDelete(comment.id)}
+                        onReport={(reason) =>
+                          reason === OTHER_REASON
+                            ? setDescribingReportId(comment.id)
+                            : void handleReport(comment.id, reason)
+                        }
+                        onAuthRequired={onAuthRequired}
+                      />
                     </div>
+                  )}
+
+                  {describingReportId === comment.id && (
+                    <ReportDetailsForm
+                      onReport={(details) =>
+                        handleReport(comment.id, OTHER_REASON, details)
+                      }
+                      onCancel={() => setDescribingReportId(null)}
+                    />
                   )}
                 </div>
               );
@@ -602,5 +688,28 @@ function MyCommentsSkeleton() {
         </div>
       ))}
     </div>
+  );
+}
+
+// A name in a comment's "who replied to whom" line, linked to their profile where the host has one
+function UserName({
+  user,
+  profileUrl,
+}: {
+  user?: {
+    display_name?: string | null;
+    external_user_id?: string | null;
+  } | null;
+  profileUrl?: ThreadFSMyCommentsProps["authorProfileUrl"];
+}) {
+  const name = user?.display_name || "[deleted]";
+  const href = user?.display_name ? profileUrl?.(user) : null;
+  const className = "text-foreground font-semibold";
+  return href ? (
+    <a href={href} className={cn(className, "hover:underline")}>
+      {name}
+    </a>
+  ) : (
+    <span className={className}>{name}</span>
   );
 }
