@@ -20,12 +20,15 @@ import {
   type ThreadFSComment,
   type ThreadFSCommentUser,
   type ThreadFSRequestContext,
+  type ThreadFSGifConfig,
   type ThreadFSReason,
   type CommentMedia,
 } from "../lib/types";
 import { linkToComment } from "../lib/commentLinks";
 import { useLatest } from "../lib/useLatest";
+import { GifConfigContext } from "../lib/gifs";
 import { ImageHostsContext } from "../lib/imageHosts";
+import { RulesUrlContext } from "../lib/rulesContext";
 import { cn } from "../lib/utils";
 import CommentActionsMenu from "./card/CommentActionsMenu";
 import CommentShareMenu from "./card/CommentShareMenu";
@@ -135,8 +138,11 @@ export function ThreadFSMyComments({
     [apiBaseUrl, communityKey, resolvedAuthToken],
   );
 
-  // The community's image hosts (lib/imageHosts.ts) and report reasons, from its config; none until it loads
+  // From the community's config, like the comment section: the edit box's GIF search, image hosts (lib/imageHosts.ts)
+  // and rules link, so it's the same editor, and the report reasons. None until it loads
   const [imageHosts, setImageHosts] = useState<string[]>([]);
+  const [gifConfig, setGifConfig] = useState<ThreadFSGifConfig | null>(null);
+  const [rulesUrl, setRulesUrl] = useState<string | null>(null);
   const [reportReasons, setReportReasons] = useState<ThreadFSReason[]>([]);
   // Reported here, so the menu says so; and the comment whose "Other" report is being described
   const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
@@ -149,6 +155,8 @@ export function ThreadFSMyComments({
       .then((config) => {
         if (!isCurrent) return;
         setImageHosts(config.image_hosts ?? []);
+        setGifConfig(config.gifs ?? null);
+        setRulesUrl(config.rules_url ?? null);
         setReportReasons(config.report_reasons ?? []);
       })
       .catch(() => {});
@@ -667,11 +675,15 @@ export function ThreadFSMyComments({
     </TooltipProvider>
   );
 
-  // Images in the comments show only from the community's image hosts
+  // Images in the comments show only from the community's image hosts; the edit box gets its GIFs and rules
   return (
-    <ImageHostsContext.Provider value={imageHosts}>
-      {view}
-    </ImageHostsContext.Provider>
+    <RulesUrlContext.Provider value={rulesUrl}>
+      <GifConfigContext.Provider value={gifConfig}>
+        <ImageHostsContext.Provider value={imageHosts}>
+          {view}
+        </ImageHostsContext.Provider>
+      </GifConfigContext.Provider>
+    </RulesUrlContext.Provider>
   );
 }
 
