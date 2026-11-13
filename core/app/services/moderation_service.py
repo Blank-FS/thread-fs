@@ -755,6 +755,7 @@ async def get_admin_overview(session: AsyncSession, *, community: Community) -> 
         "max_daily_batch_changes": community.max_daily_batch_changes,
         "rules_url": community.rules_url,
         "klipy_app_key": community.klipy_app_key,
+        "image_hosts": community.image_hosts or [],
         "origins": list(origins.scalars().all()),
         "staff": [
             {
@@ -821,6 +822,33 @@ async def update_klipy_app_key(
     community.klipy_app_key = klipy_app_key
     change = "turned on" if before is None else "turned off" if klipy_app_key is None else "key changed"
     _log(session, community, moderator, "update_gifs", reason=change)
+    await session.commit()
+
+
+async def update_image_hosts(
+    session: AsyncSession,
+    *,
+    community: Community,
+    moderator: CommunityUser,
+    image_hosts: list[str],
+) -> None:
+    """Which hosts' images show in comment text. Logged as what was added and removed."""
+    before = list(community.image_hosts or [])
+    if image_hosts == before:
+        return
+
+    added = [host for host in image_hosts if host not in before]
+    removed = [host for host in before if host not in image_hosts]
+    community.image_hosts = image_hosts
+    change = "; ".join(
+        part
+        for part in (
+            f"added {', '.join(added)}" if added else "",
+            f"removed {', '.join(removed)}" if removed else "",
+        )
+        if part
+    ) or "reordered"
+    _log(session, community, moderator, "update_image_hosts", reason=change)
     await session.commit()
 
 

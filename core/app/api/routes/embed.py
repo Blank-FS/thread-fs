@@ -67,6 +67,7 @@ async def get_embed_config(
         report_reasons=await reason_service.list_reasons(session, community.id),
         rules_url=community.rules_url,
         gifs=GifConfigRead(app_key=community.klipy_app_key) if community.klipy_app_key else None,
+        image_hosts=community.image_hosts or [],
     )
 
 
@@ -411,6 +412,7 @@ async def create_embed_comment(
         source_url=payload.source_url,
         content=payload.content,
         gif=payload.gif,
+        image=payload.image,
         parent_comment_id=payload.parent_comment_id,
         user_agent=user_agent,
         source=payload.source,
@@ -472,6 +474,8 @@ async def update_embed_comment(
         content=payload.content,
         gif=payload.gif,
         replace_gif="gif" in payload.model_fields_set,
+        image=payload.image,
+        replace_image="image" in payload.model_fields_set,
     )
 
     return updated

@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.gifs import gif_for_community
+from app.core.images import image_for_community
 from app.core.sanitize import sanitize_comment_markdown
 from app.core.common import utc_now
 from app.models.community import Community
@@ -60,9 +61,11 @@ async def edit_own_comment(
     content: str,
     gif=None,
     replace_gif: bool = False,
+    image=None,
+    replace_image: bool = False,
 ):
-    """Saves the author's new text. The GIF changes only with replace_gif (an edit that said what it should be, or
-    that there's none), so a client that doesn't know about GIFs keeps them."""
+    """Saves the author's new text. The GIF and the image change only with replace_gif and replace_image (an edit that
+    said what they should be, or that there's none), so a client that doesn't know about them keeps them."""
     await moderation_service.require_not_banned(
         session,
         community_id=community.id,
@@ -78,14 +81,21 @@ async def edit_own_comment(
 
     clean_content = sanitize_comment_markdown(content)
     new_gif = gif_for_community(community, gif) if replace_gif else comment.gif
-    if not clean_content and new_gif is None:
+    new_image = image_for_community(community, image) if replace_image else comment.image
+    if new_gif is not None and new_image is not None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="A comment needs text or a GIF",
+            detail="A comment can have a GIF or an image, not both",
+        )
+    if not clean_content and new_gif is None and new_image is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="A comment needs text, a GIF or an image",
         )
 
     comment.content = clean_content
     comment.gif = new_gif
+    comment.image = new_image
     comment.edited_at = utc_now()
     comment.modified_at = utc_now()
 
@@ -121,6 +131,7 @@ async def delete_own_comment(
     comment.status = "deleted"
     comment.content = ""
     comment.gif = None
+    comment.image = None
     comment.deleted_at = now
     comment.deleted_by_user_id = community_user.id
     comment.modified_at = now

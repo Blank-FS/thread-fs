@@ -123,8 +123,8 @@ def _thread(thread: Thread) -> dict:
 def _comment(comment: Comment, author: CommunityUser, now: datetime) -> dict:
     return {
         "id": comment.id,
-        # A comment that's only a GIF says so, rather than nothing
-        "excerpt": excerpt(comment.content) or ("[GIF]" if comment.gif else ""),
+        # A comment that's only a GIF or an image says so, rather than nothing
+        "excerpt": excerpt(comment.content) or ("[GIF]" if comment.gif else "[image]" if comment.image else ""),
         "created_at": comment.created_at.isoformat() if comment.created_at else now.isoformat(),
         "author": _user(author),
     }

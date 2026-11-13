@@ -83,6 +83,9 @@ class Comment(Base):
     content = Column(Text, nullable=False)
     # A GIF attached under the text, as app.schemas.embed.GifAttachment: {provider, slug, url, width, height, title}
     gif = Column(JSONB, nullable=True)
+    # Or an image linked from one of the community's image hosts (app.core.images): {url, width, height}. One or the
+    # other, never both
+    image = Column(JSONB, nullable=True)
 
     # visible | deleted | hidden
     status = Column(String(32), nullable=False, default="visible")

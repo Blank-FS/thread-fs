@@ -3,7 +3,7 @@
 import uuid
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.db.base import Base
 from app.core.common import utc_now
@@ -41,3 +41,6 @@ class Community(Base):
     # KLIPY's app key (app.core.gifs): with one, the comment box offers GIFs. Public, as KLIPY has the reader's browser
     # search with it; its content rating is set on KLIPY's Partner Panel. Set by admins, or with app.scripts.set_gifs.
     klipy_app_key = Column(String(255), nullable=True)
+    # Hosts whose images show in comment text (exact hostnames, e.g. "i.imgur.com"); images from anywhere else show as
+    # links, so a comment can't make readers' browsers load from a server its author runs. Set by admins.
+    image_hosts = Column(JSONB, nullable=False, default=list, server_default="[]")

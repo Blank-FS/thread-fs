@@ -36,6 +36,8 @@ class EmbedCommunityConfigRead(BaseModel):
     # Where the community's comment rules are; the widget's Rules button links there
     rules_url: str | None = None
     gifs: "GifConfigRead | None" = None
+    # Hosts whose images show in comment text; others show as links
+    image_hosts: list[str] = []
 
 
 class GifConfigRead(BaseModel):
@@ -73,6 +75,23 @@ class GifAttachment(GifRead):
         if not is_klipy_media_url(url):
             raise ValueError("The GIF must be one of KLIPY's")
         return url
+
+
+class ImageRead(BaseModel):
+    """An image under a comment's text, linked from one of the community's image hosts."""
+
+    url: str
+    width: int
+    height: int
+
+
+class ImageAttachment(ImageRead):
+    """An image a comment is saved with. Its host is checked against the community's image hosts when it's saved; the
+    size is the browser's, for laying it out before it loads."""
+
+    url: str = Field(min_length=1, max_length=2048)
+    width: int = Field(ge=1, le=10_000)
+    height: int = Field(ge=1, le=10_000)
 
 
 class ResolveThreadRequest(BaseModel):
@@ -129,7 +148,9 @@ class CommentCreateRequest(BaseModel):
 
     # May be empty when there's a GIF
     content: str = Field(default="", max_length=10_000)
+    # One or the other, as on Reddit
     gif: GifAttachment | None = None
+    image: ImageAttachment | None = None
     parent_comment_id: int | None = None
 
     # Where it's posted from, for moderation: a site or app slug, and the kind of client
@@ -138,8 +159,10 @@ class CommentCreateRequest(BaseModel):
 
     @model_validator(mode="after")
     def not_empty(self):
-        if not self.content.strip() and self.gif is None:
-            raise ValueError("A comment needs text or a GIF")
+        if self.gif is not None and self.image is not None:
+            raise ValueError("A comment can have a GIF or an image, not both")
+        if not self.content.strip() and self.gif is None and self.image is None:
+            raise ValueError("A comment needs text, a GIF or an image")
         return self
 
 
@@ -150,13 +173,14 @@ class VoteRequest(BaseModel):
 
 class CommentUpdateRequest(BaseModel):
     content: str = Field(default="", max_length=10_000)
-    # Left out, the GIF stays as it is; null removes it
+    # Each left out stays as it is; null removes it
     gif: GifAttachment | None = None
+    image: ImageAttachment | None = None
 
     @model_validator(mode="after")
-    def not_empty(self):
-        if not self.content.strip() and "gif" in self.model_fields_set and self.gif is None:
-            raise ValueError("A comment needs text or a GIF")
+    def one_attachment(self):
+        if self.gif is not None and self.image is not None:
+            raise ValueError("A comment can have a GIF or an image, not both")
         return self
 
 
@@ -182,6 +206,7 @@ class CommentRead(BaseModel):
 
     content: str
     gif: GifRead | None = None
+    image: ImageRead | None = None
     status: str
     # Why moderators removed it: only its author gets this
     removal_reason: str | None = None

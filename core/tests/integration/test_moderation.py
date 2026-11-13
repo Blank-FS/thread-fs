@@ -1551,3 +1551,32 @@ async def test_admins_turn_gifs_on_and_off_with_a_klipy_key(client, session):
         ("update_gifs", "key changed"),
         ("update_gifs", "turned on"),
     ]
+
+
+@pytest.mark.anyio
+async def test_admins_choose_which_hosts_images_show_from(client, session):
+    setup = await create_community_setup(session)
+    await user_id(client, setup, "boss", role="admin")
+    await user_id(client, setup, "mod", role="moderator")
+    url = f"{MOD}/admin/image-hosts"
+    config = lambda: client.get(  # noqa: E731
+        "/api/v1/embed/config",
+        headers=embed_headers(public_key=setup["public_key"], origin=setup["origin"]),
+    )
+
+    assert (await config()).json()["image_hosts"] == []
+    assert (await client.put(url, headers=mod(setup), json={"image_hosts": ["i.imgur.com"]})).status_code == 403
+    # Exact hostnames only: no scheme, path, port or wildcard
+    for bad in ("https://i.imgur.com", "i.imgur.com/a", "*.imgur.com", "i.imgur.com:443", "localhost"):
+        res = await client.put(url, headers=admin(setup), json={"image_hosts": [bad]})
+        assert res.status_code == 422, bad
+
+    saved = await client.put(url, headers=admin(setup), json={"image_hosts": [" I.Imgur.com ", "i.imgur.com", "", "cdn.example.org"]})
+    assert saved.status_code == 200
+    assert saved.json()["image_hosts"] == ["i.imgur.com", "cdn.example.org"]
+    assert (await config()).json()["image_hosts"] == ["i.imgur.com", "cdn.example.org"]
+
+    await client.put(url, headers=admin(setup), json={"image_hosts": ["i.imgur.com", "images.example.net"]})
+    (entry, first) = (await client.get(f"{MOD}/actions", headers=admin(setup))).json()["items"]
+    assert (entry["action"], entry["reason"]) == ("update_image_hosts", "added images.example.net; removed cdn.example.org")
+    assert first["reason"] == "added i.imgur.com, cdn.example.org"

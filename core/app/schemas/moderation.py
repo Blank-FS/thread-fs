@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
-from app.schemas.embed import CommentRead, CommunityUserRead, GifRead, ReasonRead, ThreadRead
+from app.schemas.embed import CommentRead, CommunityUserRead, GifRead, ImageRead, ReasonRead, ThreadRead
 
 
 class ParentCommentRead(BaseModel):
@@ -16,6 +16,7 @@ class ParentCommentRead(BaseModel):
     id: int
     content: str
     gif: GifRead | None = None
+    image: ImageRead | None = None
     status: str
     community_user: CommunityUserRead | None = None
 
@@ -154,6 +155,7 @@ class AdminOverviewRead(BaseModel):
     rules_url: str | None = None
     # Public by design (the widget searches with it), so admins may see it
     klipy_app_key: str | None = None
+    image_hosts: list[str] = []
     origins: list[str]
     staff: list[StaffActivityRead]
 
@@ -193,6 +195,30 @@ class GifsRequest(BaseModel):
         if key and not re.fullmatch(r"[A-Za-z0-9_-]+", key):
             raise ValueError("That doesn't look like a KLIPY app key")
         self.klipy_app_key = key or None
+        return self
+
+
+# A hostname, nothing else: no scheme, path, port or wildcard
+_HOSTNAME_RE = re.compile(r"(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}")
+MAX_IMAGE_HOSTS = 20
+
+
+class ImageHostsRequest(BaseModel):
+    # Exact hostnames, so a subdomain or lookalike of an allowed host isn't allowed too
+    image_hosts: list[str] = Field(default_factory=list, max_length=MAX_IMAGE_HOSTS)
+
+    @model_validator(mode="after")
+    def hostnames(self):
+        hosts: list[str] = []
+        for raw in self.image_hosts:
+            host = raw.strip().lower().rstrip(".")
+            if not host:
+                continue
+            if not _HOSTNAME_RE.fullmatch(host):
+                raise ValueError(f"{raw.strip()!r} isn't a hostname (like i.imgur.com)")
+            if host not in hosts:
+                hosts.append(host)
+        self.image_hosts = hosts
         return self
 
 
@@ -291,6 +317,7 @@ class ActionCommentRead(BaseModel):
     id: int
     content: str
     gif: GifRead | None = None
+    image: ImageRead | None = None
     status: str
 
     model_config = {"from_attributes": True}

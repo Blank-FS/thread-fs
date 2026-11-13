@@ -22,6 +22,7 @@ from app.schemas.moderation import (
     LimitsRequest,
     RulesRequest,
     GifsRequest,
+    ImageHostsRequest,
     UndoBatchResult,
     CommentFilters,
     LockThreadRequest,
@@ -221,6 +222,21 @@ async def update_gifs(
         community=context[0],
         moderator=context[1],
         klipy_app_key=payload.klipy_app_key,
+    )
+    return await moderation_service.get_admin_overview(session, community=context[0])
+
+
+@router.put("/admin/image-hosts", response_model=AdminOverviewRead)
+async def update_image_hosts(
+    payload: ImageHostsRequest,
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_admin),
+):
+    await moderation_service.update_image_hosts(
+        session,
+        community=context[0],
+        moderator=context[1],
+        image_hosts=payload.image_hosts,
     )
     return await moderation_service.get_admin_overview(session, community=context[0])
 

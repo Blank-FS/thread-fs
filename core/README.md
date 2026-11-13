@@ -27,6 +27,7 @@ Host website backend
 - Voting
 - Edit/delete own comments
 - GIFs from KLIPY, optional per community (see GIFs below)
+- Images in comment text only from hosts the community allows (see Images in comments below)
 - Soft-deleted comments
 - HTML sanitization
 - Basic rate limiting
@@ -442,6 +443,27 @@ uv run python -m app.scripts.set_gifs --community my-site --off
 - **Moderation:** a GIF is part of its comment. Removing the comment hides it, and moderators still see it.
 - **Webhooks:** a comment that's only a GIF has `[GIF]` as its excerpt.
 - Turning GIFs off hides the button. GIFs already posted stay.
+
+## Images in comments
+
+Comment text is markdown, and markdown can show images, which load from wherever their address points. From a server
+the poster runs, that's a tracking pixel: it learns each reader's IP address and when they read the comment. So images
+show only from hosts the community's admins allow (moderation panel › Admin › Image hosts), exact hostnames such as
+`i.imgur.com`. From anywhere else an image shows as a link to it, and nothing loads until someone opens it. The list
+is empty to start with, and changes to it are logged.
+
+- **Where it's enforced:** the widget, when it shows comments, so a change to the list applies to every comment at
+  once, old ones included. The stored text isn't changed. A site that renders comments itself, without the widget,
+  should do the same with `image_hosts` from `/embed/config`.
+- **Styles:** comment HTML may not carry `style` anywhere, table cells included, since `background: url(...)` loads
+  an image too. Table alignment from markdown still works.
+- **GIFs** from the GIF button aren't affected: they're checked separately (see GIFs above).
+- **Attaching an image:** while there are image hosts, the comment box has an image button beside GIF. There are no
+  uploads: it takes a link to an image on one of the hosts, previews it, and says why when it can't be added. The
+  comment keeps it in its own `image` field (`{url, width, height}`), checked against the hosts when it's saved. A
+  comment has one GIF or one image, never both; edits work as for `gif` (left out keeps it, `null` removes it). If a
+  host is later taken off the list, its attached images show as links too. A comment that's only an image has
+  `[image]` as its webhook excerpt.
 
 ## Webhooks
 
