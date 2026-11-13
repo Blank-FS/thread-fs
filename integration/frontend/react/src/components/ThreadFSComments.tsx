@@ -69,8 +69,6 @@ export type ThreadFSCommentsProps = {
   focusCommentId?: string | null;
   /** A link to one comment, which turns on its Share button. Usually the page's address plus commentHash(id). */
   commentUrl?: (commentId: string) => string | null;
-  /** The comment rules page the Rules button links to. Defaults to the community's own (set in its admin panel). */
-  rulesUrl?: string | null;
 
   title?: string;
   className?: string;
@@ -88,7 +86,6 @@ export function ThreadFSComments({
   client,
   focusCommentId = null,
   commentUrl,
-  rulesUrl,
   title = "Discussion",
   className,
   pageSize = 10,
@@ -809,7 +806,7 @@ export function ThreadFSComments({
 
   // Every comment box inside (the top one, and replies and edits) links to the same rules
   return (
-    <RulesUrlContext.Provider value={rulesUrl ?? communityRulesUrl}>
+    <RulesUrlContext.Provider value={communityRulesUrl}>
       <GifConfigContext.Provider value={gifConfig}>
         <ImageHostsContext.Provider value={imageHosts}>
           {view}

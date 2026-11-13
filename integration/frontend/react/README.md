@@ -15,6 +15,9 @@ ThreadFS is an open-source embeddable discussion system similar to Disqus. This 
 - A comment box laid out like Reddit's: GIF and **Aa** under the text, where **Aa** opens the formatting bar on top
   (one row, scrolling sideways when narrow), which ends with the switch to markdown. Once opened, the box stays open
   until **Cancel** or posting; Cancel asks before discarding anything written
+- A **Rules** button in every comment box, linking to the community's rules page, which its admins set in the
+  moderation panel (Admin › Comment rules). It's the same wherever the community's comments appear; without one, the
+  button shows a short default line
 - Images in comment text only from the community's image hosts; from anywhere else they show as links, so a comment
   can't load a tracking pixel (core README › Images in comments)
 - GIFs from KLIPY, where the community has them on (core README › GIFs): the GIF button opens a search in a popover,
@@ -121,7 +124,6 @@ type ThreadFSCommentsProps = {
   authorProfileUrl?: (user: ThreadFSCommentUser) => string | null;
 
   focusCommentId?: string | null;
-  rulesUrl?: string | null;
   commentUrl?: (commentId: string) => string | null;
 };
 ```
@@ -194,12 +196,6 @@ onAuthRequired={() => {
   )}`;
 }}
 ```
-
-### `rulesUrl`
-
-The page with your comment rules. Every comment box gets a **Rules** button that opens it in a new tab. It defaults
-to the community's own link, which admins set in the moderation panel (Admin › Comment rules), so you usually don't
-pass it; this overrides it for one page. With neither, the button shows a short default line instead.
 
 ### `authorProfileUrl`
 
