@@ -26,7 +26,8 @@ export type CreateThreadFSTokenInput = {
   username: string;
 
   /**
-   * Optional user avatar URL shown in ThreadFS comments.
+   * The user's avatar URL, shown in ThreadFS comments. `null` clears the one ThreadFS has stored; leaving it out
+   * (`undefined`) keeps it, for when the site couldn't look it up.
    */
   avatarUrl?: string | null;
 
@@ -51,7 +52,7 @@ export type CreateThreadFSTokenInput = {
 export type ThreadFSTokenClaims = {
   typ: "threadfs_external_user";
   username: string;
-  avatar_url: string | null;
+  avatar_url?: string | null;
 } & Record<string, unknown>;
 
 const DEFAULT_AUDIENCE = "threadfs";
@@ -80,7 +81,7 @@ export async function createThreadFSToken({
   issuer,
   subject,
   username,
-  avatarUrl = null,
+  avatarUrl,
   audience = DEFAULT_AUDIENCE,
   expiresInSeconds = DEFAULT_EXPIRES_IN_SECONDS,
   extraClaims = {},
@@ -99,7 +100,8 @@ export async function createThreadFSToken({
     ...extraClaims,
     typ: "threadfs_external_user",
     username,
-    avatar_url: avatarUrl,
+    // Left out when unknown, so a failed lookup doesn't wipe the stored avatar
+    ...(avatarUrl !== undefined && { avatar_url: avatarUrl }),
   };
 
   return new SignJWT(claims)

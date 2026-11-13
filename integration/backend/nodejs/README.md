@@ -155,7 +155,7 @@ Optional URL to the user’s avatar.
 
 Optional URL to an image drawn over the avatar, at 1.2 times its size and centred, like a decoration. Use a square image with a transparent middle. Animated WebP, AVIF, PNG or GIF all work.
 
-For both `avatar_url` and `avatar_frame_url`, sending `null` clears what ThreadFS has stored, and leaving the claim out keeps it.
+For both `avatar_url` and `avatar_frame_url`, sending `null` clears what ThreadFS has stored, and leaving the claim out keeps it. `createThreadFSToken` leaves `avatar_url` out when `avatarUrl` is `undefined`, so when your site can't look a user's avatar up, pass `undefined` rather than `null`, or comments lose it until their next visit.
 
 ### `iss`
 
