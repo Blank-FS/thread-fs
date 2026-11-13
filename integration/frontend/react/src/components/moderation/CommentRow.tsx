@@ -19,7 +19,7 @@ import { cn } from "../../lib/utils";
 import CommentTimestamp from "../card/CommentTimestamp";
 import { CollapsibleContent } from "../common/CollapsibleContent";
 import { MarkdownContent } from "../common/MarkdownContent";
-import { CommentGif, GifLabel } from "../card/CommentGif";
+import { CommentMediaView, MediaLabel } from "../card/CommentMedia";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -266,7 +266,7 @@ export function CommentRow({
                 <p className="italic">Deleted by its author</p>
               ) : (
                 <div className="line-clamp-2 [&_*]:mb-0 [&_*]:text-xs [&_*]:leading-5">
-                  {parent.gif && <GifLabel />}
+                  <MediaLabel comment={parent} />
                   <MarkdownContent markdown={parent.content} />
                 </div>
               )}
@@ -283,7 +283,7 @@ export function CommentRow({
               className="overflow-wrap-anywhere mt-2 text-sm leading-6 wrap-break-word [&_*:last-child]:mb-0"
             >
               <MarkdownContent markdown={comment.content} />
-              {comment.gif && <CommentGif gif={comment.gif} />}
+              <CommentMediaView comment={comment} />
             </CollapsibleContent>
           )}
 

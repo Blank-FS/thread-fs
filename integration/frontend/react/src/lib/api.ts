@@ -1,5 +1,6 @@
 import { ThreadFSApiError } from "./errors";
 import type {
+  CommentMedia,
   CommentSort,
   EmbedMe,
   PageResponse,
@@ -7,7 +8,6 @@ import type {
   ThreadFSComment,
   ThreadFSCommentContext,
   ThreadFSEmbedConfig,
-  ThreadFSGif,
   ThreadFSRequestContext,
   ThreadFSThread,
 } from "./types";
@@ -189,7 +189,7 @@ export async function createComment(
     title?: string | null;
     sourceUrl?: string | null;
     body: string;
-    gif?: ThreadFSGif | null;
+    media?: CommentMedia;
     parentId?: string | number | null;
     source?: string | null;
     client?: string | null;
@@ -208,7 +208,8 @@ export async function createComment(
       title: payload.title ?? null,
       source_url: payload.sourceUrl ?? null,
       content: payload.body,
-      gif: payload.gif ?? null,
+      gif: payload.media?.gif ?? null,
+      image: payload.media?.image ?? null,
       source: payload.source ?? null,
       client: payload.client ?? null,
       parent_comment_id:
@@ -283,7 +284,7 @@ export async function updateComment(
   ctx: ThreadFSRequestContext,
   commentId: string | number,
   body: string,
-  gif: ThreadFSGif | null,
+  media: CommentMedia,
 ): Promise<ThreadFSComment> {
   const apiBaseUrl = normalizeApiBaseUrl(ctx.apiBaseUrl);
 
@@ -293,10 +294,11 @@ export async function updateComment(
       ...buildHeaders(ctx),
       "Content-Type": "application/json",
     },
-    // The GIF always goes with the text: null removes it
+    // The GIF and image always go with the text: null removes them
     body: JSON.stringify({
       content: body,
-      gif,
+      gif: media.gif,
+      image: media.image,
     }),
   });
 

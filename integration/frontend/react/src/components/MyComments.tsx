@@ -6,6 +6,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   deleteComment,
+  getEmbedConfig,
   getEmbedMe,
   listMyComments,
   updateComment,
@@ -17,12 +18,13 @@ import {
   type ThreadFSComment,
   type ThreadFSCommentUser,
   type ThreadFSRequestContext,
-  type ThreadFSGif,
+  type CommentMedia,
 } from "../lib/types";
 import { linkToComment } from "../lib/commentLinks";
+import { ImageHostsContext } from "../lib/imageHosts";
 import { cn } from "../lib/utils";
 import CommentTimestamp from "./card/CommentTimestamp";
-import { CommentGif } from "./card/CommentGif";
+import { CommentMediaView, mediaOf } from "./card/CommentMedia";
 import { CollapsibleContent } from "./common/CollapsibleContent";
 import { MarkdownContent } from "./common/MarkdownContent";
 import CommentEditor from "./editor/CommentEditor";
@@ -115,6 +117,20 @@ export function ThreadFSMyComments({
     }),
     [apiBaseUrl, communityKey, resolvedAuthToken],
   );
+
+  // The community's image hosts, from its config (lib/imageHosts.ts); none until it loads
+  const [imageHosts, setImageHosts] = useState<string[]>([]);
+  useEffect(() => {
+    let isCurrent = true;
+    getEmbedConfig({ apiBaseUrl, communityKey, authToken: null })
+      .then((config) => {
+        if (isCurrent) setImageHosts(config.image_hosts ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      isCurrent = false;
+    };
+  }, [apiBaseUrl, communityKey]);
 
   const isAuthenticated = Boolean(me?.authenticated && me.community_user_id);
   const requiresViewerAuth = !externalUserId;
@@ -263,13 +279,13 @@ export function ThreadFSMyComments({
   async function handleEdit(
     commentId: string,
     body: string,
-    gif: ThreadFSGif | null,
+    media: CommentMedia,
   ) {
     try {
       setError(null);
 
       const updated = await withAuthRetry((ctx) =>
-        updateComment(ctx, commentId, body, gif),
+        updateComment(ctx, commentId, body, media),
       );
 
       setComments((current) =>
@@ -349,7 +365,7 @@ export function ThreadFSMyComments({
     );
   }
 
-  return (
+  const view = (
     <TooltipProvider>
       <section
         className={cn("threadfs-root mx-auto w-full space-y-2", className)}
@@ -440,9 +456,9 @@ export function ThreadFSMyComments({
                         placeholder="Edit your comment..."
                         startOpen
                         initialMarkdown={comment.content}
-                        initialGif={comment.gif ?? null}
-                        onSubmit={(body, gif) =>
-                          handleEdit(comment.id, body, gif)
+                        initialMedia={mediaOf(comment)}
+                        onSubmit={(body, media) =>
+                          handleEdit(comment.id, body, media)
                         }
                         onCancel={() => setEditingCommentId(null)}
                         onAuthRequired={onAuthRequired}
@@ -454,7 +470,7 @@ export function ThreadFSMyComments({
                       className="mt-2 text-sm leading-6"
                     >
                       <MarkdownContent markdown={comment.content} />
-                      {comment.gif && <CommentGif gif={comment.gif} />}
+                      <CommentMediaView comment={comment} />
                     </CollapsibleContent>
                   )}
 
@@ -558,6 +574,13 @@ export function ThreadFSMyComments({
         )}
       </section>
     </TooltipProvider>
+  );
+
+  // Images in the comments show only from the community's image hosts
+  return (
+    <ImageHostsContext.Provider value={imageHosts}>
+      {view}
+    </ImageHostsContext.Provider>
   );
 }
 

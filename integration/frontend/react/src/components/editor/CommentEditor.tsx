@@ -1,12 +1,14 @@
 import { useGifConfig } from "@/lib/gifs";
-import type { ThreadFSCommentUser, ThreadFSGif } from "@/lib/types";
+import { useImageHosts } from "@/lib/imageHosts";
+import type { CommentMedia, ThreadFSCommentUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ScrollText, X } from "lucide-react";
+import { ImagePlus, ScrollText, X } from "lucide-react";
 import { useMemo, useState, type KeyboardEvent } from "react";
 import { useRulesUrl } from "../../lib/rulesContext";
 import defaultAvatarUrl from "../assets/default-avatar.png";
 import AvatarFrame from "../card/AvatarFrame";
 import { CommentGif } from "../card/CommentGif";
+import { CommentImage } from "../card/CommentMedia";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
@@ -16,6 +18,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Skeleton } from "../ui/skeleton";
 import GifPicker from "./GifPicker";
+import ImageLinkForm from "./ImageLinkForm";
 import RichEditor, { RichEditorValue } from "./RichEditor";
 
 type CommentEditorProps = {
@@ -25,13 +28,13 @@ type CommentEditorProps = {
   submitLabel?: string;
   disabled?: boolean;
   initialMarkdown?: string | null;
-  /** The GIF an edited comment has. */
-  initialGif?: ThreadFSGif | null;
+  /** The GIF or image an edited comment has. */
+  initialMedia?: CommentMedia;
   /** For a reply or an edit, which the viewer just asked for: starts focused, never shrinks, and has no avatar. */
   startOpen?: boolean;
   className?: string;
-  /** The text, and the GIF under it (null for none). */
-  onSubmit: (body: string, gif: ThreadFSGif | null) => Promise<void> | void;
+  /** The text, and the GIF or image under it. */
+  onSubmit: (body: string, media: CommentMedia) => Promise<void> | void;
   /** Cancel closes a reply or edit box; without it, Cancel just closes this one back down. */
   onCancel?: () => void;
   onAuthRequired?: () => void;
@@ -45,8 +48,15 @@ const SUBMIT_KEY =
     ? "⌘"
     : "Ctrl";
 
+// Left out of the narrowest boxes (deep replies on phones), which need the room; the top comment box always has it
 const RULES_BUTTON_CLASS =
-  "text-muted-foreground hover:bg-primary/20 flex h-7 min-w-7 items-center justify-center gap-1 rounded-lg px-1.5 text-xs font-medium hover:cursor-pointer @[17rem]:px-2";
+  "text-muted-foreground hover:bg-primary/20 hidden @[15rem]:flex h-7 min-w-7 items-center justify-center gap-1 rounded-lg px-1.5 text-xs font-medium hover:cursor-pointer @[17rem]:px-2";
+
+const NO_MEDIA: CommentMedia = { gif: null, image: null };
+
+// The image and GIF buttons: dimmed while the comment already has one or the other
+const MEDIA_BUTTON_CLASS =
+  "text-muted-foreground hover:bg-primary/20 flex size-7 items-center justify-center rounded-lg hover:cursor-pointer disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent";
 
 const EMPTY_EDITOR_VALUE: RichEditorValue = {
   markdown: "",
@@ -60,7 +70,7 @@ function CommentEditor({
   submitLabel = "Post",
   disabled = false,
   initialMarkdown = null,
-  initialGif = null,
+  initialMedia = NO_MEDIA,
   startOpen = false,
   className,
   onSubmit,
@@ -76,10 +86,14 @@ function CommentEditor({
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Opened by focusing it; closed only by Cancel or posting
   const [isOpened, setIsOpened] = useState(false);
-  const [gif, setGif] = useState<ThreadFSGif | null>(initialGif);
+  // One GIF or one image, as on Reddit: once either is attached, both buttons wait until it's removed
+  const [media, setMedia] = useState<CommentMedia>(initialMedia);
+  const hasMedia = media.gif !== null || media.image !== null;
   const [isPickingGif, setIsPickingGif] = useState(false);
+  const [isAddingImage, setIsAddingImage] = useState(false);
   const rulesUrl = useRulesUrl();
   const gifConfig = useGifConfig();
+  const imageHosts = useImageHosts();
   const hasText = value.text.trim().length > 0;
   const isOpen = startOpen || isOpened;
 
@@ -88,7 +102,8 @@ function CommentEditor({
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
   const hasChanges =
     value.markdown.trim() !== (initialMarkdown ?? "").trim() ||
-    gif?.url !== initialGif?.url;
+    media.gif?.url !== initialMedia.gif?.url ||
+    media.image?.url !== initialMedia.image?.url;
 
   function close() {
     setIsConfirmingDiscard(false);
@@ -97,8 +112,9 @@ function CommentEditor({
       return;
     }
     setValue(EMPTY_EDITOR_VALUE);
-    setGif(null);
+    setMedia(NO_MEDIA);
     setIsPickingGif(false);
+    setIsAddingImage(false);
     setEditorKey((key) => key + 1);
     setIsOpened(false);
   }
@@ -116,19 +132,20 @@ function CommentEditor({
     return authorProfileUrl(currentUser);
   }, [currentUser, authorProfileUrl]);
 
-  // A GIF alone is a comment
-  const canSubmit = (hasText || gif !== null) && !disabled && !isSubmitting;
+  // A GIF or an image alone is a comment
+  const canSubmit = (hasText || hasMedia) && !disabled && !isSubmitting;
 
   async function handleSubmit() {
     if (!canSubmit) return;
 
     try {
       setIsSubmitting(true);
-      await onSubmit(hasText ? value.markdown : "", gif);
+      await onSubmit(hasText ? value.markdown : "", media);
 
       setValue(EMPTY_EDITOR_VALUE);
-      setGif(null);
+      setMedia(NO_MEDIA);
       setIsPickingGif(false);
+      setIsAddingImage(false);
       setEditorKey((key) => key + 1);
       setIsOpened(false);
     } finally {
@@ -197,15 +214,27 @@ function CommentEditor({
             actionsOnly={isConfirmingDiscard}
             attachments={
               <>
-                {gif && (
+                {hasMedia && (
                   <div className="relative mt-1 w-fit">
-                    <CommentGif gif={gif} className="my-0 max-h-32 w-auto" />
+                    {media.gif ? (
+                      <CommentGif
+                        gif={media.gif}
+                        className="my-0 max-h-32 w-auto"
+                      />
+                    ) : (
+                      media.image && (
+                        <CommentImage
+                          image={media.image}
+                          className="my-0 max-h-32 w-auto"
+                        />
+                      )
+                    )}
                     <button
                       type="button"
-                      onClick={() => setGif(null)}
+                      onClick={() => setMedia(NO_MEDIA)}
                       disabled={isSubmitting}
-                      aria-label="Remove GIF"
-                      title="Remove GIF"
+                      aria-label={media.gif ? "Remove GIF" : "Remove image"}
+                      title={media.gif ? "Remove GIF" : "Remove image"}
                       className="bg-background/80 hover:bg-background absolute top-1 right-1 flex size-6 items-center justify-center rounded-full border hover:cursor-pointer"
                     >
                       <X className="size-3.5" />
@@ -215,37 +244,78 @@ function CommentEditor({
               </>
             }
             tools={
-              // The search opens outside the box, over the page, as Reddit's does
-              gifConfig && (
-                <Popover open={isPickingGif} onOpenChange={setIsPickingGif}>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={disabled || isSubmitting}
-                      aria-label={gif ? "Change GIF" : "Add a GIF"}
-                      title={gif ? "Change GIF" : "Add a GIF"}
-                      className={cn(
-                        "text-muted-foreground hover:bg-primary/20 flex size-7 items-center justify-center rounded-lg hover:cursor-pointer disabled:opacity-50",
-                        isPickingGif && "bg-primary/20 text-foreground",
-                      )}
-                    >
-                      <span className="rounded-[3px] border border-current px-0.5 text-[9px] leading-[11px] font-bold">
-                        GIF
-                      </span>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[min(22rem,calc(100vw-1rem))] p-0">
-                    <GifPicker
-                      config={gifConfig}
-                      onPick={(picked) => {
-                        setGif(picked);
-                        setIsPickingGif(false);
-                      }}
-                      onClose={() => setIsPickingGif(false)}
-                    />
-                  </PopoverContent>
-                </Popover>
-              )
+              <>
+                {/* A link to an image on one of the community's image hosts: there are no uploads. Only offered when
+                    there are hosts */}
+                {imageHosts.length > 0 && (
+                  <Popover open={isAddingImage} onOpenChange={setIsAddingImage}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={disabled || isSubmitting || hasMedia}
+                        aria-label="Add an image"
+                        title={
+                          hasMedia
+                            ? `Remove the ${media.gif ? "GIF" : "image"} to add an image`
+                            : "Add an image"
+                        }
+                        className={cn(
+                          MEDIA_BUTTON_CLASS,
+                          isAddingImage && "bg-primary/20 text-foreground",
+                        )}
+                      >
+                        <ImagePlus className="size-4" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[min(22rem,calc(100vw-1rem))] p-0">
+                      <ImageLinkForm
+                        hosts={imageHosts}
+                        onAdd={(image) => {
+                          setMedia({ gif: null, image });
+                          setIsAddingImage(false);
+                        }}
+                        onCancel={() => setIsAddingImage(false)}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+
+                {/* The search opens outside the box, over the page, as Reddit's does */}
+                {gifConfig && (
+                  <Popover open={isPickingGif} onOpenChange={setIsPickingGif}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={disabled || isSubmitting || hasMedia}
+                        aria-label="Add a GIF"
+                        title={
+                          hasMedia
+                            ? `Remove the ${media.gif ? "GIF" : "image"} to add a GIF`
+                            : "Add a GIF"
+                        }
+                        className={cn(
+                          MEDIA_BUTTON_CLASS,
+                          isPickingGif && "bg-primary/20 text-foreground",
+                        )}
+                      >
+                        <span className="rounded-[3px] border border-current px-0.5 text-[9px] leading-[11px] font-bold">
+                          GIF
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[min(22rem,calc(100vw-1rem))] p-0">
+                      <GifPicker
+                        config={gifConfig}
+                        onPick={(picked) => {
+                          setMedia({ gif: picked, image: null });
+                          setIsPickingGif(false);
+                        }}
+                        onClose={() => setIsPickingGif(false)}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </>
             }
             actions={
               <>

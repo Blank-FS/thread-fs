@@ -26,12 +26,27 @@ export type ThreadFSEmbedConfig = {
   rules_url?: string | null;
   /** GIF search for the comment box, when the community has it on. */
   gifs?: ThreadFSGifConfig | null;
+  /** Hosts whose images show in comment text; images from anywhere else show as links. */
+  image_hosts?: string[];
 };
 
 /** KLIPY's app key, which the reader's browser searches with (KLIPY's terms don't allow a server in between). */
 export type ThreadFSGifConfig = {
   provider: "klipy";
   app_key: string;
+};
+
+/** An image under a comment's text, linked from one of the community's image hosts. */
+export type ThreadFSImage = {
+  url: string;
+  width: number;
+  height: number;
+};
+
+/** What's attached under a comment's text: a GIF or an image, never both. */
+export type CommentMedia = {
+  gif: ThreadFSGif | null;
+  image: ThreadFSImage | null;
 };
 
 /** A GIF under a comment's text: one of the provider's files, its URL exactly as the provider gave it. */
@@ -89,6 +104,7 @@ export type ThreadFSComment = {
 
   content: string;
   gif?: ThreadFSGif | null;
+  image?: ThreadFSImage | null;
   status: string;
   /** Why moderators removed it. Only its author gets this. */
   removal_reason?: string | null;
@@ -158,6 +174,7 @@ export type ModerationComment = ThreadFSComment & {
     id: number;
     content: string;
     gif?: ThreadFSGif | null;
+    image?: ThreadFSImage | null;
     status: string;
     community_user?: ThreadFSCommentUser | null;
   } | null;
@@ -245,6 +262,7 @@ export type AdminOverview = {
   rules_url?: string | null;
   /** KLIPY's app key, which turns GIFs on. Public: the widget searches with it. */
   klipy_app_key?: string | null;
+  image_hosts?: string[];
   origins: string[];
   staff: StaffActivity[];
 };
@@ -262,6 +280,7 @@ export type ModerationAction = {
     id: number;
     content: string;
     gif?: ThreadFSGif | null;
+    image?: ThreadFSImage | null;
     status: string;
   } | null;
   thread?: ThreadFSThread | null;

@@ -5,6 +5,7 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 
+import { isAllowedImage, useImageHosts } from "@/lib/imageHosts";
 import { cn } from "@/lib/utils";
 import { preprocessRedditMarkdown } from "./markdownUtils";
 
@@ -25,10 +26,8 @@ const markdownSchema = {
       "rel",
     ],
     img: [...(defaultSchema.attributes?.img ?? []), "alt", "title"],
-    // GFM table alignment is emitted as inline style by remark-gfm; scope
-    // the allowance to table cells only, not the whole document.
-    th: [...(defaultSchema.attributes?.th ?? []), "style"],
-    td: [...(defaultSchema.attributes?.td ?? []), "style"],
+    // No style anywhere, table cells included: a style can load an image (background: url(...)). Column alignment
+    // needs none, as remark-gfm sets it with align, which react-markdown turns into a style after this.
   },
 };
 
@@ -57,6 +56,51 @@ function SpoilerSpan({ children }: { children?: ReactNode }) {
     >
       {children}
     </span>
+  );
+}
+
+/**
+ * An image in comment text: shown if it's from one of the community's image hosts, else a link to it, so nothing loads
+ * until someone chooses to open it (lib/imageHosts.ts).
+ */
+function CommentImage({
+  src,
+  alt,
+  title,
+}: {
+  src?: string;
+  alt?: string;
+  title?: string;
+}) {
+  const hosts = useImageHosts();
+
+  if (isAllowedImage(src, hosts)) {
+    return (
+      <img
+        src={src}
+        alt={alt ?? ""}
+        title={title}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        className="my-2 max-h-100 max-w-full rounded-lg"
+      />
+    );
+  }
+
+  const label = alt?.trim() || "image";
+  if (!src || !/^https?:\/\//i.test(src)) return <>{label}</>;
+
+  return (
+    <a
+      href={src}
+      title={title}
+      target="_blank"
+      rel="noreferrer noopener nofollow ugc"
+      className="text-tfs-brand-strong dark:hover:text-tfs-brand underline"
+    >
+      {label}
+    </a>
   );
 }
 
@@ -110,12 +154,11 @@ export function MarkdownContent({ markdown }: { markdown: string }) {
         ol: ({ node, ...props }) => (
           <ol className="list-outside list-decimal pl-6" {...props} />
         ),
-        img: ({ node, alt, ...props }) => (
-          <img
-            alt={alt ?? ""}
-            loading="lazy"
-            className="my-2 max-h-100 max-w-full rounded-lg"
-            {...props}
+        img: ({ node, alt, src, title }) => (
+          <CommentImage
+            src={typeof src === "string" ? src : undefined}
+            alt={alt}
+            title={title}
           />
         ),
         table: ({ node, ...props }) => (

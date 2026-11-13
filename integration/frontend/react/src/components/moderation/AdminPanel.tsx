@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import {
   getAdminOverview,
   updateLimits,
+  updateImageHosts,
   updateKlipyAppKey,
   updateRulesUrl,
 } from "../../lib/moderationApi";
@@ -239,6 +240,89 @@ function RulesForm({
   );
 }
 
+// Which hosts' images show in comment text; images from anywhere else show as links
+function ImageHostsForm({
+  overview,
+  onSaved,
+}: {
+  overview: AdminOverview;
+  onSaved: (overview: AdminOverview) => void;
+}) {
+  const { request, refresh } = useModeration();
+  const [text, setText] = useState((overview.image_hosts ?? []).join("\n"));
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const hosts = text
+    .split(/[\s,]+/)
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+  // Hostnames only, as the server checks: no https://, path, port or wildcard
+  const invalid = hosts.filter(
+    (host) =>
+      !/^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(host),
+  );
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+
+    try {
+      setIsSaving(true);
+      setError(null);
+      const saved = await request((ctx) => updateImageHosts(ctx, hosts));
+      onSaved(saved);
+      setText((saved.image_hosts ?? []).join("\n"));
+      setIsSaved(true);
+      refresh();
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Failed to save"));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={(event) => void save(event)} className="space-y-3">
+      {error && <ErrorNote>{error}</ErrorNote>}
+      <Card className="p-3">
+        <label className="space-y-1 text-sm">
+          <span>One hostname a line</span>
+          <textarea
+            rows={3}
+            spellCheck={false}
+            autoComplete="off"
+            placeholder="i.imgur.com"
+            value={text}
+            onChange={(event) => {
+              setText(event.target.value);
+              setIsSaved(false);
+            }}
+            className="border-input dark:bg-input/30 focus-visible:border-ring focus-visible:ring-ring/50 w-full rounded-lg border bg-transparent px-2.5 py-1.5 font-mono text-sm outline-none focus-visible:ring-3"
+          />
+        </label>
+      </Card>
+      <div className="flex items-center gap-2">
+        {invalid.length > 0 && (
+          <span className="text-muted-foreground text-sm">
+            {`Not a hostname: ${invalid.join(", ")}`}
+          </span>
+        )}
+        {isSaved && (
+          <span className="text-muted-foreground text-sm">Saved</span>
+        )}
+        <Button
+          type="submit"
+          disabled={invalid.length > 0 || isSaving}
+          className={`ml-auto ${brandButtonClass}`}
+        >
+          {isSaving ? "Saving..." : "Save"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 // GIFs in the comment box, from KLIPY: on with an app key, off without
 function GifsForm({
   overview,
@@ -381,6 +465,15 @@ export function AdminPanel() {
           it. Test keys allow 100 searches an hour.
         </Heading>
         <GifsForm overview={overview} onSaved={setOverview} />
+      </section>
+
+      <section className="space-y-3">
+        <Heading title="Image hosts">
+          Images in comments show only from these sites; from anywhere else
+          they show as links, so nothing loads until someone opens one. Exact
+          hostnames, like i.imgur.com. Empty, images only show as links.
+        </Heading>
+        <ImageHostsForm overview={overview} onSaved={setOverview} />
       </section>
 
       <section>

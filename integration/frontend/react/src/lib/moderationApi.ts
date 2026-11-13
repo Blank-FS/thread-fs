@@ -250,6 +250,15 @@ export const updateLimits = (
     max_daily_batch_changes: limits.maxDailyBatchChanges,
   });
 
+/** Which hosts' images show in comment text; empty for none. */
+export const updateImageHosts = (
+  ctx: ThreadFSRequestContext,
+  imageHosts: string[],
+) =>
+  send<AdminOverview>("PUT", ctx, "/admin/image-hosts", {
+    image_hosts: imageHosts,
+  });
+
 /** Turns GIFs on with a KLIPY app key; empty turns them off. */
 export const updateKlipyAppKey = (
   ctx: ThreadFSRequestContext,
