@@ -32,7 +32,7 @@ import { RulesUrlContext } from "../lib/rulesContext";
 import { cn } from "../lib/utils";
 import CommentActionsMenu from "./card/CommentActionsMenu";
 import CommentShareMenu from "./card/CommentShareMenu";
-import CommentTimestamp from "./card/CommentTimestamp";
+import CommentTimestamp, { EditedMarker } from "./card/CommentTimestamp";
 import ReportDetailsForm from "./card/ReportDetailsForm";
 import { OTHER_REASON } from "./moderation/shared";
 import { CommentMediaView, mediaOf } from "./card/CommentMedia";
@@ -524,6 +524,9 @@ export function ThreadFSMyComments({
                     )}
                     <span aria-hidden>·</span>
                     <CommentTimestamp value={comment.created_at} />
+                    {comment.edited_at && !isDeleted && (
+                      <EditedMarker value={comment.edited_at} />
+                    )}
                   </p>
 
                   {isDeleted ? (

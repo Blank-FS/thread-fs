@@ -32,7 +32,7 @@ import { Badge } from "../ui/badge";
 import AvatarFrame from "./AvatarFrame";
 import CommentActionsMenu from "./CommentActionsMenu";
 import CommentShareMenu from "./CommentShareMenu";
-import CommentTimestamp from "./CommentTimestamp";
+import CommentTimestamp, { EditedMarker } from "./CommentTimestamp";
 import RemovalNote, { REMOVED_CONTENT_CLASS } from "./RemovalNote";
 import RemoveCommentForm from "./RemoveCommentForm";
 import ReportDetailsForm from "./ReportDetailsForm";
@@ -394,8 +394,8 @@ function CommentCard({
 
               {isOwnComment && <Badge>You</Badge>}
               <CommentTimestamp value={comment.created_at} />
-              {comment.edited_at && comment.status === "visible" && (
-                <span className="text-muted-foreground text-xs">(edited)</span>
+              {comment.edited_at && comment.status !== "deleted" && (
+                <EditedMarker value={comment.edited_at} />
               )}
             </div>
 

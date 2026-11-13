@@ -1,4 +1,5 @@
 import React from "react";
+import { cn } from "../../lib/utils";
 
 function CommentTimestamp({ value }: { value: string }) {
   const date = new Date(value);
@@ -19,6 +20,25 @@ function CommentTimestamp({ value }: { value: string }) {
 }
 
 export default CommentTimestamp;
+
+// "(edited)", saying when on hover, like the time beside it
+export function EditedMarker({ value }: { value: string }) {
+  const date = new Date(value);
+  const valid = !Number.isNaN(date.getTime());
+
+  return (
+    <span
+      title={
+        valid
+          ? `Edited ${formatRelativeTime(date)}, ${formatExactTime(date)}`
+          : undefined
+      }
+      className={cn("text-muted-foreground text-xs", valid && "cursor-help")}
+    >
+      (edited)
+    </span>
+  );
+}
 
 // Helper functions
 const RELATIVE_TIME_FORMATTER = new Intl.RelativeTimeFormat("en", {
