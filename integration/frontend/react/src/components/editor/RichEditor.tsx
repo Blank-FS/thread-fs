@@ -202,7 +202,11 @@ const RichEditor = ({
             <RichTextPlugin
               contentEditable={
                 <ContentEditable
-                  className="break-word max-h-64 min-h-8 w-full overflow-y-auto p-1 text-base text-wrap focus:outline-none"
+                  // Two lines once the box is open, so it reads as somewhere to write; one while it's closed
+                  className={cn(
+                    "break-word max-h-64 w-full overflow-y-auto p-1 text-base text-wrap focus:outline-none",
+                    showControls ? "min-h-14" : "min-h-8",
+                  )}
                   ariaLabel={placeholder}
                   aria-placeholder={placeholder}
                   placeholder={
@@ -226,7 +230,10 @@ const RichEditor = ({
               }
               placeholder={placeholder}
               aria-label={placeholder}
-              className="break-word field-sizing-content max-h-64 min-h-8 w-full overflow-y-auto p-1 font-mono text-base text-wrap focus:outline-none"
+              className={cn(
+                "break-word field-sizing-content max-h-64 w-full overflow-y-auto p-1 font-mono text-base text-wrap focus:outline-none",
+                showControls ? "min-h-14" : "min-h-8",
+              )}
             />
           )}
 
@@ -250,6 +257,8 @@ const RichEditor = ({
               <button
                 type="button"
                 disabled={disabled}
+                // Clicking it leaves the cursor in the text, so you can carry on typing
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setIsToolbarVisible((value) => !value)}
                 aria-label={
                   isToolbarVisible ? "Hide formatting" : "Show formatting"

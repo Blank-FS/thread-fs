@@ -301,9 +301,9 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
               editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold");
             }}
             className={cn(
-              "hover:bg-primary/20 flex size-8 items-center justify-center rounded-lg",
+              "text-muted-foreground hover:bg-primary/20 hover:text-foreground flex size-8 items-center justify-center rounded-lg hover:cursor-pointer",
               isBold &&
-                "active bg-primary text-primary-foreground hover:bg-primary",
+                "active bg-primary/20 text-foreground",
             )}
             aria-label="Format Bold"
           >
@@ -325,9 +325,9 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
               editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic");
             }}
             className={cn(
-              "hover:bg-primary/20 flex size-8 items-center justify-center rounded-lg",
+              "text-muted-foreground hover:bg-primary/20 hover:text-foreground flex size-8 items-center justify-center rounded-lg hover:cursor-pointer",
               isItalic &&
-                "active bg-primary text-primary-foreground hover:bg-primary",
+                "active bg-primary/20 text-foreground",
             )}
             aria-label="Format Italics"
           >
@@ -349,9 +349,9 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
               editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline");
             }}
             className={cn(
-              "hover:bg-primary/20 flex size-8 items-center justify-center rounded-lg",
+              "text-muted-foreground hover:bg-primary/20 hover:text-foreground flex size-8 items-center justify-center rounded-lg hover:cursor-pointer",
               isUnderline &&
-                "active bg-primary text-primary-foreground hover:bg-primary",
+                "active bg-primary/20 text-foreground",
             )}
             aria-label="Format Underline"
           >
@@ -373,9 +373,9 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
               editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough");
             }}
             className={cn(
-              "hover:bg-primary/20 flex size-8 items-center justify-center rounded-lg",
+              "text-muted-foreground hover:bg-primary/20 hover:text-foreground flex size-8 items-center justify-center rounded-lg hover:cursor-pointer",
               isStrikethrough &&
-                "active bg-primary text-primary-foreground hover:bg-primary",
+                "active bg-primary/20 text-foreground",
             )}
             aria-label="Format Strikethrough"
           >
@@ -399,9 +399,9 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
               editor.dispatchCommand(FORMAT_TEXT_COMMAND, "highlight");
             }}
             className={cn(
-              "hover:bg-primary/20 flex size-8 items-center justify-center rounded-lg",
+              "text-muted-foreground hover:bg-primary/20 hover:text-foreground flex size-8 items-center justify-center rounded-lg hover:cursor-pointer",
               isSpoiler &&
-                "active bg-primary text-primary-foreground hover:bg-primary",
+                "active bg-primary/20 text-foreground",
             )}
             aria-label="Format Spoiler"
           >
@@ -432,9 +432,9 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
               });
             }}
             className={cn(
-              "hover:bg-primary/20 flex size-8 items-center justify-center rounded-lg",
+              "text-muted-foreground hover:bg-primary/20 hover:text-foreground flex size-8 items-center justify-center rounded-lg hover:cursor-pointer",
               isQuote &&
-                "active bg-primary text-primary-foreground hover:bg-primary",
+                "active bg-primary/20 text-foreground",
             )}
             aria-label="Format Quote"
           >
@@ -467,9 +467,9 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
               });
             }}
             className={cn(
-              "hover:bg-primary/20 flex size-8 items-center justify-center rounded-lg",
+              "text-muted-foreground hover:bg-primary/20 hover:text-foreground flex size-8 items-center justify-center rounded-lg hover:cursor-pointer",
               isHeading &&
-                "active bg-primary text-primary-foreground hover:bg-primary",
+                "active bg-primary/20 text-foreground",
             )}
             aria-label="Format Heading"
           >
@@ -498,9 +498,9 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
               );
             }}
             className={cn(
-              "hover:bg-primary/20 flex size-8 items-center justify-center rounded-lg",
+              "text-muted-foreground hover:bg-primary/20 hover:text-foreground flex size-8 items-center justify-center rounded-lg hover:cursor-pointer",
               isBulletList &&
-                "active bg-primary text-primary-foreground hover:bg-primary",
+                "active bg-primary/20 text-foreground",
             )}
             aria-label="Format Bullet List"
           >
@@ -527,9 +527,9 @@ const ToolbarPlugin = ({ disabled = false }: { disabled?: boolean }) => {
               );
             }}
             className={cn(
-              "hover:bg-primary/20 flex size-8 items-center justify-center rounded-lg",
+              "text-muted-foreground hover:bg-primary/20 hover:text-foreground flex size-8 items-center justify-center rounded-lg hover:cursor-pointer",
               isNumberList &&
-                "active bg-primary text-primary-foreground hover:bg-primary",
+                "active bg-primary/20 text-foreground",
             )}
             aria-label="Format Number List"
           >
