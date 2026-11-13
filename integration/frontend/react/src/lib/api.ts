@@ -105,6 +105,9 @@ export async function listThreadComments(
     pageSize?: number;
     offset?: number;
     sort?: CommentSort;
+    /** Top-level lists only: how many of each comment's direct replies come with it (0 to 5); left out, the
+     * community's setting. */
+    replyPreview?: number;
   },
 ): Promise<PageResponse<ThreadFSComment>> {
   const apiBaseUrl = normalizeApiBaseUrl(ctx.apiBaseUrl);
@@ -121,6 +124,10 @@ export async function listThreadComments(
 
   if (params.sort) {
     searchParams.set("sort", params.sort);
+  }
+
+  if (params.replyPreview != null) {
+    searchParams.set("reply_preview", String(params.replyPreview));
   }
 
   const res = await fetch(

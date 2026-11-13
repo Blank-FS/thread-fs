@@ -73,6 +73,11 @@ export type ThreadFSCommentsProps = {
   title?: string;
   className?: string;
   pageSize?: number;
+  /**
+   * How many replies show under each top-level comment before "N more replies": 0 hides them all, 1 previews the best
+   * one, more for a fuller conversation. The best first, at most 5. Left out, the community's own setting applies.
+   */
+  replyPreview?: number;
 };
 
 export function ThreadFSComments({
@@ -89,6 +94,7 @@ export function ThreadFSComments({
   title = "Discussion",
   className,
   pageSize = 10,
+  replyPreview,
 }: ThreadFSCommentsProps) {
   const [comments, setComments] = useState<ThreadFSComment[]>([]);
   const [topLevelSort, setTopLevelSort] = useState<CommentSort>("latest");
@@ -221,6 +227,7 @@ export function ThreadFSComments({
         const page = await listThreadComments(authedRequestContext, {
           threadId,
           pageSize,
+          replyPreview,
           sort: topLevelSort,
         });
 
@@ -288,6 +295,7 @@ export function ThreadFSComments({
     communityKey,
     threadId,
     pageSize,
+    replyPreview,
     resolveAuthToken,
     focusCommentId,
   ]);
@@ -347,6 +355,7 @@ export function ThreadFSComments({
         listThreadComments(ctx, {
           threadId,
           pageSize,
+          replyPreview,
           sort: nextSort,
         }),
       );
@@ -373,6 +382,7 @@ export function ThreadFSComments({
       const page = await listThreadComments(requestContext, {
         threadId,
         pageSize,
+        replyPreview,
         offset: topLevelNextOffset,
         sort: topLevelSort,
       });
