@@ -754,6 +754,7 @@ async def get_admin_overview(session: AsyncSession, *, community: Community) -> 
         "max_batch_size": community.max_batch_size,
         "max_daily_batch_changes": community.max_daily_batch_changes,
         "rules_url": community.rules_url,
+        "reply_preview": community.reply_preview,
         "klipy_app_key": community.klipy_app_key,
         "image_hosts": community.image_hosts or [],
         "origins": list(origins.scalars().all()),
@@ -804,6 +805,23 @@ async def update_rules_url(
 
     community.rules_url = rules_url
     _log(session, community, moderator, "update_rules", reason=rules_url or "cleared")
+    await session.commit()
+
+
+async def update_reply_preview(
+    session: AsyncSession,
+    *,
+    community: Community,
+    moderator: CommunityUser,
+    reply_preview: int,
+) -> None:
+    """How many replies show under each top-level comment, for widgets that don't choose. Logged."""
+    if reply_preview == community.reply_preview:
+        return
+
+    before = community.reply_preview
+    community.reply_preview = reply_preview
+    _log(session, community, moderator, "update_reply_preview", reason=f"{before} → {reply_preview}")
     await session.commit()
 
 

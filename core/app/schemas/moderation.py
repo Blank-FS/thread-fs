@@ -153,6 +153,7 @@ class AdminOverviewRead(BaseModel):
     max_batch_size: int
     max_daily_batch_changes: int
     rules_url: str | None = None
+    reply_preview: int = 0
     # Public by design (the widget searches with it), so admins may see it
     klipy_app_key: str | None = None
     image_hosts: list[str] = []
@@ -182,6 +183,11 @@ class RulesRequest(BaseModel):
             raise ValueError("The rules link must be a web address (https://...)")
         self.rules_url = url or None
         return self
+
+
+class ReplyPreviewRequest(BaseModel):
+    # How many replies show under each top-level comment; 0 for none
+    reply_preview: int = Field(ge=0, le=5)
 
 
 class GifsRequest(BaseModel):

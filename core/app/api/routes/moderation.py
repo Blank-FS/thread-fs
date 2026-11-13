@@ -20,6 +20,7 @@ from app.schemas.moderation import (
     BatchResult,
     ClearImagesRequest,
     LimitsRequest,
+    ReplyPreviewRequest,
     RulesRequest,
     GifsRequest,
     ImageHostsRequest,
@@ -207,6 +208,21 @@ async def update_rules(
         community=context[0],
         moderator=context[1],
         rules_url=payload.rules_url,
+    )
+    return await moderation_service.get_admin_overview(session, community=context[0])
+
+
+@router.put("/admin/reply-preview", response_model=AdminOverviewRead)
+async def update_reply_preview(
+    payload: ReplyPreviewRequest,
+    session: AsyncSession = Depends(get_async_session),
+    context: Moderator = Depends(require_admin),
+):
+    await moderation_service.update_reply_preview(
+        session,
+        community=context[0],
+        moderator=context[1],
+        reply_preview=payload.reply_preview,
     )
     return await moderation_service.get_admin_overview(session, community=context[0])
 

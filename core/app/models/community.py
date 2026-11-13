@@ -38,6 +38,9 @@ class Community(Base):
     max_daily_batch_changes = Column(Integer, nullable=False, default=200, server_default="200")
     # The community's full comment rules, on its own site: the widget's Rules button links there. Set by admins.
     rules_url = Column(String(2048), nullable=True)
+    # How many of each top-level comment's replies show with it before "N more replies" (0 for none), when the widget
+    # doesn't ask for its own number. Set by admins.
+    reply_preview = Column(Integer, nullable=False, default=0, server_default="0")
     # KLIPY's app key (app.core.gifs): with one, the comment box offers GIFs. Public, as KLIPY has the reader's browser
     # search with it; its content rating is set on KLIPY's Partner Panel. Set by admins, or with app.scripts.set_gifs.
     klipy_app_key = Column(String(255), nullable=True)
