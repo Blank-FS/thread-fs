@@ -26,6 +26,7 @@ import { GifConfigContext } from "../lib/gifs";
 import { ImageHostsContext } from "../lib/imageHosts";
 import { RulesUrlContext } from "../lib/rulesContext";
 import { continueDepthFor } from "../lib/threadDepth";
+import { useLatest } from "../lib/useLatest";
 import {
   CommentSort,
   PageResponse,
@@ -147,11 +148,13 @@ export function ThreadFSComments({
       }
     : null;
 
+  // The host's latest getAuthToken, without a new copy of it reloading the comments (lib/useLatest.ts)
+  const getAuthTokenRef = useLatest(getAuthToken);
   const resolveAuthToken = useCallback(async (): Promise<string | null> => {
-    const token = (await getAuthToken?.()) ?? null;
+    const token = (await getAuthTokenRef.current?.()) ?? null;
     setResolvedAuthToken(token);
     return token;
-  }, [getAuthToken]);
+  }, [getAuthTokenRef]);
 
   const requestContext = useMemo(
     () => ({

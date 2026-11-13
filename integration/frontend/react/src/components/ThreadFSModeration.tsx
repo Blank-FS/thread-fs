@@ -20,6 +20,7 @@ import type {
   ThreadFSRequestContext,
   ThreadFSThread,
 } from "../lib/types";
+import { useLatest } from "../lib/useLatest";
 import { cn } from "../lib/utils";
 import { AdminPanel } from "./moderation/AdminPanel";
 import {
@@ -108,10 +109,13 @@ export function ThreadFSModeration({
     [apiBaseUrl, communityKey],
   );
 
+  // The host's latest getAuthToken, without a new copy of it reloading the panel (lib/useLatest.ts)
+  const getAuthTokenRef = useLatest(getAuthToken);
   const refreshToken = useCallback(async () => {
-    token.current = getAuthToken ? await getAuthToken() : (authToken ?? null);
+    const getToken = getAuthTokenRef.current;
+    token.current = getToken ? await getToken() : (authToken ?? null);
     return token.current;
-  }, [authToken, getAuthToken]);
+  }, [authToken, getAuthTokenRef]);
 
   // Moderators leave this page open for longer than a token lasts
   const request = useCallback<ModerationRequest>(

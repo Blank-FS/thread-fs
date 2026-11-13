@@ -21,6 +21,7 @@ import {
   type CommentMedia,
 } from "../lib/types";
 import { linkToComment } from "../lib/commentLinks";
+import { useLatest } from "../lib/useLatest";
 import { ImageHostsContext } from "../lib/imageHosts";
 import { cn } from "../lib/utils";
 import CommentTimestamp from "./card/CommentTimestamp";
@@ -93,21 +94,24 @@ export function ThreadFSMyComments({
       }
     : null;
 
+  // The host's latest getAuthToken, without a new copy of it reloading the list (lib/useLatest.ts)
+  const getAuthTokenRef = useLatest(getAuthToken);
   const resolveAuthToken = useCallback(async (): Promise<string | null> => {
     if (authToken) {
       setResolvedAuthToken(authToken);
       return authToken;
     }
 
-    if (!getAuthToken) {
+    const getToken = getAuthTokenRef.current;
+    if (!getToken) {
       setResolvedAuthToken(null);
       return null;
     }
 
-    const token = await getAuthToken();
+    const token = await getToken();
     setResolvedAuthToken(token);
     return token;
-  }, [authToken, getAuthToken]);
+  }, [authToken, getAuthTokenRef]);
 
   const requestContext = useMemo<ThreadFSRequestContext>(
     () => ({
@@ -200,11 +204,12 @@ export function ThreadFSMyComments({
   ]);
 
   async function refreshAuthToken(): Promise<string | null> {
-    if (!getAuthToken) {
+    const getToken = getAuthTokenRef.current;
+    if (!getToken) {
       return authToken ?? resolvedAuthToken;
     }
 
-    const token = await getAuthToken();
+    const token = await getToken();
     setResolvedAuthToken(token);
     return token;
   }
