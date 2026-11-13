@@ -9,7 +9,7 @@ import {
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getEmbedMe } from "../lib/api";
+import { getEmbedConfig, getEmbedMe } from "../lib/api";
 import { ThreadFSApiError } from "../lib/errors";
 import { listReasons, listReports } from "../lib/moderationApi";
 import type {
@@ -20,6 +20,7 @@ import type {
   ThreadFSRequestContext,
   ThreadFSThread,
 } from "../lib/types";
+import { ImageHostsContext } from "../lib/imageHosts";
 import { useLatest } from "../lib/useLatest";
 import { cn } from "../lib/utils";
 import { AdminPanel } from "./moderation/AdminPanel";
@@ -99,6 +100,20 @@ export function ThreadFSModeration({
   const [version, setVersion] = useState(0);
   const [openReports, setOpenReports] = useState<number | null>(null);
   const token = useRef<string | null>(authToken ?? null);
+
+  // The community's image hosts, from its config (lib/imageHosts.ts); none, so every image a link, until it loads
+  const [imageHosts, setImageHosts] = useState<string[]>([]);
+  useEffect(() => {
+    let isCurrent = true;
+    getEmbedConfig({ apiBaseUrl, communityKey, authToken: null })
+      .then((config) => {
+        if (isCurrent) setImageHosts(config.image_hosts ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      isCurrent = false;
+    };
+  }, [apiBaseUrl, communityKey]);
 
   const context = useCallback(
     (): ThreadFSRequestContext => ({
@@ -221,7 +236,7 @@ export function ThreadFSModeration({
     ],
   );
 
-  return (
+  const view = (
     <TooltipProvider>
       <section
         className={cn(
@@ -329,5 +344,12 @@ export function ThreadFSModeration({
         )}
       </section>
     </TooltipProvider>
+  );
+
+  // Comments here show images as readers see them: inline from the community's image hosts, links from anywhere else
+  return (
+    <ImageHostsContext.Provider value={imageHosts}>
+      {view}
+    </ImageHostsContext.Provider>
   );
 }
