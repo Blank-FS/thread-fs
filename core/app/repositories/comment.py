@@ -78,6 +78,66 @@ async def list_comments(
     return list(result.scalars().all())
 
 
+async def list_reply_previews(
+    session: AsyncSession,
+    *,
+    parent_comment_ids: list[int],
+    per_parent: int,
+) -> list[Comment]:
+    """The best few direct replies of each comment, in one query: highest score first, then the first posted. Visible
+    ones only, since a removed or deleted reply isn't worth previewing."""
+    if not parent_comment_ids or per_parent <= 0:
+        return []
+
+    score = Comment.upvote_count - Comment.downvote_count
+    ranked = (
+        select(
+            Comment.id.label("id"),
+            func.row_number()
+            .over(
+                partition_by=Comment.parent_comment_id,
+                order_by=(score.desc(), Comment.created_at.asc(), Comment.id.asc()),
+            )
+            .label("rank"),
+        )
+        .where(
+            Comment.parent_comment_id.in_(parent_comment_ids),
+            Comment.status == "visible",
+        )
+        .subquery()
+    )
+    result = await session.execute(
+        select(Comment)
+        .join(ranked, ranked.c.id == Comment.id)
+        .where(ranked.c.rank <= per_parent)
+        .options(selectinload(Comment.community_user))
+        .order_by(Comment.parent_comment_id, ranked.c.rank)
+    )
+
+    return list(result.scalars().all())
+
+
+async def count_direct_replies(
+    session: AsyncSession,
+    *,
+    parent_comment_ids: list[int],
+) -> dict[int, int]:
+    """How many direct replies each comment has, as count_comments counts them, in one query."""
+    if not parent_comment_ids:
+        return {}
+
+    result = await session.execute(
+        select(Comment.parent_comment_id, func.count(Comment.id))
+        .where(
+            Comment.parent_comment_id.in_(parent_comment_ids),
+            Comment.status.in_(THREAD_STATUSES),
+        )
+        .group_by(Comment.parent_comment_id)
+    )
+
+    return {parent_id: int(count) for parent_id, count in result.all()}
+
+
 async def count_comments_by_community_user(
     session: AsyncSession,
     *,

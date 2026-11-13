@@ -119,13 +119,17 @@ async def resolve_embed_thread(
     )
 
 
-@router.get("/comments", response_model=PageResponse[CommentRead])
+@router.get("/comments", response_model=PageResponse[CommentTreeRead])
 async def list_embed_comments(
     thread_id: str = Query(min_length=1, max_length=512),
     parent_comment_id: int | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     sort: Literal["latest", "oldest", "top"] | None = Query(default=None),
+    # Top-level lists only: how many of each comment's direct replies come with it (0 for none, the replies loading
+    # on request), the community's own setting when left out. The best first; the rest load from offset 0 as usual,
+    # skipping the ones already shown.
+    reply_preview: int | None = Query(default=None, ge=0, le=5),
     session: AsyncSession = Depends(get_async_session),
     community: Community = Depends(limit_read_comments),
     community_user: CommunityUser | None = Depends(get_optional_current_community_user),
@@ -144,7 +148,7 @@ async def list_embed_comments(
 
     # Important: read should not create a thread.
     if not thread:
-        return PageResponse[CommentRead](
+        return PageResponse[CommentTreeRead](
             items=[],
             limit=limit,
             offset=offset,
@@ -194,20 +198,58 @@ async def list_embed_comments(
         sort=effective_sort,
     )
 
+    # Replies to preview, for the comments that have any
+    previews: dict[int, list] = {}
+    reply_totals: dict[int, int] = {}
+    if reply_preview is None:
+        reply_preview = community.reply_preview
+    if parent_comment_id is None and reply_preview > 0:
+        with_replies = [comment.id for comment in comments if comment.reply_count > 0]
+        reply_totals = await comment_repo.count_direct_replies(session, parent_comment_ids=with_replies)
+        for reply in await comment_repo.list_reply_previews(
+            session,
+            parent_comment_ids=with_replies,
+            per_parent=reply_preview,
+        ):
+            previews.setdefault(reply.parent_comment_id, []).append(reply)
+    preview_replies = [reply for replies in previews.values() for reply in replies]
+
     if community_user and comments:
         vote_map = await vote_repo.list_votes_for_comments(
             session,
-            comment_ids=[comment.id for comment in comments],
+            comment_ids=[comment.id for comment in comments + preview_replies],
             community_user_id=community_user.id,
         )
-        for comment in comments:
+        for comment in comments + preview_replies:
             comment.viewer_vote = vote_map.get(comment.id)
 
     next_offset = offset + len(comments)
     has_more = next_offset < total
 
-    return PageResponse[CommentRead](
-        items=comment_service.present_comments(comments, community_user),
+    items = []
+    for presented in comment_service.present_comments(comments, community_user):
+        replies = previews.get(presented.id, [])
+        if not replies:
+            items.append(CommentTreeRead(**presented.model_dump()))
+            continue
+        total_replies = reply_totals.get(presented.id, len(replies))
+        has_more_replies = len(replies) < total_replies
+        items.append(
+            CommentTreeRead(
+                **presented.model_dump(),
+                replies=[
+                    CommentTreeRead(**reply.model_dump())
+                    for reply in comment_service.present_comments(replies, community_user)
+                ],
+                # The rest load from the start (oldest first, as replies are listed), skipping the ones shown
+                replies_next_offset=0 if has_more_replies else None,
+                replies_has_more=has_more_replies,
+                replies_total=total_replies,
+            )
+        )
+
+    return PageResponse[CommentTreeRead](
+        items=items,
         limit=limit,
         offset=offset,
         next_offset=next_offset if has_more else None,

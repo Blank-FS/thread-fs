@@ -265,6 +265,12 @@ GET /api/v1/embed/comments?thread_id=demo-thread&limit=20&offset=0&sort=latest
 
 Top-level comments default to latest sorting.
 
+`reply_preview` (0 to 5) brings that many of each top-level comment's direct replies along with it, in its
+`replies`: the highest scored first, then the first posted, visible ones only. A comment with more says so
+(`replies_has_more`, `replies_next_offset` 0, `replies_total`), so the rest load with the usual replies listing,
+skipping the ones already shown. 0 leaves every reply to load on request. Left out, the community's own setting
+applies (0 for a new community), which admins change in the Admin panel or with `PUT /api/v1/moderation/admin/reply-preview`.
+
 Replies:
 
 ```http
