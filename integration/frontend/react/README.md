@@ -119,6 +119,7 @@ type ThreadFSCommentsProps = {
   title?: string;
   className?: string;
   pageSize?: number;
+  replyPreview?: number;
 
   onAuthRequired?: () => void;
   authorProfileUrl?: (user: ThreadFSCommentUser) => string | null;
@@ -208,6 +209,14 @@ authorProfileUrl={(user) =>
 ```
 
 Return `null` if the author should not be linked.
+
+### `replyPreview`
+
+How many replies show under each top-level comment before **N more replies**. Left out, the community's own setting
+applies, which its admins choose in the Admin panel (0 for a new community). `0` hides them all until asked for, which
+suits threads that are mostly one-off comments. `1` shows the best reply under each, and more give
+a fuller conversation, up to `5`. The best is the highest scored, then the first posted. Opening the rest loads them in
+their usual order, without repeating the ones already shown.
 
 ### Links to a comment: `focusCommentId`, `commentUrl`
 
@@ -414,4 +423,4 @@ POST /api/v1/moderation/users/clear-images
 
 Bulk actions are limited for moderators, by default to 50 comments at once and 200 a day. Clearing out one regular user's comments isn't limited, and admins have no limit. Each batch is one line in the log, where an admin can undo it, which puts back what it changed, including removal reasons.
 
-An `admin` token also gets an Admin panel: staff activity, the moderator limits, the community's reasons and its allowed origins. Keys and allowed origins are changed from the server, with `setup_community`, never from a browser.
+An `admin` token also gets an Admin panel: staff activity, the moderator limits, the community's reasons, how many replies show under each comment and its allowed origins. Keys and allowed origins are changed from the server, with `setup_community`, never from a browser.

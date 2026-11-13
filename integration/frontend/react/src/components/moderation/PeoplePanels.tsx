@@ -356,6 +356,8 @@ function ActionText({ action, target, batch }: ModerationAction) {
       return <>changed the moderator limits</>;
     case "update_rules":
       return <>changed the comment rules link</>;
+    case "update_reply_preview":
+      return <>changed how many replies show</>;
     case "update_gifs":
       return <>changed the GIF settings</>;
     case "update_image_hosts":

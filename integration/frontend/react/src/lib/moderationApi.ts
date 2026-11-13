@@ -272,6 +272,15 @@ export const updateKlipyAppKey = (
 export const updateRulesUrl = (ctx: ThreadFSRequestContext, rulesUrl: string) =>
   send<AdminOverview>("PUT", ctx, "/admin/rules", { rules_url: rulesUrl });
 
+/** How many replies show under each top-level comment (0 to 5), for widgets that don't choose. */
+export const updateReplyPreview = (
+  ctx: ThreadFSRequestContext,
+  replyPreview: number,
+) =>
+  send<AdminOverview>("PUT", ctx, "/admin/reply-preview", {
+    reply_preview: replyPreview,
+  });
+
 export const undoBatch = (ctx: ThreadFSRequestContext, batchId: string) =>
   post<{ changed: number; skipped: number }>(
     ctx,

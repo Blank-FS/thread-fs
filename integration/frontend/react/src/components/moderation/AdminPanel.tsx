@@ -4,6 +4,7 @@ import {
   updateLimits,
   updateImageHosts,
   updateKlipyAppKey,
+  updateReplyPreview,
   updateRulesUrl,
 } from "../../lib/moderationApi";
 import type { AdminOverview, StaffActivity } from "../../lib/types";
@@ -16,6 +17,7 @@ import { Separator } from "../ui/separator";
 import { SettingsPanel } from "./SettingsPanel";
 import {
   brandButtonClass,
+  ChoiceSelect,
   errorMessage,
   ErrorNote,
   ListSkeleton,
@@ -240,6 +242,78 @@ function RulesForm({
   );
 }
 
+const REPLY_PREVIEW_OPTIONS = [
+  { value: "0", label: "None: replies open when asked for" },
+  { value: "1", label: "The best reply" },
+  ...[2, 3, 4, 5].map((count) => ({
+    value: String(count),
+    label: `The best ${count} replies`,
+  })),
+];
+
+// How many replies show under each top-level comment, in widgets that don't choose for themselves
+function ReplyPreviewForm({
+  overview,
+  onSaved,
+}: {
+  overview: AdminOverview;
+  onSaved: (overview: AdminOverview) => void;
+}) {
+  const { request, refresh } = useModeration();
+  const [value, setValue] = useState(String(overview.reply_preview ?? 0));
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+
+    try {
+      setIsSaving(true);
+      setError(null);
+      onSaved(await request((ctx) => updateReplyPreview(ctx, Number(value))));
+      setIsSaved(true);
+      refresh();
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Failed to save"));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={(event) => void save(event)} className="space-y-3">
+      {error && <ErrorNote>{error}</ErrorNote>}
+      <Card className="p-3">
+        <div className="space-y-1 text-sm">
+          <span>Under each comment</span>
+          <ChoiceSelect
+            label="Replies under each comment"
+            value={value}
+            options={REPLY_PREVIEW_OPTIONS}
+            onChange={(next) => {
+              setValue(next);
+              setIsSaved(false);
+            }}
+          />
+        </div>
+      </Card>
+      <div className="flex items-center gap-2">
+        {isSaved && (
+          <span className="text-muted-foreground text-sm">Saved</span>
+        )}
+        <Button
+          type="submit"
+          disabled={isSaving}
+          className={`ml-auto ${brandButtonClass}`}
+        >
+          {isSaving ? "Saving..." : "Save"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 // Which hosts' images show in comment text; images from anywhere else show as links
 function ImageHostsForm({
   overview,
@@ -455,6 +529,16 @@ export function AdminPanel() {
           Rules button links to it. Leave it empty for a short default instead.
         </Heading>
         <RulesForm overview={overview} onSaved={setOverview} />
+      </section>
+
+      <section className="space-y-3">
+        <Heading title="Replies">
+          How many replies show under each comment before the rest are
+          offered, the best first. None suits threads of one-off comments; more
+          show the conversations. A site can choose its own number for a
+          widget, which wins over this.
+        </Heading>
+        <ReplyPreviewForm overview={overview} onSaved={setOverview} />
       </section>
 
       <section className="space-y-3">

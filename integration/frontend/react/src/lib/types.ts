@@ -267,6 +267,8 @@ export type AdminOverview = {
   max_batch_size: number;
   max_daily_batch_changes: number;
   rules_url?: string | null;
+  /** How many replies show under each top-level comment, for widgets that don't set replyPreview. */
+  reply_preview?: number;
   /** KLIPY's app key, which turns GIFs on. Public: the widget searches with it. */
   klipy_app_key?: string | null;
   image_hosts?: string[];
