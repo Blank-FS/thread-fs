@@ -38,6 +38,7 @@ import { OTHER_REASON } from "./moderation/shared";
 import { CommentMediaView, mediaOf } from "./card/CommentMedia";
 import { CollapsibleContent } from "./common/CollapsibleContent";
 import { MarkdownContent } from "./common/MarkdownContent";
+import RemovalNote, { REMOVED_CONTENT_CLASS } from "./card/RemovalNote";
 import CommentEditor from "./editor/CommentEditor";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
@@ -548,7 +549,10 @@ export function ThreadFSMyComments({
                   ) : (
                     <CollapsibleContent
                       maxHeight={240}
-                      className="mt-2 text-sm leading-6"
+                      className={cn(
+                        "mt-2 text-sm leading-6",
+                        isHidden && REMOVED_CONTENT_CLASS,
+                      )}
                     >
                       <MarkdownContent markdown={comment.content} />
                       <CommentMediaView comment={comment} />
@@ -556,13 +560,10 @@ export function ThreadFSMyComments({
                   )}
 
                   {isHidden && (
-                    <p className="text-muted-foreground mt-2 text-xs italic">
-                      Removed by a moderator
-                      {(comment.removal_detail ?? comment.removal_reason)
-                        ? `: ${comment.removal_detail ?? comment.removal_reason}`
-                        : ""}
-                      . Only you can see this.
-                    </p>
+                    <RemovalNote
+                      reason={comment.removal_detail ?? comment.removal_reason}
+                      audience="you"
+                    />
                   )}
 
                   {comment.status === "visible" && (

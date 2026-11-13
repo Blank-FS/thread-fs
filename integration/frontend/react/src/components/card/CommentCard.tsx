@@ -33,6 +33,7 @@ import AvatarFrame from "./AvatarFrame";
 import CommentActionsMenu from "./CommentActionsMenu";
 import CommentShareMenu from "./CommentShareMenu";
 import CommentTimestamp from "./CommentTimestamp";
+import RemovalNote, { REMOVED_CONTENT_CLASS } from "./RemovalNote";
 import RemoveCommentForm from "./RemoveCommentForm";
 import ReportDetailsForm from "./ReportDetailsForm";
 import ThreadConnector from "./ThreadConnector";
@@ -82,6 +83,8 @@ type CommentCardProps = {
   reportReasons?: ThreadFSReason[];
   /** Only passed for moderators. */
   onRemove?: (commentId: string, removal: CommentRemoval) => Promise<void>;
+  /** Staff only: puts a removed comment back, from the thread. */
+  onRestore?: (commentId: string) => Promise<void>;
   onLoadReplies?: (parentId: string) => Promise<void> | void;
   onLoadMoreReplies?: (parentId: string) => Promise<void> | void;
   onAuthRequired?: () => void;
@@ -117,6 +120,7 @@ function CommentCard({
   onReport,
   reportReasons = [],
   onRemove,
+  onRestore,
   onLoadReplies,
   onLoadMoreReplies,
   onAuthRequired,
@@ -181,8 +185,10 @@ function CommentCard({
   const displayName = getDisplayName(comment);
   const avatarUrl = getAvatarUrl(comment);
 
-  // The server leaves a removed comment's text out for everyone but its author
-  const isRemovedForViewer = isHidden && !isOwnComment;
+  // The server leaves a removed comment's text out for everyone but its author and staff
+  const isStaffViewer = Boolean(onRestore);
+  const isRemovedForViewer = isHidden && !isOwnComment && !isStaffViewer;
+  const [isRestoring, setIsRestoring] = useState(false);
   const removalReason = comment.removal_detail ?? comment.removal_reason;
 
   const hasReplies = comment.reply_count > 0;
@@ -404,9 +410,7 @@ function CommentCard({
           {/* Hidden rather than removed, so open replies and a half-written reply are still there on expanding */}
           <div className={cn(isCollapsed && "hidden")}>
             {isDeleted ? (
-              <p className="text-muted-foreground text-sm italic">
-                This comment was deleted
-              </p>
+              <p className="text-muted-foreground text-sm italic">[deleted]</p>
             ) : isRemovedForViewer ? (
               <p className="text-muted-foreground text-sm italic">[removed]</p>
             ) : isEditing ? (
@@ -432,19 +436,43 @@ function CommentCard({
             ) : (
               <CollapsibleContent
                 maxHeight={320}
-                className="threadfs-comment-content overflow-wrap-anywhere overflow-hidden text-sm leading-6 wrap-break-word"
+                className={cn(
+                  "threadfs-comment-content overflow-wrap-anywhere overflow-hidden text-sm leading-6 wrap-break-word",
+                  // Removed, shown only to its author and staff: set apart from the live comments around it
+                  isHidden && REMOVED_CONTENT_CLASS,
+                )}
               >
                 <MarkdownContent markdown={comment.content} />
                 <CommentMediaView comment={comment} />
               </CollapsibleContent>
             )}
 
-            {isHidden && isOwnComment && (
-              <p className="text-muted-foreground mt-2 text-xs italic">
-                Removed by a moderator
-                {removalReason ? `: ${removalReason}` : ""}. Only you can see
-                this.
-              </p>
+            {isHidden && isStaffViewer ? (
+              <RemovalNote
+                reason={removalReason}
+                audience={isOwnComment ? "moderators and you" : "moderators"}
+              >
+                <button
+                  type="button"
+                  disabled={isRestoring}
+                  onClick={async () => {
+                    try {
+                      setIsRestoring(true);
+                      await onRestore?.(comment.id);
+                    } finally {
+                      setIsRestoring(false);
+                    }
+                  }}
+                  className="hover:text-tfs-brand-strong dark:hover:text-tfs-brand text-muted-foreground font-medium hover:cursor-pointer disabled:opacity-50"
+                >
+                  {isRestoring ? "Restoring..." : "Restore"}
+                </button>
+              </RemovalNote>
+            ) : (
+              isHidden &&
+              isOwnComment && (
+                <RemovalNote reason={removalReason} audience="you" />
+              )
             )}
 
             {comment.status === "visible" && (
@@ -600,6 +628,7 @@ function CommentCard({
                   onReport={onReport}
                   reportReasons={reportReasons}
                   onRemove={onRemove}
+                  onRestore={onRestore}
                   onLoadReplies={onLoadReplies}
                   onLoadMoreReplies={onLoadMoreReplies}
                   onAuthRequired={onAuthRequired}
@@ -796,6 +825,8 @@ function moreRepliesLabel(count: number | null): string {
 }
 
 function getDisplayName(comment: ThreadFSComment): string {
+  // The server withholds the author of both, as Reddit does
+  if (comment.status === "deleted") return "[deleted]";
   if (comment.status === "hidden" && !comment.community_user) {
     return "[removed]";
   }

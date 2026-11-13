@@ -21,7 +21,11 @@ import {
   updateComment,
   voteComment,
 } from "../lib/api";
-import { hideComment, type CommentRemoval } from "../lib/moderationApi";
+import {
+  hideComment,
+  restoreComment,
+  type CommentRemoval,
+} from "../lib/moderationApi";
 import { GifConfigContext } from "../lib/gifs";
 import { ImageHostsContext } from "../lib/imageHosts";
 import { RulesUrlContext } from "../lib/rulesContext";
@@ -526,7 +530,22 @@ export function ThreadFSComments({
         deleteComment(ctx, commentId),
       );
 
-      setComments((current) => replaceCommentInTree(current, deletedComment));
+      // A top-level comment that left the list moves the rest of the server's pages up one
+      const droppedTopLevel = applyDeletion(comments, deletedComment).dropped;
+      setComments((current) => applyDeletion(current, deletedComment).nodes);
+      if (droppedTopLevel > 0) {
+        setTopLevelNextOffset((offset) =>
+          offset == null ? offset : Math.max(0, offset - droppedTopLevel),
+        );
+      }
+      setThread((current) =>
+        current
+          ? {
+              ...current,
+              comment_count: Math.max(0, current.comment_count - 1),
+            }
+          : current,
+      );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to delete comment");
     }
@@ -574,6 +593,20 @@ export function ThreadFSComments({
     );
 
     setComments((current) => replaceCommentInTree(current, removed));
+  }
+
+  async function handleRestore(commentId: string) {
+    try {
+      setError(null);
+      const restored = await withAuthRetry((ctx) =>
+        restoreComment(ctx, commentId),
+      );
+      setComments((current) => replaceCommentInTree(current, restored));
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Failed to restore comment",
+      );
+    }
   }
 
   function attachReplies(
@@ -664,6 +697,7 @@ export function ThreadFSComments({
       onReport={handleReport}
       reportReasons={reportReasons}
       onRemove={me?.staff_role ? handleRemove : undefined}
+      onRestore={me?.staff_role ? handleRestore : undefined}
       onLoadReplies={handleLoadReplies}
       onLoadMoreReplies={handleLoadMoreReplies}
       onAuthRequired={onAuthRequired}
@@ -915,6 +949,70 @@ function replaceCommentInTree(
 
     return comment;
   });
+}
+
+// Whether a thread still lists a comment that isn't visible, as the server decides: only while something visible is
+// below it (reply_count counts visible comments only), or for its author when moderators removed it (others get it
+// without its author)
+function isListed(comment: ThreadFSComment): boolean {
+  if (comment.status === "visible" || comment.reply_count > 0) return true;
+  return comment.status === "hidden" && comment.community_user_id != null;
+}
+
+// After the viewer deletes a comment: every comment above it has one visible comment fewer below, and it, then any
+// of them, leaves the list once nothing visible is left below it. `dropped` is how many top-level comments left.
+function applyDeletion(
+  comments: ThreadFSComment[],
+  deleted: ThreadFSComment,
+): { nodes: ThreadFSComment[]; dropped: number } {
+  function visit(nodes: ThreadFSComment[]): {
+    nodes: ThreadFSComment[];
+    found: boolean;
+    dropped: number;
+  } {
+    let found = false;
+    let dropped = 0;
+    const next: ThreadFSComment[] = [];
+
+    for (const comment of nodes) {
+      let updated = comment;
+
+      if (comment.id === deleted.id) {
+        found = true;
+        updated = { ...comment, ...deleted, replies: comment.replies };
+      } else if (comment.replies?.length) {
+        const below = visit(comment.replies);
+        if (below.found) {
+          found = true;
+          updated = {
+            ...comment,
+            reply_count: Math.max(0, comment.reply_count - 1),
+            replies: below.nodes,
+            replies_total:
+              comment.replies_total != null
+                ? comment.replies_total - below.dropped
+                : comment.replies_total,
+            // Replies that left move the rest of the server's pages up
+            replies_next_offset:
+              comment.replies_next_offset != null
+                ? Math.max(0, comment.replies_next_offset - below.dropped)
+                : comment.replies_next_offset,
+          };
+        }
+      }
+
+      if (updated !== comment && !isListed(updated)) {
+        dropped += 1;
+        continue;
+      }
+      next.push(updated);
+    }
+
+    return { nodes: found ? next : nodes, found, dropped };
+  }
+
+  const result = visit(comments);
+  return { nodes: result.nodes, dropped: result.dropped };
 }
 
 function updateCommentInTree(

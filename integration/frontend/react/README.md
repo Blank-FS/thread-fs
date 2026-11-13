@@ -383,7 +383,7 @@ Every rule in the stylesheet applies only inside `.threadfs-root` (`postcss-scop
 
 ## Moderation
 
-Comments get a Report action, and a comment moderators removed shows as `[removed]`, except to its author. Pass `source` and `client` to `ThreadFSComments` to record where comments come from.
+Comments get a Report action, and a comment moderators removed shows as `[removed]`, except to its author. A removed or deleted comment only keeps its place while something visible is below it, as on Reddit; with nothing left under it, it leaves the thread. Its author still sees their removed comment, in the thread and in My Comments, and staff see every removed comment in full: both get its text set apart with a red edge and the reason in red, and staff a **Restore** button beside it. A deleted comment shows as `[deleted]`, its author's name and avatar withheld from everyone. Pass `source` and `client` to `ThreadFSComments` to record where comments come from.
 
 A viewer whose `getAuthToken` token carries a `threadfs_role` claim gets a Remove action on comments, so moderators can act where they read. Only sign that claim for your own staff, and stop signing it when their role ends.
 
