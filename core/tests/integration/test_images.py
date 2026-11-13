@@ -44,7 +44,7 @@ async def test_images_only_from_the_communitys_hosts(client, session, url):
     res = await client.post(
         f"{API}/comments",
         headers=headers(setup, "alice"),
-        json={"thread_id": "anime:1", "content": "hi", "image": {**IMAGE, "url": url}},
+        json={"thread_id": "thread:1", "content": "hi", "image": {**IMAGE, "url": url}},
     )
     assert res.status_code == 400, url
 
@@ -55,7 +55,7 @@ async def test_no_images_where_there_are_no_hosts(client, session):
     res = await client.post(
         f"{API}/comments",
         headers=headers(setup, "alice"),
-        json={"thread_id": "anime:1", "content": "hi", "image": IMAGE},
+        json={"thread_id": "thread:1", "content": "hi", "image": IMAGE},
     )
     assert res.status_code == 400
 
@@ -66,7 +66,7 @@ async def test_a_gif_or_an_image_never_both(client, session):
     res = await client.post(
         f"{API}/comments",
         headers=headers(setup, "alice"),
-        json={"thread_id": "anime:1", "content": "hi", "gif": GIF, "image": IMAGE},
+        json={"thread_id": "thread:1", "content": "hi", "gif": GIF, "image": IMAGE},
     )
     assert res.status_code == 422
 
