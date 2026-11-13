@@ -66,7 +66,7 @@ export default function ImageLinkForm({
   }
 
   return (
-    <form onSubmit={add} className="space-y-3 p-3">
+    <form onSubmit={add} className="min-h-0 space-y-3 overflow-y-auto p-3">
       <div className="space-y-1">
         <p className="text-sm font-semibold">Add image</p>
         <p className="text-muted-foreground text-xs">

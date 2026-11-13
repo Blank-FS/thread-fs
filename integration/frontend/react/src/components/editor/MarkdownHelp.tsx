@@ -91,7 +91,8 @@ export default function MarkdownHelp() {
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-[min(20rem,calc(100vw-1rem))] p-0">
-        <div className="space-y-3 p-3">
+        {/* The table scrolls when there's little room; the notes stay under it */}
+        <div className="min-h-0 space-y-3 overflow-y-auto p-3">
           <p className="text-sm font-semibold">Markdown cheatsheet</p>
           <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5">
             <Section title="Text" rows={TEXT} />

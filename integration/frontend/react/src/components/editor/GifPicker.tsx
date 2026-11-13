@@ -100,7 +100,7 @@ export default function GifPicker({ config, onPick, onClose }: GifPickerProps) {
   return (
     <div
       onKeyDown={handleKeyDown}
-      className="@container"
+      className="@container flex min-h-0 flex-col"
     >
       <div className="flex items-center gap-1 border-b px-2">
         <Search className="text-muted-foreground size-4 shrink-0" />
@@ -126,7 +126,9 @@ export default function GifPicker({ config, onPick, onClose }: GifPickerProps) {
       </div>
 
       <div
-        className="max-h-72 overflow-y-auto p-1"
+        // The results scroll, up to their usual height, in whatever room the popover has; the search and the
+        // attribution stay put
+        className="max-h-72 min-h-0 flex-1 overflow-y-auto p-1"
         onScroll={(event) => {
           const el = event.currentTarget;
           if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) {
