@@ -22,6 +22,7 @@ import {
   isRichTextCompatible,
   RICH_EDITOR_NODES,
 } from "./markdownSerializer";
+import MarkdownHelp from "./MarkdownHelp";
 import EditorRefPlugin from "./plugins/EditorRefPlugin";
 import InitialMarkdownPlugin from "./plugins/InitialMarkdownPlugin";
 import ToolbarPlugin from "./plugins/ToolbarPlugin";
@@ -187,10 +188,12 @@ const RichEditor = ({
         {/* Markdown has no formatting buttons, so its bar is only the way back */}
         {showControls && mode === "markdown" && (
           <>
-            <div className="mb-1 flex min-h-8 items-center gap-2">
+            <div className="mb-1 flex min-h-8 items-center gap-1">
               <span className="text-muted-foreground px-1 text-xs font-medium">
                 Markdown
               </span>
+              {/* What comments support, so nothing's written that won't show */}
+              <MarkdownHelp />
               <div className="ml-auto flex items-center">{modeSwitch}</div>
             </div>
             <Separator className="h-px" />

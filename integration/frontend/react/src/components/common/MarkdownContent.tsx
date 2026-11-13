@@ -31,7 +31,8 @@ const markdownSchema = {
   },
 };
 
-function SpoilerSpan({ children }: { children?: ReactNode }) {
+// Also the cheatsheet's example (editor/MarkdownHelp), so it reveals exactly as a comment's does
+export function SpoilerSpan({ children }: { children?: ReactNode }) {
   const [isRevealed, setIsRevealed] = useState(false);
 
   return (
