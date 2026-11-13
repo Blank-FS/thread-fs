@@ -127,6 +127,11 @@ function App() {
               communityKey={communityKey}
               externalUserId={user?.id}
               authToken={token}
+              authorProfileUrl={(author) =>
+                author.external_user_id
+                  ? `/users/${author.external_user_id}`
+                  : null
+              }
             />
           </TabsContent>
           <TabsContent value="ThreadFSModeration">
