@@ -14,7 +14,10 @@
 @custom-variant data-placeholder (&[data-placeholder]);
 @custom-variant data-inset (&[data-inset]);
 
+/* Its own stacking context: the z-indexes inside the widget (the thread lines' collapse buttons, menus) order things
+   within it only, so they never rise above the host page's sticky headers or overlays. */
 .threadfs-root {
+  isolation: isolate;
   font-family:
     "Inter",
     system-ui,
