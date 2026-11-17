@@ -105,39 +105,55 @@ function CommentImage({
   );
 }
 
-export function MarkdownContent({ markdown }: { markdown: string }) {
+/**
+ * Comment text, and with ThreadFSMarkdown any other text in the same markdown. compact keeps headings to the text's
+ * size, for previews and excerpts.
+ */
+export function MarkdownContent({
+  markdown,
+  compact = false,
+}: {
+  markdown: string;
+  compact?: boolean;
+}) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm, remarkBreaks]}
       rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSchema]]}
       components={{
-        h1: ({ node, ...props }) => (
-          <h1
-            className={cn(
-              "my-4 border-b border-tfs-brand/30 pb-2 font-bold tracking-tight",
-              "text-lg",
-            )}
-            {...props}
-          />
-        ),
-        h2: ({ node, ...props }) => (
-          <h2
-            className={cn(
-              "my-4 border-b border-tfs-brand/30 pb-2 font-bold tracking-tight",
-              "text-base",
-            )}
-            {...props}
-          />
-        ),
-        h3: ({ node, ...props }) => (
-          <h3
-            className={cn(
-              "my-4 font-bold tracking-tight",
-              "text-sm",
-            )}
-            {...props}
-          />
-        ),
+        h1: ({ node, ...props }) =>
+          compact ? (
+            <p className="mb-2 text-sm font-bold last:mb-0" {...props} />
+          ) : (
+            <h1
+              className={cn(
+                "my-4 border-b border-tfs-brand/30 pb-2 font-bold tracking-tight",
+                "text-lg",
+              )}
+              {...props}
+            />
+          ),
+        h2: ({ node, ...props }) =>
+          compact ? (
+            <p className="mb-2 text-sm font-bold last:mb-0" {...props} />
+          ) : (
+            <h2
+              className={cn(
+                "my-4 border-b border-tfs-brand/30 pb-2 font-bold tracking-tight",
+                "text-base",
+              )}
+              {...props}
+            />
+          ),
+        h3: ({ node, ...props }) =>
+          compact ? (
+            <p className="mb-2 text-sm font-bold last:mb-0" {...props} />
+          ) : (
+            <h3
+              className={cn("my-4 font-bold tracking-tight", "text-sm")}
+              {...props}
+            />
+          ),
         p: ({ node, ...props }) => (
           <p className="mb-2 text-sm leading-6 last:mb-0" {...props} />
         ),

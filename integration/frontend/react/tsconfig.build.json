@@ -2,6 +2,7 @@
   "extends": "./tsconfig.json",
   "include": [
     "src/index.ts",
+    "src/markdown.tsx",
     "src/components/**/*",
     "src/lib/**/*",
     "src/hooks/**/*",

@@ -258,6 +258,23 @@ Keep `focusCommentId` in step with the hash (listen for `hashchange`) if links c
 If the widget runs in an iframe on another origin, give it `allow="clipboard-write"`, or Copy link can't write to the
 clipboard (it says so instead).
 
+## Rendering other text: `@threadfs/react/markdown`
+
+`ThreadFSMarkdown` is the comments' markdown renderer on its own (GitHub-flavoured markdown, single line breaks, `<u>`, `>!spoilers!<`, sanitized HTML), for a host's other text that should read exactly like comments. Import it from `@threadfs/react/markdown`, which loads none of the widget. The package root exports it too, for code that loads the widget anyway.
+
+The package is ES modules only, one file per entry, with the renderer and its markdown libraries in a shared chunk: a host's bundler downloads that once, whether the widget or the renderer loads first.
+
+```tsx
+import { ThreadFSMarkdown } from "@threadfs/react/markdown";
+
+<ThreadFSMarkdown markdown={text} />;
+```
+
+- **Styles:** import `@threadfs/react/styles.css` once, as for the widget. The component brings the `.threadfs-root` scope its rules need, and follows `--threadfs-brand` (Styling below).
+- **`imageHosts`:** which hosts' images show; others become links. Empty, the default, shows none. `"any"` shows every http(s) image: only for text that's moderated elsewhere, never for what readers write on the host, since an image from a server its author runs learns each reader's IP address.
+- **`compact`:** headings at the text's size, for previews and excerpts.
+- **`className`:** on the wrapper.
+
 ## Authentication Flow
 
 ThreadFS does not own the host website’s user sessions.

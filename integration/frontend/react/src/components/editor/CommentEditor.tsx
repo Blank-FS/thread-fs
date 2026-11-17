@@ -93,7 +93,9 @@ function CommentEditor({
   const [isAddingImage, setIsAddingImage] = useState(false);
   const rulesUrl = useRulesUrl();
   const gifConfig = useGifConfig();
-  const imageHosts = useImageHosts();
+  // "any" is for rendering text moderated elsewhere (ThreadFSMarkdown), never for what's written here
+  const allowedHosts = useImageHosts();
+  const imageHosts = allowedHosts === "any" ? [] : allowedHosts;
   const hasText = value.text.trim().length > 0;
   const isOpen = startOpen || isOpened;
 

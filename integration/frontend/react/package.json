@@ -3,15 +3,19 @@
   "version": "0.1.3",
   "description": "React components for ThreadFS",
   "type": "module",
-  "main": "./dist/threadfs-react.umd.cjs",
-  "module": "./dist/threadfs-react.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/threadfs-react.js",
-      "require": "./dist/threadfs-react.umd.cjs",
-      "default": "./dist/threadfs-react.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./markdown": {
+      "types": "./dist/markdown.d.ts",
+      "import": "./dist/markdown.js",
+      "default": "./dist/markdown.js"
     },
     "./styles.css": {
       "default": "./dist/threadfs-react.css"

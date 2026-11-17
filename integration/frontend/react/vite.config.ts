@@ -35,21 +35,23 @@ export default defineConfig({
   build: {
     // public/ only holds the test site's files, which don't belong in the package
     copyPublicDir: false,
+    // ES modules only, one file per entry: the widget (index) and the markdown renderer alone (markdown, for hosts
+    // rendering their other text like comments). What both use (the renderer and its markdown libraries) goes in a
+    // shared chunk, so a host's bundler downloads it once whichever loads first.
     lib: {
-      entry: path.resolve(__dirname, "src/index.ts"),
-      name: "ThreadFSReact",
-      fileName: "threadfs-react",
-      formats: ["es", "umd"],
+      entry: {
+        index: path.resolve(__dirname, "src/index.ts"),
+        markdown: path.resolve(__dirname, "src/markdown.tsx"),
+      },
+      formats: ["es"],
+      fileName: (_format, entryName) => `${entryName}.js`,
+      cssFileName: "threadfs-react",
     },
     cssCodeSplit: false,
     rollupOptions: {
       external: ["react", "react-dom", "react/jsx-runtime"],
       output: {
-        globals: {
-          react: "React",
-          "react-dom": "ReactDOM",
-          "react/jsx-runtime": "jsxRuntime",
-        },
+        chunkFileNames: "chunks/[name]-[hash].js",
       },
     },
   },
