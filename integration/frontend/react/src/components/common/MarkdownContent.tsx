@@ -52,7 +52,7 @@ export function SpoilerSpan({ children }: { children?: ReactNode }) {
         "cursor-pointer rounded bg-tfs-brand px-2 transition-colors",
         isRevealed
           ? "text-foreground bg-tfs-brand/30"
-          : "text-transparent select-none",
+          : "text-transparent select-none [&_img]:invisible",
       )}
     >
       {children}
