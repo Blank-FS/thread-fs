@@ -13,6 +13,7 @@ import {
   useState,
   type MouseEvent,
   type PointerEvent,
+  type ReactNode,
 } from "react";
 import type { CommentRemoval } from "../../lib/moderationApi";
 import type {
@@ -331,22 +332,24 @@ function CommentCard({
           />
         )}
         <div className="relative size-8 shrink-0">
-          <img
-            ref={setParentAvatarRef}
-            src={avatarUrl}
-            onError={(e) => {
-              e.currentTarget.src = defaultAvatarUrl;
-              e.currentTarget.onerror = null;
-            }}
-            alt={`${displayName}'s avatar`}
-            // Kept in place when collapsed: the parent's connector lands on it
-            className={cn(
-              "border-muted size-8 rounded-full border object-cover",
-              isCollapsed && "invisible",
-            )}
-            loading="lazy"
-            referrerPolicy="no-referrer"
-          />
+          <AuthorLink href={authorUrl}>
+            <img
+              ref={setParentAvatarRef}
+              src={avatarUrl}
+              onError={(e) => {
+                e.currentTarget.src = defaultAvatarUrl;
+                e.currentTarget.onerror = null;
+              }}
+              alt={`${displayName}'s avatar`}
+              // Kept in place when collapsed: the parent's connector lands on it
+              className={cn(
+                "border-muted size-8 rounded-full border object-cover",
+                isCollapsed && "invisible",
+              )}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+            />
+          </AuthorLink>
           {!isCollapsed && (
             <AvatarFrame url={comment.community_user?.avatar_frame_url} />
           )}
@@ -819,6 +822,31 @@ function useConnectorRefs(
 }
 
 // "6 more replies", or "More replies" when the count isn't known
+// The avatar links where the name does. The name's link is the one for keyboards and screen readers, so this one is
+// skipped (no tab stop, hidden), as a second link to the same place would only repeat it. While collapsed, the expand
+// button sits on top
+function AuthorLink({
+  href,
+  children,
+}: {
+  href: string | null | undefined;
+  children: ReactNode;
+}) {
+  if (!href) return <>{children}</>;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      tabIndex={-1}
+      aria-hidden
+      className="block size-8 rounded-full"
+    >
+      {children}
+    </a>
+  );
+}
+
 function moreRepliesLabel(count: number | null): string {
   if (count == null || count < 1) return "More replies";
   return `${count} more ${count === 1 ? "reply" : "replies"}`;

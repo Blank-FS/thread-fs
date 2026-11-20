@@ -200,7 +200,7 @@ onAuthRequired={() => {
 
 ### `authorProfileUrl`
 
-Maps a ThreadFS comment author to a host website profile URL.
+Maps a ThreadFS comment author to a host website profile URL. A comment's author name and avatar both link there (the avatar's link is left out of the tab order and hidden from screen readers, since the name's link goes to the same place).
 
 ```tsx
 authorProfileUrl={(user) =>
