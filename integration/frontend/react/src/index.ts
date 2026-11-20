@@ -7,6 +7,8 @@ export type { ThreadFSMyCommentsProps } from "./components/MyComments";
 export { ThreadFSModeration } from "./components/ThreadFSModeration";
 export type { ThreadFSModerationProps } from "./components/ThreadFSModeration";
 export { ThreadFSMarkdown } from "./markdown";
+export { ThreadFSEditor } from "./editor";
+export type { ThreadFSEditorProps, ThreadFSEditorValue } from "./editor";
 export type { ImageHosts, ThreadFSMarkdownProps } from "./markdown";
 export { commentHash, commentIdFromHash, linkToComment } from "./lib/commentLinks";
 export type {

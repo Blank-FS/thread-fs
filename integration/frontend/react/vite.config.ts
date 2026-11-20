@@ -35,13 +35,15 @@ export default defineConfig({
   build: {
     // public/ only holds the test site's files, which don't belong in the package
     copyPublicDir: false,
-    // ES modules only, one file per entry: the widget (index) and the markdown renderer alone (markdown, for hosts
-    // rendering their other text like comments). What both use (the renderer and its markdown libraries) goes in a
-    // shared chunk, so a host's bundler downloads it once whichever loads first.
+    // ES modules only, one file per entry: the widget (index), and the markdown renderer and the editor alone
+    // (markdown, editor: for hosts rendering and writing their other text like comments). What entries share (the
+    // renderer, the editor and their libraries) goes in shared chunks, so a host's bundler downloads it once whichever
+    // loads first.
     lib: {
       entry: {
         index: path.resolve(__dirname, "src/index.ts"),
         markdown: path.resolve(__dirname, "src/markdown.tsx"),
+        editor: path.resolve(__dirname, "src/editor.tsx"),
       },
       formats: ["es"],
       fileName: (_format, entryName) => `${entryName}.js`,

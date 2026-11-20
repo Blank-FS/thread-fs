@@ -275,6 +275,21 @@ import { ThreadFSMarkdown } from "@threadfs/react/markdown";
 - **`compact`:** headings at the text's size, for previews and excerpts.
 - **`className`:** on the wrapper.
 
+## Writing other text: `@threadfs/react/editor`
+
+`ThreadFSEditor` is the comment box's rich editor on its own: the formatting toolbar, the switch to plain markdown and the cheatsheet, writing the markdown `ThreadFSMarkdown` renders. For a host's other writing (reviews, posts) that should be written like comments. A separate entry, so it loads none of the widget; the package root exports it too.
+
+```tsx
+import { ThreadFSEditor } from "@threadfs/react/editor";
+
+<ThreadFSEditor initialMarkdown={draft} onChange={({ markdown, text }) => setDraft(markdown)} />;
+```
+
+- **Styles:** as for the renderer: `@threadfs/react/styles.css`, imported once.
+- **`onChange`** gets the text as `markdown` and as plain `text` (for counting characters, or checking it isn't empty).
+- **`actions`:** buttons at the end of its row of buttons, such as a submit button. GIFs, image links and the rules link are the comment box's, not here.
+- **Also:** `initialMarkdown`, `placeholder`, `autoFocus`, `disabled`, `className`.
+
 ## Authentication Flow
 
 ThreadFS does not own the host website’s user sessions.

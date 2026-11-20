@@ -3,6 +3,7 @@
   "include": [
     "src/index.ts",
     "src/markdown.tsx",
+    "src/editor.tsx",
     "src/components/**/*",
     "src/lib/**/*",
     "src/hooks/**/*",

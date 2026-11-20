@@ -17,6 +17,11 @@
       "import": "./dist/markdown.js",
       "default": "./dist/markdown.js"
     },
+    "./editor": {
+      "types": "./dist/editor.d.ts",
+      "import": "./dist/editor.js",
+      "default": "./dist/editor.js"
+    },
     "./styles.css": {
       "default": "./dist/threadfs-react.css"
     },
