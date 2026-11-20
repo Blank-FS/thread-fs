@@ -23,7 +23,8 @@ export type ThreadFSMarkdownProps = {
 
 export function ThreadFSMarkdown({ markdown, imageHosts = [], compact = false, className }: ThreadFSMarkdownProps) {
   return (
-    <div className={cn("threadfs-root", className)}>
+    // Long unbroken strings (links, keyboard mashing) wrap rather than stretch the page, as in a comment
+    <div className={cn("threadfs-root wrap-break-word", className)}>
       <ImageHostsContext.Provider value={imageHosts}>
         <MarkdownContent markdown={markdown} compact={compact} />
       </ImageHostsContext.Provider>
