@@ -10,10 +10,9 @@ import { ThreadFSApiError } from "@/lib/errors";
 import { ArrowLeft, MessageSquareOff, MessagesSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  bootstrapThread,
   createComment,
   deleteComment,
-  getCommentContext,
-  getEmbedConfig,
   getEmbedMe,
   listThreadComments,
   reportComment,
@@ -202,62 +201,35 @@ export function ThreadFSComments({
       setMe(null);
 
       try {
-        const config = await getEmbedConfig({
-          apiBaseUrl,
-          communityKey,
-          authToken: null,
-        });
-
         const token = await resolveAuthToken();
 
-        const authedRequestContext = {
-          apiBaseUrl,
-          communityKey,
-          authToken: token,
-        };
-
-        const resolvedMe = token
-          ? await getEmbedMe(authedRequestContext).catch(() => null)
-          : null;
-
-        const resolved = await resolveThread(authedRequestContext, {
-          threadId,
-          sourceUrl: window.location.href,
-          title: document.title,
-        });
-
         // A linked comment that's gone (deleted for good, another thread) falls back to the whole list
-        let context = null;
-        let missing = false;
-        if (focusCommentId) {
-          try {
-            context = await getCommentContext(authedRequestContext, {
-              threadId,
-              commentId: focusCommentId,
-              pageSize,
-            });
-          } catch (err) {
-            if (!(err instanceof ThreadFSApiError) || err.status !== 404)
-              throw err;
-            missing = true;
-          }
-        }
-
-        const page = await listThreadComments(authedRequestContext, {
-          threadId,
-          pageSize,
-          replyPreview,
-          sort: topLevelSort,
-        });
+        const {
+          config,
+          me: resolvedMe,
+          thread: resolvedThread,
+          context,
+          comments: page,
+        } = await bootstrapThread(
+          { apiBaseUrl, communityKey, authToken: token },
+          {
+            threadId,
+            pageSize,
+            replyPreview,
+            sort: topLevelSort,
+            commentId: focusCommentId,
+          },
+        );
+        const missing = Boolean(focusCommentId) && !context;
 
         if (!isMounted) return;
 
-        setMe(resolvedMe);
+        setMe(resolvedMe.authenticated ? resolvedMe : null);
         setReportReasons(config.report_reasons ?? []);
         setCommunityRulesUrl(config.rules_url ?? null);
         setGifConfig(config.gifs ?? null);
         setImageHosts(config.image_hosts ?? []);
-        setThread(resolved.thread);
+        setThread(resolvedThread);
         setFocusedId(context ? String(context.focused_comment_id) : null);
         setIsFocusMissing(missing);
         // A comment deeper than threads nest here opens in its own view, two levels above it shown for context,

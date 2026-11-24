@@ -5,8 +5,8 @@ import type {
   EmbedMe,
   PageResponse,
   ResolveThreadResponse,
+  ThreadFSBootstrap,
   ThreadFSComment,
-  ThreadFSCommentContext,
   ThreadFSEmbedConfig,
   ThreadFSRequestContext,
   ThreadFSThread,
@@ -69,6 +69,40 @@ export async function getEmbedConfig(
   });
 
   return parseResponseOrThrow<ThreadFSEmbedConfig>(res);
+}
+
+/** Everything needed to show a thread, in one request. A POST, so its address is always the same and the browser
+ * remembers its preflight from one thread to the next. */
+export async function bootstrapThread(
+  ctx: ThreadFSRequestContext,
+  params: {
+    threadId: string;
+    pageSize?: number;
+    sort?: CommentSort;
+    /** How many of each comment's replies come with it (0 to 5); left out, the community's setting. */
+    replyPreview?: number;
+    /** A linked comment, to show in its context. */
+    commentId?: string | number | null;
+  },
+): Promise<ThreadFSBootstrap> {
+  const apiBaseUrl = normalizeApiBaseUrl(ctx.apiBaseUrl);
+
+  const res = await fetch(`${apiBaseUrl}/api/v1/embed/bootstrap`, {
+    method: "POST",
+    headers: {
+      ...buildHeaders(ctx),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      thread_id: params.threadId,
+      limit: params.pageSize ?? 20,
+      sort: params.sort ?? null,
+      reply_preview: params.replyPreview ?? null,
+      comment_id: params.commentId ?? null,
+    }),
+  });
+
+  return parseResponseOrThrow<ThreadFSBootstrap>(res);
 }
 
 export async function resolveThread(
@@ -139,24 +173,6 @@ export async function listThreadComments(
   );
 
   return parseResponseOrThrow<PageResponse<ThreadFSComment>>(res);
-}
-/** A comment with the chain above it and its first replies, for showing a link to one comment. */
-export async function getCommentContext(
-  ctx: ThreadFSRequestContext,
-  params: { threadId: string; commentId: string | number; pageSize?: number },
-): Promise<ThreadFSCommentContext> {
-  const apiBaseUrl = normalizeApiBaseUrl(ctx.apiBaseUrl);
-  const searchParams = new URLSearchParams({
-    thread_id: params.threadId,
-    limit: String(params.pageSize ?? 20),
-  });
-
-  const res = await fetch(
-    `${apiBaseUrl}/api/v1/embed/comments/${encodeURIComponent(String(params.commentId))}/context?${searchParams.toString()}`,
-    { method: "GET", headers: buildHeaders(ctx) },
-  );
-
-  return parseResponseOrThrow<ThreadFSCommentContext>(res);
 }
 
 export async function listMyComments(

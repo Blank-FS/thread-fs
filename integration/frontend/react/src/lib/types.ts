@@ -141,7 +141,18 @@ export type ThreadFSComment = {
   } | null;
 };
 
-/** One comment in context, for a link to it (getCommentContext). */
+/** What a widget needs to show a thread (bootstrapThread). */
+export type ThreadFSBootstrap = {
+  config: ThreadFSEmbedConfig;
+  me: EmbedMe;
+  /** Null until someone comments there. */
+  thread: ThreadFSThread | null;
+  /** Null without a linked comment, or when it's gone. */
+  context: ThreadFSCommentContext | null;
+  comments: PageResponse<ThreadFSComment>;
+};
+
+/** One comment in context, for a link to it. */
 export type ThreadFSCommentContext = {
   focused_comment_id: string;
   /** The top-level comment, holding each reply down to the focused one, which holds its first page of replies. */
