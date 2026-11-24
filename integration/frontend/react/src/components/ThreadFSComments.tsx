@@ -22,27 +22,33 @@ import {
   voteComment,
 } from "../lib/api";
 import {
+  ClickGuardProvider,
+  useClickGuard,
+  type ConfirmClick,
+  type ThreadFSClickAction,
+} from "../lib/clickGuard";
+import { GifConfigContext } from "../lib/gifs";
+import { ImageHostsContext } from "../lib/imageHosts";
+import {
   hideComment,
   restoreComment,
   type CommentRemoval,
 } from "../lib/moderationApi";
-import { GifConfigContext } from "../lib/gifs";
-import { ImageHostsContext } from "../lib/imageHosts";
 import { RulesUrlContext } from "../lib/rulesContext";
 import { continueDepthFor } from "../lib/threadDepth";
-import { useLatest } from "../lib/useLatest";
 import {
+  CommentMedia,
   CommentSort,
   PageResponse,
   ThreadFSCommentUser,
+  ThreadFSGifConfig,
   ThreadFSReason,
   ThreadFSRequestContext,
   ThreadFSThread,
   type EmbedMe,
   type ThreadFSComment,
-  CommentMedia,
-  ThreadFSGifConfig,
 } from "../lib/types";
+import { useLatest } from "../lib/useLatest";
 import { cn } from "../lib/utils";
 import CommentCard from "./card/CommentCard";
 import CommentEditor from "./editor/CommentEditor";
@@ -82,6 +88,13 @@ export type ThreadFSCommentsProps = {
    * one, more for a fuller conversation. The best first, at most 5. Left out, the community's own setting applies.
    */
   replyPreview?: number;
+  /**
+   * For a widget in a frame that other sites can embed, which could cover or hide it and trick the viewer's clicks. With
+   * it, what needs no typing (voting, reporting, posting a GIF or image alone) goes ahead by itself only once the browser
+   * can vouch that the viewer saw it (Chromium, when nothing overlaps the frame), and otherwise as this answers. It's
+   * called in the click, so it may open a popup; remember the answer, as it's asked each time.
+   */
+  confirmClick?: ConfirmClick;
 };
 
 export function ThreadFSComments({
@@ -99,7 +112,9 @@ export function ThreadFSComments({
   className,
   pageSize = 10,
   replyPreview,
+  confirmClick,
 }: ThreadFSCommentsProps) {
+  const { guard, allowClick } = useClickGuard(confirmClick);
   const [comments, setComments] = useState<ThreadFSComment[]>([]);
   const [topLevelSort, setTopLevelSort] = useState<CommentSort>("latest");
   const [isChangingSort, setIsChangingSort] = useState(false);
@@ -346,6 +361,22 @@ export function ThreadFSComments({
     }
   }
 
+  // Whether the click being handled may go ahead (confirmClick). Called before anything is awaited, so a popup opens.
+  async function isClickAllowed(
+    action: Omit<ThreadFSClickAction, "isClipped">,
+  ): Promise<boolean> {
+    const allowed = await allowClick(action);
+    if (allowed === false)
+      setError("That wasn't confirmed, so nothing was done.");
+    return allowed === true;
+  }
+
+  const authorNameOf = (commentId: string) =>
+    findCommentInTree(comments, commentId)?.community_user?.display_name;
+
+  // Comments as they were before votes still waiting on confirmClick
+  const votesWaiting = useRef(new Map<string, ThreadFSComment>());
+
   async function handleChangeTopLevelSort(nextSort: CommentSort) {
     if (nextSort === topLevelSort) return;
 
@@ -443,6 +474,9 @@ export function ThreadFSComments({
       onAuthRequired?.();
       return;
     }
+
+    // A GIF or an image needs no typing, so it can be posted with clicks alone
+    if (!body.trim() && !(await isClickAllowed({ kind: "post" }))) return;
 
     try {
       setError(null);
@@ -557,6 +591,33 @@ export function ThreadFSComments({
       return;
     }
 
+    // A guarded vote shows at once, as it may wait on an answer, and is put back if it doesn't go ahead
+    const before = guard ? findCommentInTree(comments, commentId) : null;
+    if (before) {
+      if (!votesWaiting.current.has(commentId))
+        votesWaiting.current.set(commentId, before);
+      setComments((current) =>
+        replaceCommentInTree(current, withVote(before, value)),
+      );
+    }
+    const putBack = () => {
+      const original = votesWaiting.current.get(commentId);
+      if (original)
+        setComments((current) => replaceCommentInTree(current, original));
+    };
+
+    if (
+      !(await isClickAllowed({
+        kind: "vote",
+        value: before?.viewer_vote === value ? 0 : value,
+        authorName: authorNameOf(commentId),
+      }))
+    ) {
+      putBack();
+      votesWaiting.current.delete(commentId);
+      return;
+    }
+
     try {
       setError(null);
 
@@ -566,7 +627,10 @@ export function ThreadFSComments({
 
       setComments((current) => replaceCommentInTree(current, updatedComment));
     } catch (err: unknown) {
+      putBack();
       setError(err instanceof Error ? err.message : "Failed to vote");
+    } finally {
+      votesWaiting.current.delete(commentId);
     }
   }
 
@@ -575,6 +639,16 @@ export function ThreadFSComments({
     reason: string,
     details?: string,
   ) {
+    // Describing a report is typing
+    if (
+      !details?.trim() &&
+      !(await isClickAllowed({
+        kind: "report",
+        authorName: authorNameOf(commentId),
+      }))
+    )
+      return false;
+
     try {
       setError(null);
       await withAuthRetry((ctx) =>
@@ -850,13 +924,15 @@ export function ThreadFSComments({
 
   // Every comment box inside (the top one, and replies and edits) links to the same rules
   return (
-    <RulesUrlContext.Provider value={communityRulesUrl}>
-      <GifConfigContext.Provider value={gifConfig}>
-        <ImageHostsContext.Provider value={imageHosts}>
-          {view}
-        </ImageHostsContext.Provider>
-      </GifConfigContext.Provider>
-    </RulesUrlContext.Provider>
+    <ClickGuardProvider value={guard}>
+      <RulesUrlContext.Provider value={communityRulesUrl}>
+        <GifConfigContext.Provider value={gifConfig}>
+          <ImageHostsContext.Provider value={imageHosts}>
+            {view}
+          </ImageHostsContext.Provider>
+        </GifConfigContext.Provider>
+      </RulesUrlContext.Provider>
+    </ClickGuardProvider>
   );
 }
 
@@ -949,6 +1025,19 @@ function replaceCommentInTree(
 
     return comment;
   });
+}
+
+// A comment after the viewer votes on it, as the server will count it: the same vote again takes it back
+function withVote(comment: ThreadFSComment, value: 1 | -1): ThreadFSComment {
+  const old = comment.viewer_vote ?? 0;
+  const next = old === value ? 0 : value;
+  return {
+    ...comment,
+    viewer_vote: next || null,
+    upvote_count: comment.upvote_count + Number(next === 1) - Number(old === 1),
+    downvote_count:
+      comment.downvote_count + Number(next === -1) - Number(old === -1),
+  };
 }
 
 // Whether a thread still lists a comment that isn't visible, as the server decides: only while something visible is

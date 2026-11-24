@@ -126,6 +126,8 @@ type ThreadFSCommentsProps = {
 
   focusCommentId?: string | null;
   commentUrl?: (commentId: string) => string | null;
+
+  confirmClick?: (action: ThreadFSClickAction) => Promise<boolean | null>;
 };
 ```
 
@@ -257,6 +259,30 @@ your own.
 Keep `focusCommentId` in step with the hash (listen for `hashchange`) if links can be followed without a page load.
 If the widget runs in an iframe on another origin, give it `allow="clipboard-write"`, or Copy link can't write to the
 clipboard (it says so instead).
+
+### Clickjacking: `confirmClick`
+
+If other sites can frame the page the widget is on, one could cover the frame or make it transparent, so that a
+signed-in viewer votes without seeing it. `confirmClick` guards what needs no typing: voting, reporting with a listed
+reason, and posting a GIF or an image alone. Text needs typing, deleting asks in the browser's own dialog, and staff
+actions should be left out of such tokens.
+
+- A click goes ahead by itself when the browser can vouch that its controls were visible before, during and after it
+  (Chromium's IntersectionObserver `trackVisibility`).
+- Otherwise `confirmClick` is called, and the action waits for its answer: `true` goes ahead, `false` doesn't, with a
+  notice, and `null` doesn't, quietly (the viewer took it back). That includes browsers without the check, and frames
+  with anything overlapping them: for a frame from another site, Chromium counts a sticky header over any part of it as
+  covering all of it. So treat it as "not proven" rather than as an attack.
+- It's told what the click would do (`kind`, a vote's outcome as `value`, `authorName`), to say it to the viewer, and
+  whether the controls were mostly outside the window (`isClipped`), which every browser can tell.
+- A guarded vote shows at once, and is put back if it doesn't go ahead.
+
+It's called inside the click, so it can open a popup: a page of your own, which the framing site can't cover or fake.
+It's called for every such click, so remember the answer for a while.
+
+```tsx
+<ThreadFSComments {...props} confirmClick={isFramed ? askInPopup : undefined} />
+```
 
 ## Rendering other text: `@threadfs/react/markdown`
 

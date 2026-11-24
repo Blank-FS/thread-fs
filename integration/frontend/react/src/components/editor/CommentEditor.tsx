@@ -4,6 +4,7 @@ import type { CommentMedia, ThreadFSCommentUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ImagePlus, ScrollText, X } from "lucide-react";
 import { useMemo, useState, type KeyboardEvent } from "react";
+import { useGuardedControls } from "../../lib/clickGuard";
 import { useRulesUrl } from "../../lib/rulesContext";
 import defaultAvatarUrl from "../assets/default-avatar.png";
 import AvatarFrame from "../card/AvatarFrame";
@@ -82,6 +83,7 @@ function CommentEditor({
     markdown: initialMarkdown ?? "",
     text: initialMarkdown ?? "",
   });
+  const guardedRef = useGuardedControls();
   const [editorKey, setEditorKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Opened by focusing it; closed only by Cancel or posting
@@ -198,6 +200,7 @@ function CommentEditor({
       )}
 
       <div
+        ref={guardedRef}
         onKeyDownCapture={handleSubmitShortcut}
         className="min-w-0 flex-1 rounded-md border px-2 py-1"
       >

@@ -15,16 +15,16 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
+import { useGuardedControls } from "../../lib/clickGuard";
 import type { CommentRemoval } from "../../lib/moderationApi";
 import type {
+  CommentMedia,
   ThreadFSComment,
   ThreadFSCommentUser,
   ThreadFSReason,
-  CommentMedia,
 } from "../../lib/types";
 import { cn } from "../../lib/utils";
 import defaultAvatarUrl from "../assets/default-avatar.png";
-import { CommentMediaView, mediaOf } from "./CommentMedia";
 import { CollapsibleContent } from "../common/CollapsibleContent";
 import { MarkdownContent } from "../common/MarkdownContent";
 import CommentEditor from "../editor/CommentEditor";
@@ -32,6 +32,7 @@ import { OTHER_REASON } from "../moderation/shared";
 import { Badge } from "../ui/badge";
 import AvatarFrame from "./AvatarFrame";
 import CommentActionsMenu from "./CommentActionsMenu";
+import { CommentMediaView, mediaOf } from "./CommentMedia";
 import CommentShareMenu from "./CommentShareMenu";
 import CommentTimestamp, { EditedMarker } from "./CommentTimestamp";
 import RemovalNote, { REMOVED_CONTENT_CLASS } from "./RemovalNote";
@@ -133,6 +134,7 @@ function CommentCard({
   avatarRef,
 }: CommentCardProps) {
   const viewerVote = comment.viewer_vote ?? null;
+  const guardedRef = useGuardedControls();
   const [isReplying, setIsReplying] = useState(false);
   // Replies that came with the comment (a link's context) start open; otherwise they load on View more
   const [areRepliesExpanded, setAreRepliesExpanded] = useState(
@@ -479,7 +481,10 @@ function CommentCard({
             )}
 
             {comment.status === "visible" && (
-              <div className="text-muted-foreground relative mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium">
+              <div
+                ref={guardedRef}
+                className="text-muted-foreground relative mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium"
+              >
                 {collapseButton}
                 <button
                   type="button"

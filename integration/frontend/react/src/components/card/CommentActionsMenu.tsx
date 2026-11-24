@@ -6,7 +6,8 @@ import {
   ShieldX,
   Trash2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useGuardedControls } from "../../lib/clickGuard";
 import type { ThreadFSReason } from "../../lib/types";
 import {
   DropdownMenu,
@@ -47,7 +48,16 @@ export default function CommentActionsMenu({
 }) {
   // The reasons replace the menu rather than open beside it: a narrow panel has no room for a second one
   const [isChoosingReason, setIsChoosingReason] = useState(false);
-  const itemsRef = useRef<HTMLDivElement>(null);
+  const itemsRef = useRef<HTMLDivElement | null>(null);
+  const guardedRef = useGuardedControls();
+  // Stable: a new ref every render would start the guard's timing over
+  const setItemsRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      itemsRef.current = element;
+      guardedRef(element);
+    },
+    [guardedRef],
+  );
 
   // Swapping the items removes the focused one, which would leave the keyboard stranded
   useEffect(() => {
@@ -78,7 +88,7 @@ export default function CommentActionsMenu({
         className="w-48"
         onCloseAutoFocus={onCloseAutoFocus}
       >
-        <div ref={itemsRef}>
+        <div ref={setItemsRef}>
           {isChoosingReason ? (
             <>
               <DropdownMenuItem
