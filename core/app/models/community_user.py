@@ -2,7 +2,7 @@
 
 import uuid
 
-from sqlalchemy import Column, DateTime, ForeignKey, String
+from sqlalchemy import Column, DateTime, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.db.base import Base
@@ -45,4 +45,15 @@ class CommunityUser(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
     modified_at = Column(
         DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now
+    )
+
+    __table_args__ = (
+        # How every signed-in request finds its user. Unique, so two first requests at once can't create them twice
+        Index(
+            "uq_community_users_identity",
+            "community_id",
+            "identity_provider",
+            "external_user_id",
+            unique=True,
+        ),
     )

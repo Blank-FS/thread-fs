@@ -100,6 +100,14 @@ class Comment(Base):
 
     __table_args__ = (
         Index("ix_comments_thread_created_at", "thread_id", "created_at"),
+        # A thread's top-level comments in their usual order, whatever the size of the rest of the table
+        Index(
+            "ix_comments_thread_top_level",
+            "thread_id",
+            created_at.desc(),
+            id.desc(),
+            postgresql_where=parent_comment_id.is_(None),
+        ),
         Index("ix_comments_parent_created_at", "parent_comment_id", "created_at"),
         Index(
             "ix_comments_community_user_created_at",
