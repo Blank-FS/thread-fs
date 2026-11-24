@@ -96,7 +96,9 @@ export default function RemoveCommentForm({
           />
         )}
       </div>
-      {error && <p className="text-sm text-rose-500">{error}</p>}
+      {error && (
+        <p className="text-sm text-rose-600 dark:text-rose-500">{error}</p>
+      )}
       <div className="flex flex-wrap justify-end gap-2">
         <Button
           type="button"

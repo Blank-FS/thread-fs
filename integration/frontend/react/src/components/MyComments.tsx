@@ -598,8 +598,8 @@ export function ThreadFSMyComments({
                         aria-pressed={viewerVote === -1}
                         aria-label={`Downvote (${comment.downvote_count ?? 0})`}
                         className={cn(
-                          "flex items-center gap-1 hover:cursor-pointer hover:text-rose-500",
-                          viewerVote === -1 && "text-rose-500",
+                          "flex items-center gap-1 hover:cursor-pointer hover:text-rose-600 dark:hover:text-rose-500",
+                          viewerVote === -1 && "text-rose-600 dark:text-rose-500",
                         )}
                       >
                         <ArrowBigDown

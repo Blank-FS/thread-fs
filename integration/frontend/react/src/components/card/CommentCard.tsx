@@ -483,7 +483,7 @@ function CommentCard({
             {comment.status === "visible" && (
               <div
                 ref={guardedRef}
-                className="text-muted-foreground relative mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium"
+                className="text-muted-foreground relative mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium sm:gap-x-3"
               >
                 {collapseButton}
                 <button
@@ -509,8 +509,8 @@ function CommentCard({
                   aria-pressed={viewerVote === -1}
                   aria-label={`Downvote (${comment.downvote_count ?? 0})`}
                   className={cn(
-                    "flex items-center gap-1 hover:cursor-pointer hover:text-rose-500",
-                    viewerVote === -1 && "text-rose-500",
+                    "flex items-center gap-1 hover:cursor-pointer hover:text-rose-600 dark:hover:text-rose-500",
+                    viewerVote === -1 && "text-rose-600 dark:text-rose-500",
                   )}
                 >
                   <ArrowBigDown

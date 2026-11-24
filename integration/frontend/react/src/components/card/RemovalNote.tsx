@@ -15,7 +15,7 @@ export default function RemovalNote({
 }) {
   return (
     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-      <p className="font-medium text-rose-500">
+      <p className="font-medium text-rose-600 dark:text-rose-500">
         Removed by a moderator{reason ? `: ${reason}` : ""}
         <span className="text-muted-foreground font-normal italic">
           {" "}
