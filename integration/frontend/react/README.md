@@ -228,8 +228,9 @@ never reaches your server, so caching, canonical URLs and crawler rules all see 
 `commentIdFromHash(location.hash)` build and read it.
 
 - `focusCommentId` shows that comment in context, like Reddit: the chain from its top-level comment down to it is pinned
-  above the rest of the list, the comment highlighted and scrolled into view with its first replies. Siblings along
-  the chain aren't loaded, but their parents offer them ("N more replies"). A comment that's gone leaves the list
+  above the rest of the list, the comment highlighted and scrolled into view with its first replies. It's kept in view
+  while the page loads around it, until the viewer scrolls, taps or presses a key (in an iframe it's scrolled to once).
+  Siblings along the chain aren't loaded, but their parents offer them ("N more replies"). A comment that's gone leaves the list
   as usual, with a short notice.
 - `commentUrl` turns on a **Share** button on every comment: **Copy link**, plus **Share via...** (the device's share
   sheet) on touch devices. Return `null` for no link.

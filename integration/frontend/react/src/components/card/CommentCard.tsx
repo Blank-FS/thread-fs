@@ -16,6 +16,7 @@ import {
   type ReactNode,
 } from "react";
 import { useGuardedControls } from "../../lib/clickGuard";
+import { keepInView } from "../../lib/keepInView";
 import type { CommentRemoval } from "../../lib/moderationApi";
 import type {
   CommentMedia,
@@ -172,10 +173,10 @@ function CommentCard({
     highlightedCommentId != null &&
     String(comment.id) === String(highlightedCommentId);
 
-  // Brought into view once, when the linked comment appears
+  // Brought into view when the linked comment appears, and kept there while the page settles
   useEffect(() => {
-    if (isHighlighted)
-      containerRef.current?.scrollIntoView({ block: "center" });
+    if (isHighlighted && containerRef.current)
+      return keepInView(containerRef.current, "center");
     // Only on becoming highlighted, not on every re-render
   }, [isHighlighted]);
 
