@@ -94,6 +94,14 @@ RATE_LIMIT_COMMENT_EDIT_PER_HOUR=20
 RATE_LIMIT_COMMENT_DELETE_PER_HOUR=20
 RATE_LIMIT_VOTE_PER_MINUTE=60
 
+# Optional, with their defaults (see Capacity below)
+# REDIS_URL=redis://localhost:6379/0
+# DB_POOL_SIZE=10
+# DB_MAX_OVERFLOW=5
+# DB_POOL_TIMEOUT_SECONDS=10
+# COMMUNITY_CACHE_SECONDS=30
+# READ_CACHE_SECONDS=5
+
 # Webhooks (see Webhooks below): the loop that sends queued events, and how often it looks
 WEBHOOK_DELIVERY_ENABLED=true
 WEBHOOK_POLL_SECONDS=2
@@ -257,6 +265,20 @@ Frontend usage:
 
 ## API Overview
 
+### Show a thread
+
+```http
+POST /api/v1/embed/bootstrap
+```
+
+```json
+{ "thread_id": "demo-thread", "limit": 20, "sort": "latest", "reply_preview": 2, "comment_id": null }
+```
+
+Everything a widget needs in one request: `config` and `me` as their own endpoints return them, the `thread` (null until
+someone comments), the first page of `comments`, and with a `comment_id` that comment's `context` (null when it's gone).
+Only `thread_id` is required. The React widget uses it, so deploy the API before a widget that does.
+
 ### Read comments
 
 ```http
@@ -419,7 +441,20 @@ Do not use `allow_origins=["*"]` with credentials.
 
 ### Rate limiting
 
-ThreadFS includes basic rate limiting for reads, comments, votes, edits, and deletes. For a single-instance prototype, the in-memory limiter is acceptable. For multi-instance deployment, replace it with Redis.
+Reads, comments, votes, reports, edits and deletes are rate limited: per user, or per IP address for signed-out reads. With `REDIS_URL` set, the limits are shared between workers and instances; without it, or while Redis can't be reached, each worker counts for itself.
+
+## Capacity
+
+Each worker remembers what rarely changes or what everyone sees, so most reads take little or nothing from the database:
+
+- **A community's settings, origins, auth providers and report reasons** for `COMMUNITY_CACHE_SECONDS`. Changes made through the moderation API apply at once in the worker that made them; in the others, and for changes made by scripts (revoking a key, adding an origin), within that time.
+- **Pages of a thread** for `READ_CACHE_SECONDS`, since viewers' pages differ only in their own votes. Signed-out readers can see a page that old. For signed-in viewers a new, edited, deleted or removed comment shows at once, and only vote counts can be that old. Staff, and anyone with a removed comment in the thread, always get their own.
+
+Both work without Redis. 0 turns either off.
+
+**Workers:** about one per CPU. **Database connections:** up to workers x (`DB_POOL_SIZE` + `DB_MAX_OVERFLOW`), which has to fit in the database's `max_connections`. When none comes free within `DB_POOL_TIMEOUT_SECONDS`, the request gets 503 with `Retry-After`.
+
+**Measured** (November 2026: two workers on one core's two hyperthreads of a 2.5 GHz i7-11850H, PostgreSQL on another; 367,000 comments in 2,000 threads; views spread over all of them, a third signed in, with paging, replies, votes and new comments): 140 thread views a second with 95% under 70 ms, and 300 a second when all are of one thread. Burstable instances (t3, t4g) give about half that while they have CPU credits. Their baseline is a small share of it, so watch `CPUCreditBalance`, or use a non-burstable instance if traffic is steady.
 
 ## Thread titles and links
 
@@ -710,7 +745,7 @@ Before exposing to users:
 - [ ] Host backend has `THREADFS_SECRET`
 - [ ] React component uses production `communityKey`
 - [ ] CORS allows the host site
-- [ ] Rate limiting enabled
+- [ ] Rate limiting enabled, with `REDIS_URL` when there's more than one worker
 - [ ] HTML sanitization enabled
 - [ ] Port 8000 is not publicly exposed
 - [ ] API is served through HTTPS
@@ -744,7 +779,6 @@ Near-term:
 
 - Report comment endpoint
 - Minimal admin scripts
-- Redis-backed rate limiting
 - Docker production hardening
 - Better deployment examples
 
