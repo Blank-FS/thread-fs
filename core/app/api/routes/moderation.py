@@ -39,7 +39,7 @@ from app.schemas.moderation import (
     UserNoteRead,
     UserNoteRequest,
 )
-from app.services import moderation_service, reason_service
+from app.services import community_context, moderation_service, reason_service
 from app.services.reason_service import Reason
 
 # Every route needs a token whose host-signed role makes the caller staff (app.api.deps.require_moderator)
@@ -437,11 +437,13 @@ async def replace_reasons(
     session: AsyncSession = Depends(get_async_session),
     context: Moderator = Depends(require_admin),
 ):
-    return await reason_service.replace_reasons(
+    reasons = await reason_service.replace_reasons(
         session,
         context[0].id,
         [Reason(reason.key, reason.label) for reason in payload.reasons],
     )
+    community_context.clear()
+    return reasons
 
 
 @router.post("/threads/lock", response_model=ThreadRead)

@@ -245,6 +245,28 @@ class CommentContextRead(BaseModel):
     root: CommentTreeRead
 
 
+class BootstrapRequest(BaseModel):
+    thread_id: str = Field(min_length=1, max_length=512)
+    # The first page of top-level comments, as GET /comments lists them
+    limit: int = Field(default=20, ge=1, le=100)
+    sort: Literal["latest", "oldest", "top"] | None = None
+    reply_preview: int | None = Field(default=None, ge=0, le=5)
+    # A linked comment, to show in its context
+    comment_id: int | None = None
+
+
+class BootstrapRead(BaseModel):
+    """What a widget needs to show a thread."""
+
+    config: EmbedCommunityConfigRead
+    me: EmbedMeRead
+    # Null until someone comments there
+    thread: ThreadRead | None = None
+    # Null without a linked comment, or when it's gone
+    context: CommentContextRead | None = None
+    comments: PageResponse[CommentTreeRead]
+
+
 class ReportRequest(BaseModel):
     # A key from the community's reasons
     reason: str = Field(min_length=1, max_length=64)

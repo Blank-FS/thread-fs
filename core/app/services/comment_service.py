@@ -1,5 +1,7 @@
 # app/services/comment_service.py
 
+from typing import TypeVar
+
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +17,8 @@ from app.core.origin import normalize_origin
 from app.repositories.community import is_origin_allowed_for_community
 from app.schemas.embed import CommentRead
 from app.services import moderation_service, webhook_service
+
+CommentT = TypeVar("CommentT", bound=CommentRead)
 
 
 async def get_or_create_thread_for_comment(
@@ -158,7 +162,6 @@ async def create_embed_comment(
         )
 
     parent_comment = None
-    ancestors = []
 
     if parent_comment_id is not None:
         parent_comment = await comment_repo.get_comment_by_id(
@@ -177,11 +180,6 @@ async def create_embed_comment(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Parent comment belongs to a different thread",
             )
-
-        ancestors = await comment_repo.get_comment_ancestor_chain(
-            session,
-            comment=parent_comment,
-        )
 
     clean_content = sanitize_comment_markdown(content)
     stored_gif = gif_for_community(community, gif)
@@ -206,14 +204,7 @@ async def create_embed_comment(
         client=client,
     )
 
-    thread.comment_count += 1
-
     if parent_comment is not None:
-        parent_comment.reply_count += 1
-
-        for ancestor in ancestors:
-            ancestor.reply_count += 1
-
         # Tells the site, so it can notify the parent's author; queued in this transaction (an outbox), so it's sent
         # exactly when the reply exists
         await webhook_service.enqueue_reply(
@@ -234,6 +225,8 @@ async def create_embed_comment(
         author=community_user,
     )
 
+    # Last, as it locks the thread: comments there wait for each other only this long
+    await comment_repo.shift_visible_counts(session, [comment], 1)
     await session.commit()
 
     created = await comment_repo.get_comment_by_id(session, comment.id)
@@ -247,12 +240,12 @@ async def create_embed_comment(
     return created
 
 
-def present_comments(comments, viewer) -> list[CommentRead]:
+def present_comments(comments, viewer, model: type[CommentT] = CommentRead) -> list[CommentT]:
     """Comments as a viewer may see them: one moderators removed keeps its place as an empty "[removed]", with its text
     and author withheld, unless the viewer wrote it or is staff (who see it in full, with the reason, to moderate in
     place). One its author deleted is "[deleted]" to everyone, its author
     included, as on Reddit: deleting takes their name off it too. Works on copies, so nothing here can be saved back."""
-    presented = [CommentRead.model_validate(comment) for comment in comments]
+    presented = [model.model_validate(comment) for comment in comments]
 
     for comment in presented:
         if comment.status == "deleted":

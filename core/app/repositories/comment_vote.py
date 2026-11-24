@@ -1,7 +1,7 @@
 # app/models/comment_vote.py
 
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import bindparam, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.comment_vote import CommentVote
@@ -42,6 +42,13 @@ async def create_comment_vote(
     return vote
 
 
+# Built once, as every signed-in read runs it (app.repositories.comment)
+BY_VIEWER = select(CommentVote.comment_id, CommentVote.value).where(
+    CommentVote.comment_id.in_(bindparam("comment_ids", expanding=True)),
+    CommentVote.community_user_id == bindparam("user_id"),
+)
+
+
 async def list_votes_for_comments(
     session: AsyncSession,
     *,
@@ -51,11 +58,6 @@ async def list_votes_for_comments(
     if not comment_ids:
         return {}
 
-    result = await session.execute(
-        select(CommentVote.comment_id, CommentVote.value).where(
-            CommentVote.comment_id.in_(comment_ids),
-            CommentVote.community_user_id == community_user_id,
-        )
-    )
+    result = await session.execute(BY_VIEWER, {"comment_ids": comment_ids, "user_id": community_user_id})
 
     return {comment_id: value for comment_id, value in result.all()}

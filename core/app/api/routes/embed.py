@@ -1,13 +1,18 @@
 # app/api/routes/embed.py
 
+from collections.abc import Awaitable, Callable, Hashable
 from typing import Literal
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from pydantic_core import to_json
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
     get_optional_current_community_user,
+    require_community_context,
     require_valid_embed_context,
 )
+from app.core.config import settings
+from app.core.ttl_cache import TTLCache
 from app.db.session import get_async_session
 from app.models.community import Community
 from app.models.community_user import CommunityUser
@@ -20,6 +25,8 @@ from app.api.rate_limits import (
     limit_vote_comment,
 )
 from app.schemas.embed import (
+    BootstrapRead,
+    BootstrapRequest,
     CommentContextRead,
     CommentTreeRead,
     CommentCreateRequest,
@@ -31,6 +38,7 @@ from app.schemas.embed import (
     ReportRequest,
     ResolveThreadRequest,
     ResolveThreadResponse,
+    ThreadRead,
     VoteRequest,
     CommentUpdateRequest,
     PageResponse,
@@ -38,12 +46,13 @@ from app.schemas.embed import (
 )
 from app.services import (
     thread_service,
+    comment_page_service,
     comment_service,
     vote_service,
     comment_mutation_service,
-    reason_service,
     report_service,
 )
+from app.services.community_context import CommunityContext
 
 import app.repositories.thread as thread_repo
 import app.repositories.comment as comment_repo
@@ -54,39 +63,38 @@ import app.repositories.community_user as community_user_repo
 router = APIRouter(prefix="/embed", tags=["embed"])
 
 
-@router.get("/config", response_model=EmbedCommunityConfigRead)
-async def get_embed_config(
-    session: AsyncSession = Depends(get_async_session),
-    community: Community = Depends(require_valid_embed_context),
-):
+# Signed-out readers all see the same, so those of one thread share an answer for a few seconds, ready to send: what keeps
+# a thread that everyone opens at once cheap. Signed-in viewers share the page within theirs (comment_page_service).
+_signed_out_reads: TTLCache[bytes] = TTLCache(settings.READ_CACHE_SECONDS, max_entries=200)
+
+
+async def _read(viewer: CommunityUser | None, key: Hashable, load: Callable[[], Awaitable[dict]]) -> Response:
+    async def body() -> bytes:
+        return to_json(await load())
+
+    content = await body() if viewer else await _signed_out_reads.get(key, body)
+    # Made from the response models already, so there's nothing for FastAPI to check again
+    return Response(content, media_type="application/json")
+
+
+def _config_read(context: CommunityContext) -> EmbedCommunityConfigRead:
+    community = context.community
     return EmbedCommunityConfigRead(
         community_id=community.id,
         name=community.name,
         slug=community.slug,
         allow_anonymous_read=community.allow_anonymous_read,
         allow_anonymous_comment=community.allow_anonymous_comment,
-        report_reasons=await reason_service.list_reasons(session, community.id),
+        report_reasons=context.reasons,
         rules_url=community.rules_url,
         gifs=GifConfigRead(app_key=community.klipy_app_key) if community.klipy_app_key else None,
         image_hosts=community.image_hosts or [],
     )
 
 
-@router.get("/me", response_model=EmbedMeRead)
-async def get_embed_me(
-    community: Community = Depends(require_valid_embed_context),
-    community_user: CommunityUser = Depends(get_optional_current_community_user),
-):
+def _me_read(community_user: CommunityUser | None) -> EmbedMeRead:
     if not community_user:
-        return EmbedMeRead(
-            authenticated=False,
-            community_user_id=None,
-            identity_provider=None,
-            external_user_id=None,
-            display_name=None,
-            avatar_url=None,
-            threadfs_user_id=None,
-        )
+        return EmbedMeRead(authenticated=False)
 
     return EmbedMeRead(
         authenticated=True,
@@ -99,6 +107,75 @@ async def get_embed_me(
         threadfs_user_id=community_user.threadfs_user_id,
         staff_role=community_user.staff_role,
     )
+
+
+@router.post("/bootstrap", response_model=BootstrapRead)
+async def bootstrap_embed(
+    payload: BootstrapRequest,
+    session: AsyncSession = Depends(get_async_session),
+    context: CommunityContext = Depends(require_community_context),
+    community: Community = Depends(limit_read_comments),
+    community_user: CommunityUser | None = Depends(get_optional_current_community_user),
+):
+    """Everything a widget needs to show a thread, in one request. A POST, so its address is always the same and browsers
+    reuse the preflight from one thread to the next."""
+    comment_page_service.require_may_read(community, community_user)
+
+    reply_preview = community.reply_preview if payload.reply_preview is None else payload.reply_preview
+
+    async def load() -> dict:
+        thread = await thread_repo.get_thread_by_unique_id(
+            session,
+            community_id=community.id,
+            unique_id=payload.thread_id,
+        )
+
+        # A linked comment that's gone, or never was (no id is past the column's), leaves the thread to show as usual
+        linked = None
+        if payload.comment_id is not None and 0 < payload.comment_id < 2**31:
+            try:
+                linked = await comment_page_service.load_context(
+                    session,
+                    thread=thread,
+                    viewer=community_user,
+                    comment_id=payload.comment_id,
+                    limit=payload.limit,
+                )
+            except HTTPException as error:
+                if error.status_code != status.HTTP_404_NOT_FOUND:
+                    raise
+
+        return {
+            "config": _config_read(context),
+            "me": _me_read(community_user),
+            "thread": ThreadRead.model_validate(thread) if thread else None,
+            "context": linked,
+            "comments": await comment_page_service.page_for(
+                session,
+                thread=thread,
+                viewer=community_user,
+                parent_comment_id=None,
+                limit=payload.limit,
+                offset=0,
+                sort=payload.sort,
+                reply_preview=reply_preview,
+            ),
+        }
+
+    key = ("bootstrap", community.id, payload.thread_id, payload.comment_id, payload.limit, payload.sort, reply_preview)
+    return await _read(community_user, key, load)
+
+
+@router.get("/config", response_model=EmbedCommunityConfigRead)
+async def get_embed_config(context: CommunityContext = Depends(require_community_context)):
+    return _config_read(context)
+
+
+@router.get("/me", response_model=EmbedMeRead)
+async def get_embed_me(
+    community_user: CommunityUser | None = Depends(get_optional_current_community_user),
+):
+    return _me_read(community_user)
 
 
 @router.post("/threads/resolve", response_model=ResolveThreadResponse)
@@ -134,134 +211,29 @@ async def list_embed_comments(
     community: Community = Depends(limit_read_comments),
     community_user: CommunityUser | None = Depends(get_optional_current_community_user),
 ):
-    if not community.allow_anonymous_read and not community_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required to read comments",
+    comment_page_service.require_may_read(community, community_user)
+
+    previews = community.reply_preview if reply_preview is None else reply_preview
+
+    async def load() -> dict:
+        thread = await thread_repo.get_thread_by_unique_id(
+            session,
+            community_id=community.id,
+            unique_id=thread_id,
         )
-
-    thread = await thread_repo.get_thread_by_unique_id(
-        session,
-        community_id=community.id,
-        unique_id=thread_id,
-    )
-
-    # Important: read should not create a thread.
-    if not thread:
-        return PageResponse[CommentTreeRead](
-            items=[],
+        return await comment_page_service.page_for(
+            session,
+            thread=thread,
+            viewer=community_user,
+            parent_comment_id=parent_comment_id,
             limit=limit,
             offset=offset,
-            next_offset=None,
-            has_more=False,
-            total=0,
+            sort=sort,
+            reply_preview=previews,
         )
 
-    if thread.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Thread not found",
-        )
-
-    if parent_comment_id is not None:
-        parent_comment = await comment_repo.get_comment_by_id(
-            session,
-            parent_comment_id,
-        )
-
-        if not parent_comment or parent_comment.status not in comment_repo.THREAD_STATUSES:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Parent comment not found",
-            )
-
-        if parent_comment.thread_id != thread.id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Parent comment belongs to a different thread",
-            )
-
-    effective_sort = sort or ("oldest" if parent_comment_id is not None else "latest")
-
-    total = await comment_repo.count_comments(
-        session,
-        thread_id=thread.id,
-        parent_comment_id=parent_comment_id,
-        viewer=community_user,
-    )
-
-    comments = await comment_repo.list_comments(
-        session,
-        thread_id=thread.id,
-        parent_comment_id=parent_comment_id,
-        limit=limit,
-        offset=offset,
-        sort=effective_sort,
-        viewer=community_user,
-    )
-
-    # Replies to preview, for the comments that have any
-    previews: dict[int, list] = {}
-    reply_totals: dict[int, int] = {}
-    if reply_preview is None:
-        reply_preview = community.reply_preview
-    if parent_comment_id is None and reply_preview > 0:
-        with_replies = [comment.id for comment in comments if comment.reply_count > 0]
-        reply_totals = await comment_repo.count_direct_replies(
-            session,
-            parent_comment_ids=with_replies,
-            viewer=community_user,
-        )
-        for reply in await comment_repo.list_reply_previews(
-            session,
-            parent_comment_ids=with_replies,
-            per_parent=reply_preview,
-        ):
-            previews.setdefault(reply.parent_comment_id, []).append(reply)
-    preview_replies = [reply for replies in previews.values() for reply in replies]
-
-    if community_user and comments:
-        vote_map = await vote_repo.list_votes_for_comments(
-            session,
-            comment_ids=[comment.id for comment in comments + preview_replies],
-            community_user_id=community_user.id,
-        )
-        for comment in comments + preview_replies:
-            comment.viewer_vote = vote_map.get(comment.id)
-
-    next_offset = offset + len(comments)
-    has_more = next_offset < total
-
-    items = []
-    for presented in comment_service.present_comments(comments, community_user):
-        replies = previews.get(presented.id, [])
-        if not replies:
-            items.append(CommentTreeRead(**presented.model_dump()))
-            continue
-        total_replies = reply_totals.get(presented.id, len(replies))
-        has_more_replies = len(replies) < total_replies
-        items.append(
-            CommentTreeRead(
-                **presented.model_dump(),
-                replies=[
-                    CommentTreeRead(**reply.model_dump())
-                    for reply in comment_service.present_comments(replies, community_user)
-                ],
-                # The rest load from the start (oldest first, as replies are listed), skipping the ones shown
-                replies_next_offset=0 if has_more_replies else None,
-                replies_has_more=has_more_replies,
-                replies_total=total_replies,
-            )
-        )
-
-    return PageResponse[CommentTreeRead](
-        items=items,
-        limit=limit,
-        offset=offset,
-        next_offset=next_offset if has_more else None,
-        has_more=has_more,
-        total=total,
-    )
+    key = ("comments", community.id, thread_id, parent_comment_id, limit, offset, sort, previews)
+    return await _read(community_user, key, load)
 
 
 @router.get("/comments/{comment_id}/context", response_model=CommentContextRead)
@@ -273,92 +245,21 @@ async def get_embed_comment_context(
     community: Community = Depends(limit_read_comments),
     community_user: CommunityUser | None = Depends(get_optional_current_community_user),
 ):
-    """A link to one comment: the chain from its top-level comment down to it, and its first page of replies (oldest
-    first, as replies are listed). Lets a widget show a comment that's deep in a thread or far down the list."""
-    if not community.allow_anonymous_read and not community_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required to read comments",
-        )
+    """A link to one comment (comment_page_service.load_context)."""
+    comment_page_service.require_may_read(community, community_user)
 
     thread = await thread_repo.get_thread_by_unique_id(
         session,
         community_id=community.id,
         unique_id=thread_id,
     )
-    comment = await comment_repo.get_comment_by_id(session, comment_id)
-
-    # The same answer whether the thread or the comment is missing, or the comment is in another thread
-    if (
-        not thread
-        or thread.is_deleted
-        or not comment
-        or comment.thread_id != thread.id
-        or not comment_repo.is_shown_in_thread(comment, community_user)
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Comment not found",
-        )
-
-    # Nearest first from the repository; the top-level comment first here
-    chain = list(reversed(await comment_repo.get_comment_ancestor_chain(session, comment=comment))) + [comment]
-
-    total_replies = await comment_repo.count_comments(
+    return await comment_page_service.load_context(
         session,
-        thread_id=thread.id,
-        parent_comment_id=comment.id,
+        thread=thread,
         viewer=community_user,
-    )
-    replies = await comment_repo.list_comments(
-        session,
-        thread_id=thread.id,
-        parent_comment_id=comment.id,
+        comment_id=comment_id,
         limit=limit,
-        offset=0,
-        sort="oldest",
-        viewer=community_user,
     )
-
-    if community_user:
-        vote_map = await vote_repo.list_votes_for_comments(
-            session,
-            comment_ids=[c.id for c in chain + replies],
-            community_user_id=community_user.id,
-        )
-        for c in chain + replies:
-            c.viewer_vote = vote_map.get(c.id)
-
-    presented_chain = comment_service.present_comments(chain, community_user)
-    presented_replies = comment_service.present_comments(replies, community_user)
-
-    # Built from the comment up: each ancestor holds only the next comment in the chain, and says it has more when it
-    # does, from the start of its replies (the widget skips the one it already shows)
-    node = CommentTreeRead(
-        **presented_chain[-1].model_dump(),
-        replies=[CommentTreeRead(**reply.model_dump()) for reply in presented_replies],
-        replies_next_offset=len(replies) if len(replies) < total_replies else None,
-        replies_has_more=len(replies) < total_replies,
-        replies_total=total_replies,
-    )
-    for ancestor in reversed(presented_chain[:-1]):
-        # Direct replies only: reply_count counts every reply below a comment, at any depth
-        direct_replies = await comment_repo.count_comments(
-            session,
-            thread_id=thread.id,
-            parent_comment_id=ancestor.id,
-            viewer=community_user,
-        )
-        has_more = direct_replies > 1
-        node = CommentTreeRead(
-            **ancestor.model_dump(),
-            replies=[node],
-            replies_next_offset=0 if has_more else None,
-            replies_has_more=has_more,
-            replies_total=direct_replies,
-        )
-
-    return CommentContextRead(focused_comment_id=comment.id, root=node)
 
 
 @router.get("/comments/mine", response_model=PageResponse[CommentWithThreadRead])

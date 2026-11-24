@@ -5,20 +5,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.origin import normalize_origin
 from app.db.session import get_async_session
-from app.repositories.community import (
-    get_community_by_public_key,
-    is_origin_allowed_for_community,
-)
 from app.models.community import Community
 from app.models.community_user import CommunityUser
-from app.services import identity_service, moderation_service
+from app.services import community_context, identity_service, moderation_service
+from app.services.community_context import CommunityContext
 
 
-async def require_valid_embed_context(
+async def require_community_context(
     session: AsyncSession = Depends(get_async_session),
     x_threadfs_community_key: str = Header(alias="X-ThreadFS-Community-Key"),
     origin: str | None = Header(default=None),
-) -> Community:
+) -> CommunityContext:
     if not origin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -33,37 +30,32 @@ async def require_valid_embed_context(
             detail="Invalid Origin header",
         )
 
-    community = await get_community_by_public_key(
-        session,
-        public_key=x_threadfs_community_key,
-    )
+    context = await community_context.get_by_public_key(session, x_threadfs_community_key)
 
-    if not community:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Community not found",
-        )
-
-    is_allowed = await is_origin_allowed_for_community(
-        session,
-        community_id=community.id,
-        origin=normalized_origin,
-    )
-
-    if not is_allowed:
+    if normalized_origin not in context.origins:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Origin not allowed for this community",
         )
 
-    return community
+    return context
+
+
+async def require_valid_embed_context(
+    context: CommunityContext = Depends(require_community_context),
+) -> Community:
+    """The community, for reading: it's remembered between requests, so changes to it aren't saved (require_moderator's
+    are)."""
+    return context.community
 
 
 async def get_optional_current_community_user(
     authorization: str | None = Header(default=None),
     session: AsyncSession = Depends(get_async_session),
-    community: Community = Depends(require_valid_embed_context),
+    context: CommunityContext = Depends(require_community_context),
 ):
+    community = context.community
+
     if not authorization:
         return None
 
@@ -72,9 +64,8 @@ async def get_optional_current_community_user(
     if scheme.lower() != "bearer" or not token:
         return None
 
-    identity = await identity_service.verify_external_identity_token(
-        session,
-        community=community,
+    identity = identity_service.verify_external_identity_token(
+        providers=context.providers,
         token=token,
     )
 
@@ -114,13 +105,22 @@ async def require_current_community_user(
 
 
 async def require_moderator(
-    community: Community = Depends(require_valid_embed_context),
+    session: AsyncSession = Depends(get_async_session),
+    remembered: Community = Depends(require_valid_embed_context),
     community_user: CommunityUser = Depends(require_current_community_user),
 ) -> tuple[Community, CommunityUser]:
     if community_user.staff_role is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Moderator permissions required",
+        )
+
+    # As it is now, in this session: admins change it
+    community = await session.get(Community, remembered.id)
+    if community is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Community not found",
         )
 
     return community, community_user

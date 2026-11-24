@@ -14,6 +14,9 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
+# Nothing is remembered between requests, so tests see each change at once (test_caching.py turns it on)
+os.environ["COMMUNITY_CACHE_SECONDS"] = os.environ["READ_CACHE_SECONDS"] = "0"
+
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_async_session

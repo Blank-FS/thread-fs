@@ -99,6 +99,7 @@ async def edit_own_comment(
     comment.edited_at = utc_now()
     comment.modified_at = utc_now()
 
+    await thread_repo.touch_thread(session, comment.thread_id)
     await session.commit()
 
     updated = await comment_repo.get_comment_by_id(session, comment.id)

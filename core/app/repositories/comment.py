@@ -1,10 +1,12 @@
 # app/models/comment.py
 
 from collections import Counter
+from functools import lru_cache
 from typing import Literal
-from sqlalchemy import and_, func, or_, select, update
+from uuid import UUID
+from sqlalchemy import Integer, Select, and_, bindparam, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased, selectinload
+from sqlalchemy.orm import aliased, joinedload, selectinload
 
 from app.models.comment import Comment
 from app.models.community_user import CommunityUser
@@ -17,8 +19,26 @@ CommentSort = Literal["latest", "oldest", "top"]
 THREAD_STATUSES = ["visible", "deleted", "hidden"]
 
 
-def shown_in_thread(viewer: CommunityUser | None):
-    """Which comments a thread lists for this viewer: visible ones, and a deleted or removed one only while something
+# The statements every page of a thread needs are built once and take their values as parameters: SQLAlchemy spends as
+# long putting one together as running it.
+
+# Who's reading, as far as what a thread lists goes
+Audience = Literal["public", "viewer", "staff"]
+
+
+def _audience(viewer: CommunityUser | None) -> Audience:
+    if viewer is None:
+        return "public"
+    return "staff" if viewer.staff_role else "viewer"
+
+
+def _viewer_id(viewer: CommunityUser | None) -> UUID | None:
+    """The viewer_id parameter of statements with shown_in_thread (unused by all but "viewer")."""
+    return viewer.id if viewer is not None else None
+
+
+def shown_in_thread(audience: Audience):
+    """Which comments a thread lists for this audience: visible ones, and a deleted or removed one only while something
     visible is below it (reply_count counts visible comments only), as Reddit does. Its author still sees their own
     removed comment, with the reason, so a removal is never silent, and staff see every removed comment, to moderate
     the thread in place."""
@@ -26,10 +46,10 @@ def shown_in_thread(viewer: CommunityUser | None):
         Comment.status == "visible",
         and_(Comment.status.in_(THREAD_STATUSES), Comment.reply_count > 0),
     )
-    if viewer is not None and viewer.staff_role:
+    if audience == "staff":
         return or_(shown, Comment.status == "hidden")
-    if viewer is not None:
-        shown = or_(shown, and_(Comment.status == "hidden", Comment.community_user_id == viewer.id))
+    if audience == "viewer":
+        return or_(shown, and_(Comment.status == "hidden", Comment.community_user_id == bindparam("viewer_id")))
     return shown
 
 
@@ -49,7 +69,10 @@ def is_shown_in_thread(comment: Comment, viewer: CommunityUser | None) -> bool:
 async def shift_visible_counts(session: AsyncSession, comments: list[Comment], delta: int) -> None:
     """Comments that just became visible (+1) or stopped being (-1): every comment above each one, and its thread,
     count it in or out (reply_count and comment_count count visible comments only). One statement for the comments,
-    whatever the batch, done in SQL so concurrent changes add up; loaded ancestors keep their old counts in memory."""
+    whatever the batch, done in SQL so concurrent changes add up; loaded ancestors keep their old counts in memory.
+
+    Rows are locked deepest first and the thread last, the order removing a comment takes them in too, so two changes in
+    one chain wait for each other rather than deadlock."""
     if not comments:
         return
 
@@ -64,6 +87,14 @@ async def shift_visible_counts(session: AsyncSession, comments: list[Comment], d
         .join(up, parent.id == up.c.ancestor_id)
         .where(parent.parent_comment_id.is_not(None))
     )
+    if any(comment.parent_comment_id is not None for comment in comments):
+        await session.execute(
+            select(Comment.id)
+            .where(Comment.id.in_(select(up.c.ancestor_id)))
+            .order_by(Comment.id.desc())
+            .with_for_update(key_share=True)
+        )
+
     counts = select(up.c.ancestor_id, func.count().label("n")).group_by(up.c.ancestor_id).subquery()
     await session.execute(
         update(Comment)
@@ -100,6 +131,37 @@ def _comment_order_by(sort: CommentSort):
     return (Comment.created_at.asc(), Comment.id.asc())
 
 
+HIDDEN_IN_THREAD = (
+    select(Comment.id)
+    .where(
+        Comment.community_user_id == bindparam("user_id"),
+        Comment.thread_id == bindparam("thread_id"),
+        Comment.status == "hidden",
+    )
+    .limit(1)
+)
+
+
+async def has_hidden_in_thread(session: AsyncSession, *, thread_id: int, community_user_id) -> bool:
+    """Whether moderators removed anything of a user's in a thread, which only they (and staff) then see there."""
+    result = await session.execute(HIDDEN_IN_THREAD, {"user_id": community_user_id, "thread_id": thread_id})
+
+    return result.first() is not None
+
+
+def _in_place(top_level: bool):
+    """Comments in one place: a thread's top level, or one comment's direct replies."""
+    return and_(
+        Comment.thread_id == bindparam("thread_id"),
+        Comment.parent_comment_id.is_(None) if top_level else Comment.parent_comment_id == bindparam("parent_id"),
+    )
+
+
+@lru_cache
+def _count_statement(top_level: bool, audience: Audience) -> Select:
+    return select(func.count(Comment.id)).where(_in_place(top_level), shown_in_thread(audience))
+
+
 async def count_comments(
     session: AsyncSession,
     *,
@@ -108,16 +170,23 @@ async def count_comments(
     viewer: CommunityUser | None,
 ) -> int:
     result = await session.execute(
-        select(func.count(Comment.id)).where(
-            Comment.thread_id == thread_id,
-            Comment.parent_comment_id.is_(None)
-            if parent_comment_id is None
-            else Comment.parent_comment_id == parent_comment_id,
-            shown_in_thread(viewer),
-        )
+        _count_statement(parent_comment_id is None, _audience(viewer)),
+        {"thread_id": thread_id, "parent_id": parent_comment_id, "viewer_id": _viewer_id(viewer)},
     )
 
     return int(result.scalar_one())
+
+
+@lru_cache
+def _list_statement(top_level: bool, sort: CommentSort, audience: Audience) -> Select:
+    return (
+        select(Comment)
+        .options(joinedload(Comment.community_user, innerjoin=True))
+        .where(_in_place(top_level), shown_in_thread(audience))
+        .order_by(*_comment_order_by(sort))
+        .limit(bindparam("page_limit", type_=Integer))
+        .offset(bindparam("page_offset", type_=Integer))
+    )
 
 
 async def list_comments(
@@ -131,34 +200,21 @@ async def list_comments(
     viewer: CommunityUser | None,
 ) -> list[Comment]:
     result = await session.execute(
-        select(Comment)
-        .options(selectinload(Comment.community_user))
-        .where(
-            Comment.thread_id == thread_id,
-            Comment.parent_comment_id.is_(None)
-            if parent_comment_id is None
-            else Comment.parent_comment_id == parent_comment_id,
-            shown_in_thread(viewer),
-        )
-        .order_by(*_comment_order_by(sort))
-        .limit(limit)
-        .offset(offset)
+        _list_statement(parent_comment_id is None, sort, _audience(viewer)),
+        {
+            "thread_id": thread_id,
+            "parent_id": parent_comment_id,
+            "viewer_id": _viewer_id(viewer),
+            "page_limit": limit,
+            "page_offset": offset,
+        },
     )
 
     return list(result.scalars().all())
 
 
-async def list_reply_previews(
-    session: AsyncSession,
-    *,
-    parent_comment_ids: list[int],
-    per_parent: int,
-) -> list[Comment]:
-    """The best few direct replies of each comment, in one query: highest score first, then the first posted. Visible
-    ones only, since a removed or deleted reply isn't worth previewing."""
-    if not parent_comment_ids or per_parent <= 0:
-        return []
-
+@lru_cache
+def _previews_statement(audience: Audience) -> Select:
     score = Comment.upvote_count - Comment.downvote_count
     ranked = (
         select(
@@ -166,47 +222,50 @@ async def list_reply_previews(
             func.row_number()
             .over(
                 partition_by=Comment.parent_comment_id,
-                order_by=(score.desc(), Comment.created_at.asc(), Comment.id.asc()),
+                order_by=(
+                    (Comment.status == "visible").desc(),
+                    score.desc(),
+                    Comment.created_at.asc(),
+                    Comment.id.asc(),
+                ),
             )
             .label("rank"),
+            func.count().over(partition_by=Comment.parent_comment_id).label("total"),
         )
         .where(
-            Comment.parent_comment_id.in_(parent_comment_ids),
-            Comment.status == "visible",
+            Comment.parent_comment_id.in_(bindparam("parent_ids", expanding=True)),
+            shown_in_thread(audience),
         )
         .subquery()
     )
-    result = await session.execute(
-        select(Comment)
+    return (
+        select(Comment, ranked.c.total)
         .join(ranked, ranked.c.id == Comment.id)
-        .where(ranked.c.rank <= per_parent)
-        .options(selectinload(Comment.community_user))
+        .where(ranked.c.rank <= bindparam("per_parent", type_=Integer), Comment.status == "visible")
+        .options(joinedload(Comment.community_user, innerjoin=True))
         .order_by(Comment.parent_comment_id, ranked.c.rank)
     )
 
-    return list(result.scalars().all())
 
-
-async def count_direct_replies(
+async def list_reply_previews(
     session: AsyncSession,
     *,
     parent_comment_ids: list[int],
+    per_parent: int,
     viewer: CommunityUser | None,
-) -> dict[int, int]:
-    """How many direct replies each comment has, as count_comments counts them, in one query."""
-    if not parent_comment_ids:
-        return {}
+) -> list[tuple[Comment, int]]:
+    """The best few direct replies of each comment, in one query: highest score first, then the first posted. Visible
+    ones only, since a removed or deleted reply isn't worth previewing. Each comes with how many direct replies its
+    parent has, as count_comments counts them."""
+    if not parent_comment_ids or per_parent <= 0:
+        return []
 
     result = await session.execute(
-        select(Comment.parent_comment_id, func.count(Comment.id))
-        .where(
-            Comment.parent_comment_id.in_(parent_comment_ids),
-            shown_in_thread(viewer),
-        )
-        .group_by(Comment.parent_comment_id)
+        _previews_statement(_audience(viewer)),
+        {"parent_ids": parent_comment_ids, "per_parent": per_parent, "viewer_id": _viewer_id(viewer)},
     )
 
-    return {parent_id: int(count) for parent_id, count in result.all()}
+    return [(comment, int(total)) for comment, total in result.all()]
 
 
 async def count_comments_by_community_user(
@@ -282,6 +341,19 @@ async def get_comment_by_id(
     return result.scalar_one_or_none()
 
 
+async def lock_comment(session: AsyncSession, comment_id: int) -> Comment | None:
+    """A comment, as it is now, that no other request can change until this transaction ends."""
+    result = await session.execute(
+        select(Comment)
+        .options(selectinload(Comment.community_user))
+        .where(Comment.id == comment_id)
+        .with_for_update(of=Comment, key_share=True)
+        .execution_options(populate_existing=True)
+    )
+
+    return result.scalar_one_or_none()
+
+
 async def create_comment(
     session: AsyncSession,
     *,
@@ -322,17 +394,21 @@ async def get_comment_ancestor_chain(
     *,
     comment: Comment,
 ) -> list[Comment]:
-    ancestors: list[Comment] = []
+    """The comments above one, nearest first."""
+    if comment.parent_comment_id is None:
+        return []
 
-    current = comment
+    up = select(Comment.parent_comment_id.label("id")).where(Comment.id == comment.id).cte("up", recursive=True)
+    parent = aliased(Comment)
+    up = up.union_all(
+        select(parent.parent_comment_id).join(up, parent.id == up.c.id).where(parent.parent_comment_id.is_not(None))
+    )
+    result = await session.execute(
+        select(Comment)
+        .options(joinedload(Comment.community_user, innerjoin=True))
+        .where(Comment.id.in_(select(up.c.id)))
+        # A reply is always newer than what it answers
+        .order_by(Comment.id.desc())
+    )
 
-    while current.parent_comment_id is not None:
-        parent = await get_comment_by_id(session, current.parent_comment_id)
-
-        if parent is None:
-            break
-
-        ancestors.append(parent)
-        current = parent
-
-    return ancestors
+    return list(result.scalars().all())

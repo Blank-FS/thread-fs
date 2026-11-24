@@ -31,7 +31,8 @@ async def vote_on_comment(
         community_user_id=community_user.id,
     )
 
-    comment = await comment_repo.get_comment_by_id(session, comment_id)
+    # Held until the vote is saved, so votes at the same time all count
+    comment = await comment_repo.lock_comment(session, comment_id)
 
     if not comment or comment.status != "visible":
         raise HTTPException(

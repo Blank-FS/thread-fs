@@ -18,7 +18,7 @@ from app.models.report import CommentReport
 from app.models.thread import Thread
 from app.schemas.moderation import CommentFilters
 from app.repositories import comment as comment_repo
-from app.services import reason_service
+from app.services import community_context, reason_service
 
 
 #=============== Bans ===============
@@ -797,6 +797,7 @@ async def update_limits(
     community.max_daily_batch_changes = max_daily_batch_changes
     _log(session, community, moderator, "update_limits", reason=f"{before} → {after}")
     await session.commit()
+    community_context.clear()
 
 
 async def update_rules_url(
@@ -813,6 +814,7 @@ async def update_rules_url(
     community.rules_url = rules_url
     _log(session, community, moderator, "update_rules", reason=rules_url or "cleared")
     await session.commit()
+    community_context.clear()
 
 
 async def update_reply_preview(
@@ -830,6 +832,7 @@ async def update_reply_preview(
     community.reply_preview = reply_preview
     _log(session, community, moderator, "update_reply_preview", reason=f"{before} → {reply_preview}")
     await session.commit()
+    community_context.clear()
 
 
 async def update_klipy_app_key(
@@ -848,6 +851,7 @@ async def update_klipy_app_key(
     change = "turned on" if before is None else "turned off" if klipy_app_key is None else "key changed"
     _log(session, community, moderator, "update_gifs", reason=change)
     await session.commit()
+    community_context.clear()
 
 
 async def update_image_hosts(
@@ -875,6 +879,7 @@ async def update_image_hosts(
     ) or "reordered"
     _log(session, community, moderator, "update_image_hosts", reason=change)
     await session.commit()
+    community_context.clear()
 
 
 #=============== Reports ===============

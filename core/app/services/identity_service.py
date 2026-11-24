@@ -7,7 +7,7 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.community import Community
-from app.repositories import community_auth_provider as auth_provider_repo
+from app.models.community_auth_provider import CommunityAuthProvider
 from app.repositories import community_user as community_user_repo
 
 
@@ -99,19 +99,13 @@ def _unverified_issuer(token: str) -> str:
     return issuer
 
 
-async def verify_external_identity_token(
-    session: AsyncSession,
+def verify_external_identity_token(
     *,
-    community: Community,
+    providers: dict[str, CommunityAuthProvider],
     token: str,
 ) -> VerifiedIdentity:
-    issuer = _unverified_issuer(token)
-
-    provider = await auth_provider_repo.get_auth_provider_by_issuer(
-        session,
-        community_id=community.id,
-        issuer=issuer,
-    )
+    """Checks a host's token against the community's auth providers, by issuer."""
+    provider = providers.get(_unverified_issuer(token))
 
     if not provider:
         raise HTTPException(
@@ -239,7 +233,7 @@ async def get_or_create_community_user_for_identity(
 
         return existing
 
-    community_user = await community_user_repo.create_community_user(
+    community_user = await community_user_repo.get_or_create_community_user(
         session,
         community_id=community.id,
         identity_provider=identity.identity_provider,
