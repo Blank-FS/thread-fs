@@ -2,8 +2,10 @@
 
 import asyncio
 from contextlib import asynccontextmanager, suppress
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 from app.api.routes import embed, moderation
 
 from app.core.config import settings
@@ -49,10 +51,22 @@ app.add_middleware(
         "X-ThreadFS-Community-Key",
     ],
     expose_headers=["Retry-After"],
+    # Every request needs a preflight (the key header); browsers remember it for up to 2 hours (Chrome's most)
+    max_age=7200,
 )
 
 app.include_router(embed.router, prefix="/api/v1")
 app.include_router(moderation.router, prefix="/api/v1")
+
+
+@app.exception_handler(PoolTimeoutError)
+async def too_busy(request: Request, error: PoolTimeoutError) -> JSONResponse:
+    """No database connection came free in time (DB_POOL_TIMEOUT_SECONDS): more is being asked than this can serve."""
+    return JSONResponse(
+        {"detail": "Too busy right now. Please try again shortly."},
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        headers={"Retry-After": "5"},
+    )
 
 
 @app.get("/health")

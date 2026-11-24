@@ -10,6 +10,19 @@ class Settings(BaseSettings):
 
     # Shares rate limits between workers. Without it each worker counts for itself, which is fine for development
     REDIS_URL: str | None = None
+
+    # Database connections, per worker: workers x (size + overflow) must fit in the database's max_connections
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 5
+    # How long a request waits for one before failing. Under too much load, failing beats an ever longer queue
+    DB_POOL_TIMEOUT_SECONDS: float = 10
+
+    # How long each worker remembers a community's settings, origins, keys and reasons, and so how long a change to them
+    # can take to apply (app.services.community_context). 0 reads them for every request
+    COMMUNITY_CACHE_SECONDS: float = 30
+    # How long readers of the same thread share its pages: how old they can be signed out, and vote counts signed in
+    # (app.services.comment_page_service). 0 turns it off
+    READ_CACHE_SECONDS: float = 5
     CORS_ALLOW_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
     # Webhooks (app.services.webhook_service): the loop that sends queued events to communities' endpoints

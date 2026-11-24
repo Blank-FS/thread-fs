@@ -2,9 +2,7 @@
 
 import logging
 import time
-from collections import defaultdict, deque
 from dataclasses import dataclass
-from typing import Deque
 
 from fastapi import HTTPException, Request, status
 from redis.asyncio import Redis
@@ -32,22 +30,26 @@ class RateLimitRule:
 class InMemoryCounter:
     """Counts within one process: for development, and when Redis can't be reached."""
 
+    # Windows that are over are dropped this often, so visitors who left aren't remembered forever
+    SWEEP_SECONDS = 60
+
     def __init__(self) -> None:
-        self._hits: dict[str, Deque[float]] = defaultdict(deque)
+        self._windows: dict[str, tuple[float, int]] = {}  # when the window ends, and its hits
+        self._next_sweep = 0.0
 
     async def hit(self, bucket: str, rule: RateLimitRule) -> int | None:
         now = time.monotonic()
-        window_start = now - rule.window_seconds
-        hits = self._hits[bucket]
+        if now >= self._next_sweep:
+            self._windows = {key: window for key, window in self._windows.items() if window[0] > now}
+            self._next_sweep = now + self.SWEEP_SECONDS
 
-        while hits and hits[0] <= window_start:
-            hits.popleft()
+        # From the first hit, as Redis counts
+        ends, hits = self._windows.get(bucket, (0.0, 0))
+        if ends <= now:
+            ends, hits = now + rule.window_seconds, 0
 
-        if len(hits) >= rule.limit:
-            return max(1, int(rule.window_seconds - (now - hits[0])))
-
-        hits.append(now)
-        return None
+        self._windows[bucket] = (ends, hits + 1)
+        return max(1, int(ends - now)) if hits >= rule.limit else None
 
 
 class RedisCounter:
