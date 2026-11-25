@@ -1,45 +1,44 @@
-import {
-  ArrowBigDown,
-  ArrowBigUp,
-  MessageSquare,
-  Reply,
-} from "lucide-react";
+import { ArrowBigDown, ArrowBigUp, MessageSquare, Reply } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   deleteComment,
   getEmbedConfig,
-  reportComment,
   getEmbedMe,
   listMyComments,
+  reportComment,
   updateComment,
   voteComment,
 } from "../lib/api";
-import { ThreadFSApiError } from "../lib/errors";
 import {
-  type EmbedMe,
-  type ThreadFSComment,
-  type ThreadFSCommentUser,
-  type ThreadFSRequestContext,
-  type ThreadFSGifConfig,
-  type ThreadFSReason,
-  type CommentMedia,
-} from "../lib/types";
+  DEFAULT_MAX_COMMENT_LENGTH,
+  MaxCommentLengthContext,
+} from "../lib/commentLength";
 import { linkToComment } from "../lib/commentLinks";
-import { useLatest } from "../lib/useLatest";
+import { ThreadFSApiError } from "../lib/errors";
 import { GifConfigContext } from "../lib/gifs";
 import { ImageHostsContext } from "../lib/imageHosts";
 import { RulesUrlContext } from "../lib/rulesContext";
+import {
+  type CommentMedia,
+  type EmbedMe,
+  type ThreadFSComment,
+  type ThreadFSCommentUser,
+  type ThreadFSGifConfig,
+  type ThreadFSReason,
+  type ThreadFSRequestContext,
+} from "../lib/types";
+import { useLatest } from "../lib/useLatest";
 import { cn } from "../lib/utils";
 import CommentActionsMenu from "./card/CommentActionsMenu";
+import { CommentMediaView, mediaOf } from "./card/CommentMedia";
 import CommentShareMenu from "./card/CommentShareMenu";
 import CommentTimestamp, { EditedMarker } from "./card/CommentTimestamp";
+import RemovalNote, { REMOVED_CONTENT_CLASS } from "./card/RemovalNote";
 import ReportDetailsForm from "./card/ReportDetailsForm";
-import { OTHER_REASON } from "./moderation/shared";
-import { CommentMediaView, mediaOf } from "./card/CommentMedia";
 import { CollapsibleContent } from "./common/CollapsibleContent";
 import { MarkdownContent } from "./common/MarkdownContent";
-import RemovalNote, { REMOVED_CONTENT_CLASS } from "./card/RemovalNote";
 import CommentEditor from "./editor/CommentEditor";
+import { OTHER_REASON } from "./moderation/shared";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
 import { TooltipProvider } from "./ui/tooltip";
@@ -143,6 +142,9 @@ export function ThreadFSMyComments({
   // and rules link, so it's the same editor, and the report reasons. None until it loads
   const [imageHosts, setImageHosts] = useState<string[]>([]);
   const [gifConfig, setGifConfig] = useState<ThreadFSGifConfig | null>(null);
+  const [maxCommentLength, setMaxCommentLength] = useState(
+    DEFAULT_MAX_COMMENT_LENGTH,
+  );
   const [rulesUrl, setRulesUrl] = useState<string | null>(null);
   const [reportReasons, setReportReasons] = useState<ThreadFSReason[]>([]);
   // Reported here, so the menu says so; and the comment whose "Other" report is being described
@@ -157,6 +159,9 @@ export function ThreadFSMyComments({
         if (!isCurrent) return;
         setImageHosts(config.image_hosts ?? []);
         setGifConfig(config.gifs ?? null);
+        setMaxCommentLength(
+          config.max_comment_length ?? DEFAULT_MAX_COMMENT_LENGTH,
+        );
         setRulesUrl(config.rules_url ?? null);
         setReportReasons(config.report_reasons ?? []);
       })
@@ -316,24 +321,21 @@ export function ThreadFSMyComments({
     body: string,
     media: CommentMedia,
   ) {
-    try {
-      setError(null);
+    setError(null);
 
-      const updated = await withAuthRetry((ctx) =>
-        updateComment(ctx, commentId, body, media),
-      );
+    // Failing is the comment box's to say, beside what was written
+    const updated = await withAuthRetry((ctx) =>
+      updateComment(ctx, commentId, body, media),
+    );
 
-      setComments((current) =>
-        current.map((comment) =>
-          comment.id === commentId
-            ? { ...comment, ...updated, thread: comment.thread }
-            : comment,
-        ),
-      );
-      setEditingCommentId(null);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to edit comment");
-    }
+    setComments((current) =>
+      current.map((comment) =>
+        comment.id === commentId
+          ? { ...comment, ...updated, thread: comment.thread }
+          : comment,
+      ),
+    );
+    setEditingCommentId(null);
   }
 
   async function handleDelete(commentId: string) {
@@ -494,7 +496,6 @@ export function ThreadFSMyComments({
                         <span className="truncate">{threadLabel}</span>
                       </span>
                     )}
-
                   </div>
 
                   {/* As on Reddit: who said it, and to whom */}
@@ -580,7 +581,8 @@ export function ThreadFSMyComments({
                         aria-label={`Upvote (${comment.upvote_count ?? 0})`}
                         className={cn(
                           "hover:text-tfs-brand-strong dark:hover:text-tfs-brand flex items-center gap-1 hover:cursor-pointer",
-                          viewerVote === 1 && "text-tfs-brand-strong dark:text-tfs-brand",
+                          viewerVote === 1 &&
+                            "text-tfs-brand-strong dark:text-tfs-brand",
                         )}
                       >
                         <ArrowBigUp
@@ -599,7 +601,8 @@ export function ThreadFSMyComments({
                         aria-label={`Downvote (${comment.downvote_count ?? 0})`}
                         className={cn(
                           "flex items-center gap-1 hover:cursor-pointer hover:text-rose-600 dark:hover:text-rose-500",
-                          viewerVote === -1 && "text-rose-600 dark:text-rose-500",
+                          viewerVote === -1 &&
+                            "text-rose-600 dark:text-rose-500",
                         )}
                       >
                         <ArrowBigDown
@@ -684,7 +687,9 @@ export function ThreadFSMyComments({
     <RulesUrlContext.Provider value={rulesUrl}>
       <GifConfigContext.Provider value={gifConfig}>
         <ImageHostsContext.Provider value={imageHosts}>
-          {view}
+          <MaxCommentLengthContext.Provider value={maxCommentLength}>
+            {view}
+          </MaxCommentLengthContext.Provider>
         </ImageHostsContext.Provider>
       </GifConfigContext.Provider>
     </RulesUrlContext.Provider>

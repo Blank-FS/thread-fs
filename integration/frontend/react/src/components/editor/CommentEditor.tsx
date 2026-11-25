@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { ImagePlus, ScrollText, X } from "lucide-react";
 import { useMemo, useState, type KeyboardEvent } from "react";
 import { useGuardedControls } from "../../lib/clickGuard";
+import { countCharacters, useMaxCommentLength } from "../../lib/commentLength";
 import { useRulesUrl } from "../../lib/rulesContext";
 import defaultAvatarUrl from "../assets/default-avatar.png";
 import AvatarFrame from "../card/AvatarFrame";
@@ -20,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Skeleton } from "../ui/skeleton";
 import GifPicker from "./GifPicker";
 import ImageLinkForm from "./ImageLinkForm";
+import LengthCounter from "./LengthCounter";
 import RichEditor, { RichEditorValue } from "./RichEditor";
 
 type CommentEditorProps = {
@@ -34,8 +36,12 @@ type CommentEditorProps = {
   /** For a reply or an edit, which the viewer just asked for: starts focused, never shrinks, and has no avatar. */
   startOpen?: boolean;
   className?: string;
-  /** The text, and the GIF or image under it. */
-  onSubmit: (body: string, media: CommentMedia) => Promise<void> | void;
+  /** The text, and the GIF or image under it. Throwing says why it wasn't saved, and false only that it wasn't: either
+   * way the box keeps what was written. */
+  onSubmit: (
+    body: string,
+    media: CommentMedia,
+  ) => Promise<boolean | void> | boolean | void;
   /** Cancel closes a reply or edit box; without it, Cancel just closes this one back down. */
   onCancel?: () => void;
   onAuthRequired?: () => void;
@@ -86,6 +92,12 @@ function CommentEditor({
   const guardedRef = useGuardedControls();
   const [editorKey, setEditorKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const maxLength = useMaxCommentLength();
+  const length = useMemo(
+    () => countCharacters(value.markdown),
+    [value.markdown],
+  );
   // Opened by focusing it; closed only by Cancel or posting
   const [isOpened, setIsOpened] = useState(false);
   // One GIF or one image, as on Reddit: once either is attached, both buttons wait until it's removed
@@ -111,6 +123,7 @@ function CommentEditor({
 
   function close() {
     setIsConfirmingDiscard(false);
+    setError(null);
     if (onCancel) {
       onCancel();
       return;
@@ -137,14 +150,17 @@ function CommentEditor({
   }, [currentUser, authorProfileUrl]);
 
   // A GIF or an image alone is a comment
-  const canSubmit = (hasText || hasMedia) && !disabled && !isSubmitting;
+  const canSubmit =
+    (hasText || hasMedia) && length <= maxLength && !disabled && !isSubmitting;
 
   async function handleSubmit() {
     if (!canSubmit) return;
 
     try {
       setIsSubmitting(true);
-      await onSubmit(hasText ? value.markdown : "", media);
+      setError(null);
+      if ((await onSubmit(hasText ? value.markdown : "", media)) === false)
+        return;
 
       setValue(EMPTY_EDITOR_VALUE);
       setMedia(NO_MEDIA);
@@ -152,6 +168,8 @@ function CommentEditor({
       setIsAddingImage(false);
       setEditorKey((key) => key + 1);
       setIsOpened(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "That didn't work");
     } finally {
       setIsSubmitting(false);
     }
@@ -245,6 +263,15 @@ function CommentEditor({
                       <X className="size-3.5" />
                     </button>
                   </div>
+                )}
+                <LengthCounter length={length} max={maxLength} />
+                {error && (
+                  <p
+                    role="alert"
+                    className="text-destructive px-1 pt-1 text-xs"
+                  >
+                    {error}
+                  </p>
                 )}
               </>
             }

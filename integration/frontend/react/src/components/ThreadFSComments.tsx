@@ -7,7 +7,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ThreadFSApiError } from "@/lib/errors";
-import { ArrowLeft, MessageSquareOff, MessagesSquare } from "lucide-react";
+import {
+  ArrowDownWideNarrow,
+  ArrowLeft,
+  MessageSquareOff,
+  MessagesSquare,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   bootstrapThread,
@@ -26,6 +31,10 @@ import {
   type ConfirmClick,
   type ThreadFSClickAction,
 } from "../lib/clickGuard";
+import {
+  DEFAULT_MAX_COMMENT_LENGTH,
+  MaxCommentLengthContext,
+} from "../lib/commentLength";
 import { GifConfigContext } from "../lib/gifs";
 import { ImageHostsContext } from "../lib/imageHosts";
 import {
@@ -131,6 +140,9 @@ export function ThreadFSComments({
     null,
   );
   const [gifConfig, setGifConfig] = useState<ThreadFSGifConfig | null>(null);
+  const [maxCommentLength, setMaxCommentLength] = useState(
+    DEFAULT_MAX_COMMENT_LENGTH,
+  );
   const [imageHosts, setImageHosts] = useState<string[]>([]);
   const [resolvedAuthToken, setResolvedAuthToken] = useState<string | null>(
     null,
@@ -228,6 +240,9 @@ export function ThreadFSComments({
         setReportReasons(config.report_reasons ?? []);
         setCommunityRulesUrl(config.rules_url ?? null);
         setGifConfig(config.gifs ?? null);
+        setMaxCommentLength(
+          config.max_comment_length ?? DEFAULT_MAX_COMMENT_LENGTH,
+        );
         setImageHosts(config.image_hosts ?? []);
         setThread(resolvedThread);
         setFocusedId(context ? String(context.focused_comment_id) : null);
@@ -441,86 +456,78 @@ export function ThreadFSComments({
     body: string,
     media: CommentMedia,
     parentId?: string | null,
-  ) {
+  ): Promise<boolean> {
     if (!isAuthenticated) {
       onAuthRequired?.();
-      return;
+      return false;
     }
 
     // A GIF or an image needs no typing, so it can be posted with clicks alone
-    if (!body.trim() && !(await isClickAllowed({ kind: "post" }))) return;
+    if (!body.trim() && !(await isClickAllowed({ kind: "post" }))) return false;
 
-    try {
-      setError(null);
+    setError(null);
 
-      const createdComment = await withAuthRetry((ctx) =>
-        createComment(ctx, {
-          threadId,
-          title: typeof document !== "undefined" ? document.title : null,
-          sourceUrl:
-            typeof window !== "undefined" ? window.location.href : null,
-          body,
-          media,
-          parentId,
-          source,
-          client,
-        }),
+    const createdComment = await withAuthRetry((ctx) =>
+      createComment(ctx, {
+        threadId,
+        title: typeof document !== "undefined" ? document.title : null,
+        sourceUrl: typeof window !== "undefined" ? window.location.href : null,
+        body,
+        media,
+        parentId,
+        source,
+        client,
+      }),
+    );
+
+    if (!thread) {
+      // Thread was just created by the first comment. Saved either way, so failing to read it back isn't the comment's
+      const resolved = await resolveThread(requestContext, {
+        threadId,
+        title: typeof document !== "undefined" ? document.title : null,
+        sourceUrl: typeof window !== "undefined" ? window.location.href : null,
+      }).catch(() => null);
+
+      if (resolved) setThread(resolved.thread);
+    } else {
+      setThread((current) =>
+        current
+          ? {
+              ...current,
+              comment_count: current.comment_count + 1,
+            }
+          : current,
       );
-
-      if (!thread) {
-        // Thread was just created by the first comment.
-        const resolved = await resolveThread(requestContext, {
-          threadId,
-          title: typeof document !== "undefined" ? document.title : null,
-          sourceUrl:
-            typeof window !== "undefined" ? window.location.href : null,
-        });
-
-        setThread(resolved.thread);
-      } else {
-        setThread((current) =>
-          current
-            ? {
-                ...current,
-                comment_count: current.comment_count + 1,
-              }
-            : current,
-        );
-      }
-
-      if (parentId) {
-        setComments((current) =>
-          addReplyToCommentTree(current, parentId, createdComment),
-        );
-      } else {
-        setComments((current) => [createdComment, ...current]);
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to create comment");
     }
+
+    if (parentId) {
+      setComments((current) =>
+        addReplyToCommentTree(current, parentId, createdComment),
+      );
+    } else {
+      setComments((current) => [createdComment, ...current]);
+    }
+    return true;
   }
 
   async function handleEditComment(
     commentId: string,
     body: string,
     media: CommentMedia,
-  ) {
+  ): Promise<boolean> {
     if (!isAuthenticated) {
       onAuthRequired?.();
-      return;
+      return false;
     }
 
-    try {
-      setError(null);
+    setError(null);
 
-      const updatedComment = await withAuthRetry((ctx) =>
-        updateComment(ctx, commentId, body, media),
-      );
+    const updatedComment = await withAuthRetry((ctx) =>
+      updateComment(ctx, commentId, body, media),
+    );
 
-      setComments((current) => replaceCommentInTree(current, updatedComment));
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to edit comment");
-    }
+    setComments((current) => replaceCommentInTree(current, updatedComment));
+    return true;
   }
 
   async function handleDeleteComment(commentId: string) {
@@ -768,41 +775,42 @@ export function ThreadFSComments({
         </h2>
 
         <div className="flex items-center justify-between border-b py-2">
-          <div className="flex items-center gap-2 text-sm">
-            <MessagesSquare className="size-4" />
+          {/* Large enough to hold its own beside the sort, a 36px box */}
+          <div className="flex items-center gap-2 text-base font-medium">
+            <MessagesSquare className="size-5" />
             {isLoading ? (
-              <Skeleton className="roundeded h-4 w-20" />
+              <Skeleton className="h-5 w-28 rounded" />
             ) : (
-              <span className="mt-1">
+              <span>
                 {thread?.comment_count ?? 0}{" "}
                 {thread?.comment_count === 1 ? "comment" : "comments"}
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground hidden sm:inline">
-              Sort by
-            </span>
-            <Select
-              value={topLevelSort}
-              disabled={isLoading || isChangingSort}
-              onValueChange={(val) =>
-                void handleChangeTopLevelSort(val as CommentSort)
-              }
+          {/* Only as wide as its label */}
+          <Select
+            value={topLevelSort}
+            disabled={isLoading || isChangingSort}
+            onValueChange={(val) =>
+              void handleChangeTopLevelSort(val as CommentSort)
+            }
+          >
+            <SelectTrigger
+              className="border-foreground/8 bg-muted h-9! w-auto shrink-0 rounded-lg px-2.5 sm:px-3"
+              aria-label="Sort comments by"
             >
-              <SelectTrigger className="w-24" aria-label="Sort comments">
-                <SelectValue placeholder="Options" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="latest">Latest</SelectItem>
-                  <SelectItem value="oldest">Oldest</SelectItem>
-                  <SelectItem value="top">Top</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
+              <ArrowDownWideNarrow className="text-muted-foreground size-4" />
+              <SelectValue placeholder="Options" />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectGroup>
+                <SelectItem value="latest">Latest</SelectItem>
+                <SelectItem value="oldest">Oldest</SelectItem>
+                <SelectItem value="top">Top</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
 
         {isLocked ? (
@@ -900,7 +908,9 @@ export function ThreadFSComments({
       <RulesUrlContext.Provider value={communityRulesUrl}>
         <GifConfigContext.Provider value={gifConfig}>
           <ImageHostsContext.Provider value={imageHosts}>
-            {view}
+            <MaxCommentLengthContext.Provider value={maxCommentLength}>
+              {view}
+            </MaxCommentLengthContext.Provider>
           </ImageHostsContext.Provider>
         </GifConfigContext.Provider>
       </RulesUrlContext.Provider>

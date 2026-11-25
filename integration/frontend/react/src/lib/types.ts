@@ -28,6 +28,8 @@ export type ThreadFSEmbedConfig = {
   gifs?: ThreadFSGifConfig | null;
   /** Hosts whose images show in comment text; images from anywhere else show as links. */
   image_hosts?: string[];
+  /** Characters of markdown a comment can have. */
+  max_comment_length?: number;
 };
 
 /** KLIPY's app key, which the reader's browser searches with (KLIPY's terms don't allow a server in between). */

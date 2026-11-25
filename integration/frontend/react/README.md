@@ -328,6 +328,7 @@ import { ThreadFSEditor } from "@threadfs/react/editor";
 - **Styles:** as for the renderer: `@threadfs/react/styles.css`, imported once.
 - **`onChange`** gets the text as `markdown` and as plain `text` (for counting characters, or checking it isn't empty).
 - **`actions`:** buttons at the end of its row of buttons, such as a submit button. GIFs, image links and the rules link are the comment box's, not here.
+- **`maxLength`:** counts the markdown's characters as they near it ("9,412 / 10,000"), and says when there are too many. What's too long can still be written, so refuse it yourself: `Array.from(markdown).length` counts as the API does. The comment box does this with the API's own limit.
 - **Also:** `initialMarkdown`, `placeholder`, `autoFocus`, `disabled`, `className`.
 
 ## Authentication Flow

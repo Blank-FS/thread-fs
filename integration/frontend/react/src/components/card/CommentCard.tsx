@@ -65,17 +65,18 @@ type CommentCardProps = {
   parentName?: string;
   canReply: boolean;
   isLocked?: boolean;
+  /** Resolves to whether it was saved, or throws why it wasn't. */
   onReply: (
     parentId: string,
     body: string,
     media: CommentMedia,
-  ) => Promise<void> | void;
+  ) => Promise<boolean>;
   onVote?: (commentId: string, value: 1 | -1) => Promise<void> | void;
   onEdit?: (
     commentId: string,
     body: string,
     media: CommentMedia,
-  ) => Promise<void> | void;
+  ) => Promise<boolean>;
   onDelete?: (commentId: string) => Promise<void> | void;
   /** Resolves to whether the report went through. */
   onReport?: (
@@ -334,7 +335,7 @@ function CommentCard({
             className="bg-foreground/5 ring-foreground/15 pointer-events-none absolute -inset-y-1 right-0 left-4 rounded-lg ring-1"
           />
         )}
-        <div className="relative size-8 shrink-0">
+        <div className="relative w-8 shrink-0">
           <AuthorLink href={authorUrl}>
             <img
               ref={setParentAvatarRef}
@@ -354,7 +355,18 @@ function CommentCard({
             />
           </AuthorLink>
           {!isCollapsed && (
-            <AvatarFrame url={comment.community_user?.avatar_frame_url} />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-8">
+              <AvatarFrame url={comment.community_user?.avatar_frame_url} />
+            </div>
+          )}
+          {/* Below the avatar, and the gap beside it: hides the comment, as the thread line there does when it has one */}
+          {!isCollapsed && (
+            <div
+              aria-hidden
+              onClick={collapse}
+              {...railHoverProps}
+              className="absolute top-8 -right-3 bottom-0 left-0 cursor-pointer"
+            />
           )}
           {isCollapsed && (
             <button
@@ -363,7 +375,10 @@ function CommentCard({
               aria-expanded={false}
               aria-label="Expand comment"
               title="Expand comment"
-              className={cn(COLLAPSE_BUTTON_CLASS, "absolute inset-0 z-30")}
+              className={cn(
+                COLLAPSE_BUTTON_CLASS,
+                "absolute inset-x-0 top-0 z-30 h-8",
+              )}
             >
               <CirclePlus
                 strokeWidth={1.5}
@@ -375,9 +390,10 @@ function CommentCard({
 
         <div
           onClick={handleCommentClick}
+          // The hand wherever a click hides it, as on Reddit; not in what has its own use (COMMENT_CONTROLS)
           className={cn(
-            "min-w-0 flex-1",
-            isCollapsed ? "hover:cursor-pointer" : "mb-2",
+            "min-w-0 flex-1 cursor-pointer",
+            !isCollapsed && "mb-2",
           )}
         >
           {/* As tall as the avatar, so the name sits level with its middle */}
@@ -420,7 +436,7 @@ function CommentCard({
             ) : isRemovedForViewer ? (
               <p className="text-muted-foreground text-sm italic">[removed]</p>
             ) : isEditing ? (
-              <div data-no-collapse className="mt-4">
+              <div data-no-collapse className="mt-4 cursor-auto">
                 <CommentEditor
                   key={`edit-${comment.id}-${comment.modified_at}`}
                   currentUser={currentUser}
@@ -432,7 +448,8 @@ function CommentCard({
                   initialMarkdown={comment.content}
                   initialMedia={mediaOf(comment)}
                   onSubmit={async (body, media) => {
-                    await onEdit?.(comment.id, body, media);
+                    if (!(await onEdit?.(comment.id, body, media)))
+                      return false;
                     setIsEditing(false);
                   }}
                   onCancel={() => setIsEditing(false)}
@@ -585,7 +602,7 @@ function CommentCard({
             )}
 
             {isReplying && (
-              <div data-no-collapse className="mt-4">
+              <div data-no-collapse className="mt-4 cursor-auto">
                 <CommentEditor
                   key={`reply-${comment.id}`}
                   currentUser={currentUser}
@@ -598,7 +615,7 @@ function CommentCard({
                     // Adding this reply makes the rest look loaded, with no View more left to fetch them
                     const hadUnloadedReplies = hasReplies && !hasLoadedReplies;
 
-                    await onReply(comment.id, body, media);
+                    if (!(await onReply(comment.id, body, media))) return false;
                     setIsReplying(false);
                     if (hadUnloadedReplies) await onLoadReplies?.(comment.id);
                     setAreRepliesExpanded(true);

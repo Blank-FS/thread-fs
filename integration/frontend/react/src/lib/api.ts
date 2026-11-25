@@ -43,6 +43,15 @@ export async function parseResponseOrThrow<T>(res: Response): Promise<T> {
         typeof body.detail === "string"
       ) {
         message = body.detail;
+      } else if (
+        body &&
+        typeof body === "object" &&
+        "detail" in body &&
+        Array.isArray(body.detail) &&
+        typeof body.detail[0]?.msg === "string"
+      ) {
+        // What was wrong with the request, as FastAPI says it
+        message = body.detail[0].msg.replace(/^Value error, /, "");
       }
     } catch {
       // Response was not JSON.
