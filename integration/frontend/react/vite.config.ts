@@ -36,7 +36,8 @@ export default defineConfig({
     // public/ only holds the test site's files, which don't belong in the package
     copyPublicDir: false,
     // ES modules only, one file per entry: the widget (index), and the markdown renderer and the editor alone
-    // (markdown, editor: for hosts rendering and writing their other text like comments). What entries share (the
+    // (markdown, editor: for hosts rendering and writing their other text like comments), and the click guard
+    // (click-guard: for hosts' own controls beside the widget's). What entries share (the
     // renderer, the editor and their libraries) goes in shared chunks, so a host's bundler downloads it once whichever
     // loads first.
     lib: {
@@ -44,6 +45,7 @@ export default defineConfig({
         index: path.resolve(__dirname, "src/index.ts"),
         markdown: path.resolve(__dirname, "src/markdown.tsx"),
         editor: path.resolve(__dirname, "src/editor.tsx"),
+        "click-guard": path.resolve(__dirname, "src/click-guard.ts"),
       },
       formats: ["es"],
       fileName: (_format, entryName) => `${entryName}.js`,

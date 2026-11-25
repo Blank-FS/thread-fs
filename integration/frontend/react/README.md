@@ -285,6 +285,19 @@ It's called for every such click, so remember the answer for a while.
 <ThreadFSComments {...props} confirmClick={isFramed ? askInPopup : undefined} />
 ```
 
+To guard controls of your own in such a page, `@threadfs/react/click-guard` has the guard alone, with none of the widget:
+
+```tsx
+import { ClickGuardProvider, useClickGuard, useGuardedControls } from "@threadfs/react/click-guard";
+
+const { guard, allowClick } = useClickGuard(isFramed ? askInPopup : undefined);
+// <ClickGuardProvider value={guard}> around the controls; on each, ref={useGuardedControls()}; in its onClick:
+if ((await allowClick({ kind: "vote", value: 1, authorName })) !== true) return;
+```
+
+Call `allowClick` before awaiting anything else, so `askInPopup` can open a popup. A control, and what it's in, mustn't
+have opacity or filters, which make it count as hidden.
+
 ## Rendering other text: `@threadfs/react/markdown`
 
 `ThreadFSMarkdown` is the comments' markdown renderer on its own (GitHub-flavoured markdown, single line breaks, `<u>`, `>!spoilers!<`, sanitized HTML), for a host's other text that should read exactly like comments. Import it from `@threadfs/react/markdown`, which loads none of the widget. The package root exports it too, for code that loads the widget anyway.

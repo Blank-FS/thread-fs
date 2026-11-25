@@ -22,6 +22,11 @@
       "import": "./dist/editor.js",
       "default": "./dist/editor.js"
     },
+    "./click-guard": {
+      "types": "./dist/click-guard.d.ts",
+      "import": "./dist/click-guard.js",
+      "default": "./dist/click-guard.js"
+    },
     "./styles.css": {
       "default": "./dist/threadfs-react.css"
     },

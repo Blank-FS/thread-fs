@@ -4,6 +4,7 @@
     "src/index.ts",
     "src/markdown.tsx",
     "src/editor.tsx",
+    "src/click-guard.ts",
     "src/components/**/*",
     "src/lib/**/*",
     "src/hooks/**/*",
