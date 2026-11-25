@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Development only: turn GIFs on in the seeded demo community with this KLIPY app key (app.core.gifs)
     DEMO_KLIPY_APP_KEY: str | None = None
 
+    # Characters of markdown in one comment. The widget learns it from the community's config
+    MAX_COMMENT_LENGTH: int = 10_000
+
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_READ_PER_MINUTE: int = 120
     RATE_LIMIT_COMMENT_CREATE_PER_MINUTE: int = 5

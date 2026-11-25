@@ -5,6 +5,7 @@ from uuid import UUID
 from typing import Generic, Literal, TypeVar
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.core.config import settings
 from app.core.gifs import PROVIDER_KLIPY, is_klipy_media_url
 
 T = TypeVar("T")
@@ -38,6 +39,8 @@ class EmbedCommunityConfigRead(BaseModel):
     gifs: "GifConfigRead | None" = None
     # Hosts whose images show in comment text; others show as links
     image_hosts: list[str] = []
+    # Characters of markdown in one comment, for the comment box to say before it's posted
+    max_comment_length: int = settings.MAX_COMMENT_LENGTH
 
 
 class GifConfigRead(BaseModel):
@@ -147,7 +150,7 @@ class CommentCreateRequest(BaseModel):
     source_url: str | None = Field(default=None, max_length=2048)
 
     # May be empty when there's a GIF
-    content: str = Field(default="", max_length=10_000)
+    content: str = Field(default="", max_length=settings.MAX_COMMENT_LENGTH)
     # One or the other, as on Reddit
     gif: GifAttachment | None = None
     image: ImageAttachment | None = None
@@ -172,7 +175,7 @@ class VoteRequest(BaseModel):
 
 
 class CommentUpdateRequest(BaseModel):
-    content: str = Field(default="", max_length=10_000)
+    content: str = Field(default="", max_length=settings.MAX_COMMENT_LENGTH)
     # Each left out stays as it is; null removes it
     gif: GifAttachment | None = None
     image: ImageAttachment | None = None

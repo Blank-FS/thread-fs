@@ -99,6 +99,7 @@ RATE_LIMIT_VOTE_PER_MINUTE=60
 # DB_POOL_SIZE=10
 # DB_MAX_OVERFLOW=5
 # DB_POOL_TIMEOUT_SECONDS=10
+# MAX_COMMENT_LENGTH=10000
 # COMMUNITY_CACHE_SECONDS=30
 # READ_CACHE_SECONDS=5
 
@@ -356,6 +357,8 @@ Where the community has GIFs on, a comment can also carry one, and then needs no
   }
 }
 ```
+
+`content` is markdown, at most `MAX_COMMENT_LENGTH` characters (10,000); longer is 422. `/embed/config` says the limit, as `max_comment_length`.
 
 Thread rows are created lazily only when an authenticated user posts the first comment.
 
